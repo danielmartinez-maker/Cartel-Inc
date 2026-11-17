@@ -4,11 +4,13 @@ An original JavaScript strategy game inspired by the territory control and civil
 
 ## Play
 
+[Open the browser version](https://raw.githack.com/danielmartinez-maker/Cartel-Inc/05556dbde12b807c9844034092ce4e7cb32dec08/prototypes/sierra-command.html). If a hosting notice appears, choose Open the page.
+
 Download this branch and open `prototypes/sierra-command.html` in a modern browser. Everything is included in that one file: no installation, build, server, account or external asset downloads are needed.
 
 Choose an administrator and difficulty, then begin the campaign. It starts paused.
 
-- Click a province to inspect it.
+- Click a province to inspect it. In Units, you can also choose a destination from the province dropdown.
 - Assign a security unit and issue a deployment order.
 - Gather evidence, disrupt cartel influence, fund community projects and audit corrupt institutions.
 - Fund state-wide policies in Civilian, Security and Governance.
@@ -35,4 +37,6 @@ Fifteen simulation checks cover determinism, costs, project duplication, movemen
 
 The engine and interface scripts compile. Interface initialization and command handlers were exercised with a lightweight DOM stub, including campaign start, all four command panels, all three map layers and a policy completing.
 
-A real browser and screenshot preview were unavailable during implementation. Responsive layout, focus behavior, actual downloads and full browser interaction still need visual QA.
+Hosted browser checks confirmed campaign startup, map and HUD rendering, policy funding and completion, week progression, decisions, Units and Networks panels, province selection using the native dropdown, and ALPHA departing for and arriving in Bahía Clara. Exact movement timing is covered by the deterministic engine and command-handler checks.
+
+Mobile layout, complete keyboard navigation, and actual save-file download/import dialogs still need separate browser QA.
