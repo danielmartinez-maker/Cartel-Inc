@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,act,tick,serialize,restore} from '../src/engine.js';
+import {alterCell} from '../src/cartels.js';
 import {activeConfrontations,exchangeFrame,EncounterTimeline,encounterResults,encounterKey} from '../src/confrontation.js';
 
 function prepared(){
   const s=createGame({seed:197});s.units[0].district=0;s.districts[0].intel=80;return s;
 }
 function raid({threat=44,chance=1}={}){
-  const s=prepared();s.districts[0].threat=threat;
+  const s=prepared();alterCell(s.districts[0],0,threat-s.districts[0].cells[0]);
   assert.equal(act(s,{type:'raid',district:0}).ok,true);s.operations[0].chance=chance;return s;
 }
 function finish(s){for(let i=0;i<4;i++)tick(s,{force:true});return s;}

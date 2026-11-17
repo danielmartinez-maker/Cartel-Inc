@@ -1,8 +1,9 @@
 export const ART=Object.freeze({
-  province:'./assets/santa-esperanza-map.webp',
+  province:'./assets/mandate-map.webp',
   menu:'./assets/menu-coast.webp',
   districts:'./assets/district-scenes.webp',
   portraits:'./assets/portraits-print.webp',
+  cartelPortraits:'./assets/cartel-leaders.webp',
   emblems:'./assets/initiatives-print.webp',
   grain:'./assets/print-grain.svg',
 });

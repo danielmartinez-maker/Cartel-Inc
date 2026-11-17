@@ -1,5 +1,6 @@
-import {HQ,DISTRICTS,TERRAIN,GOVERNORS,DIFFICULTIES,NETWORKS,UNIT_TYPES,INITIATIVES,CATEGORIES,EVENTS} from './data.js';
-import {createGame,act,tick,projectCost,stableDistricts,totalThreat,unitsHere,unitPower,operationForecast,initiativeAvailability,arrestRequirements,serialize,restore} from './engine.js';
+import {HQ,DISTRICTS,TERRAIN,GOVERNORS,DIFFICULTIES,NETWORKS,UNIT_TYPES,INITIATIVES,CATEGORIES,EVENTS,REGIONS,MAX_UNITS,MAX_PROJECTS,STABILITY_TARGET,MANDATE_DAYS} from './data.js';
+import {createGame,act,tick,projectCost,stableDistricts,totalThreat,unitsHere,unitPower,operationForecast,initiativeAvailability,arrestRequirements,serialize,restore,dominantNetwork,leaderOf,capabilities,budgetForecast,supplyScore,recruitmentBase,memberRequirements} from './engine.js';
+import {ARCHETYPES,MEMBER_ROLES,TRAITS,INTENTS} from './cartels.js';
 import {ProvinceMap} from './map.js';
 import {icon,portrait,badge,escapeHTML as esc} from './icons.js';
 import {ART,TERRAIN_ART,preloadAssets} from './assets.js';
@@ -12,9 +13,9 @@ const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let mapMotion=!reducedMotion.matches,customMotion=false;
 try{const saved=localStorage.getItem(MOTION_KEY);if(['on','off'].includes(saved)){mapMotion=saved==='on'&&!reducedMotion.matches;customMotion=true;}}catch{}
 let state=createGame(),loadNotice='',storageAvailable=true,hasCampaign=false;
-try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);hasCampaign=true;loadNotice='Campaign restored. Time is paused.';}}
+try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);hasCampaign=true;loadNotice=state.migration?'Campaign expanded to five provinces. Your earlier progress is preserved. Time is paused.':'Campaign restored. Time is paused.';}}
 catch{loadNotice='The saved campaign could not be read. A new campaign is ready.';}
-let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUnit=null,layer='control';
+let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUnit=null,layer='control',focusedNetwork=0,targetNetwork=null;
 let sound=false,audioContext=null,toastTimer=null,lastOutcome=null,newGovernor='cruz',wasRunningBeforeModal=false;
 let scene='loading',loadingTarget='menu',loadingSerial=0,loadingDone=false;
 const modal=$('#modal');
@@ -44,8 +45,9 @@ function command(action,{quiet=false}={}){
   if(!quiet)notify(result.message,!result.ok);
   chime(!result.ok);if(result.ok)save();render();return result;
 }
-function selectDistrict(id){
-  selected=id;
+function selectDistrict(id,network=null){
+  selected=id;targetNetwork=network??dominantNetwork(state.districts[id]);
+  if(map.zoom<2.2)map.focusRegion(DISTRICTS[id].region);
   if(dispatchUnit!==null){
     const result=command({type:'move',unit:dispatchUnit,district:id});
     if(result.ok){dispatchUnit=null;pane='units';}
@@ -84,7 +86,7 @@ function renderMenu(){
   $('#continue-button').disabled=!hasCampaign;
   $('#continue-summary').textContent=hasCampaign?`${gov.name} · Day ${state.day+1} · ${DIFFICULTIES[state.difficulty].label}`:'No saved operation';
   const card=$('#menu-save-card');card.hidden=!hasCampaign;
-  if(hasCampaign)card.innerHTML=`${portrait(gov.portrait)}<div><strong>${state.outcome?'Campaign report available':'Your mandate continues'}</strong><small>${stableDistricts(state)} / 24 districts stabilized · ${Math.floor(state.trust)}% public trust<br>${state.networks.filter(n=>n.dismantled).length} / 3 networks dismantled</small></div>`;
+  if(hasCampaign)card.innerHTML=`${portrait(gov.portrait)}<div><strong>${state.outcome?'Campaign report available':'Your mandate continues'}</strong><small>${stableDistricts(state)} / ${DISTRICTS.length} districts stabilized · ${Math.floor(state.trust)}% public trust<br>${state.networks.filter(n=>n.dismantled).length} / ${NETWORKS.length} networks dismantled</small></div>`;
   $('#menu-sound-button').innerHTML=icon(sound?'volume':'mute',15)+`Sound ${sound?'on':'off'}`;
 }
 function showMenu(){
@@ -132,9 +134,11 @@ const actionButton=({action,title,detail,iconName='arrow',cost='',extra='',disab
 const unitToken=u=>`<span class="unit-token">${icon(UNIT_TYPES[u.type].icon)}</span>`;
 
 function operationReason(type,d){
+  const nid=(d.id===selected?targetNetwork:null)??dominantNetwork(d);
   if(state.outcome)return 'The campaign has ended.';
   if(state.operations.some(o=>o.district===d.id))return 'An operation is already in progress here.';
-  if(type==='raid'&&d.threat<1)return 'No active cell is present.';
+  if(state.networks[nid].dismantled)return 'This faction has been dismantled. Choose another target.';
+  if(type==='raid'&&d.cells[nid]<1)return 'No active cell is present.';
   if(type!=='investigate'&&d.intel<(type==='raid'?40:30))return `Requires ${type==='raid'?40:30}% local intelligence.`;
   if(type!=='investigate'&&!unitsHere(state,d.id).some(u=>u.type!=='intel'))return 'Requires a ready security unit in this district.';
   const cost=projectCost(state,type==='investigate'?6:7);
@@ -142,7 +146,7 @@ function operationReason(type,d){
   return '';
 }
 function districtPanel(){
-  const d=state.districts[selected],def=DISTRICTS[selected];
+  const d=state.districts[selected],def=DISTRICTS[selected],nid=targetNetwork??dominantNetwork(d);
   const stable=d.stability>=75&&d.support>=60&&d.threat<8;
   const status=stable?'STABILIZED':d.threat>=25?'CARTEL PRESENCE':'UNSECURED';
   const here=state.units.filter(u=>u.district===selected&&u.status!=='moving'&&u.status!=='training');
@@ -150,79 +154,90 @@ function districtPanel(){
   const investigateReason=operationReason('investigate',d),raidReason=operationReason('raid',d);
   let priority=d.threat>=25?'Contain the local cell before committing to civilian projects.':d.support<60?'Public support is too low for lasting control. Fund local services.':d.stability<75?'Support is growing. Keep threat below 8% and allow stability to build.':'Keep local institutions strong and prevent the networks from returning.';
   if(selected===HQ&&state.day===0)priority='Your headquarters is secure. Investigate a district with cartel presence, then send ALPHA to contain it.';
-  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[def.terrain].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[def.terrain]}"></div><span>${TERRAIN[def.terrain].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / 24</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
-    <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${TERRAIN[def.terrain].label}</span><span>${icon('people')}${def.population},000 residents</span></div>
-    <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div>
+  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[def.terrain].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[def.terrain]}"></div><span>${TERRAIN[def.terrain].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / ${DISTRICTS.length}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
+    <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${REGIONS[def.region].name}</span><span>${icon('people')}${def.population},000 residents</span></div>
+    <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><details class="civilian-details"><summary>Community conditions</summary>${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Displacement',d.displacement,'threat')}${bar('Institutions',d.institutions)}<p>Supply access: ${Math.round(supplyScore(state,selected))}%. Fear and displacement weaken support. Prosperity and institutions constrain recruitment.</p></details><label class="target-label">TARGET FACTION<select id="district-network">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])} threat</option>`).join('')}</select></label>
     <div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
-    ${op?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[def.network].color}"></i>${NETWORKS[def.network].name}</span></div>`:''}</div>`:''}
+    ${op?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway',capture:'Member arrest underway',flip:'Witness negotiation underway',resupply:'Resupply underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[op?.network??nid].color}"></i>${NETWORKS[op?.network??nid].name}</span></div>`:''}</div>`:''}
     ${actionButton({action:'investigate',title:'Gather intelligence',detail:'4 days · build intelligence & case evidence',iconName:'eye',cost:`$${projectCost(state,6)}`,disabled:!!investigateReason,primary:true})}
     ${investigateReason?`<p class="reason">${investigateReason}</p>`:''}
-    ${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`4 days · ${Math.round(operationForecast(state,selected)*100)}% success forecast`,iconName:'target',cost:`$${projectCost(state,7)}`,disabled:!!raidReason})}
+    ${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`4 days · ${Math.round(operationForecast(state,selected,nid)*100)}% success forecast`,iconName:'target',cost:`$${projectCost(state,7)}`,disabled:!!raidReason})}
     ${actionButton({action:'view',title:'Deploy security forces',detail:'Select a unit, then its destination on the map',iconName:'shield',extra:'data-view="units"'})}
     <div class="section-label">DEPLOYED HERE <span>${here.length} ${here.length===1?'unit':'units'}</span></div>
     ${here.length?here.map(u=>`<button class="unit-inline" data-action="focus-unit" data-unit="${u.id}">${unitToken(u)}<span><strong>${esc(u.name)}</strong><small>${UNIT_TYPES[u.type].name} · ${u.status==='operating'?'Operation in progress':'Ready for orders'}</small></span>${icon('chevron',12)}</button>`).join(''):'<p class="empty-text">No unit stationed in this district.</p>'}
     <div class="notice"><strong>${icon('leaf',12)} FIELD PRIORITY</strong>${priority}</div>
     ${actionButton({action:'category',title:'Fund a local initiative',detail:`${d.services} services delivered · ${Math.floor(d.stability)}% stability`,iconName:'people',extra:'data-category="civilian"'})}
-    <button class="network-mini" data-action="view-network" data-network="${def.network}">${portrait(NETWORKS[def.network].portrait)}<span><strong>${NETWORKS[def.network].name}</strong><small>${state.networks[def.network].dismantled?'Network dismantled':state.networks[def.network].captured?'Leader in custody':'Regional network'} · ${percent(state.networks[def.network].evidence)} case evidence</small></span>${icon('chevron')}</button>`;
+    <button class="network-mini" data-action="view-network" data-network="${nid}">${portrait(NETWORKS[nid].portrait)}<span><strong>${NETWORKS[op?.network??nid].name}</strong><small>${state.networks[nid].dismantled?'Network dismantled':state.networks[nid].captured?'Leader in custody':'Regional network'} · ${percent(state.networks[nid].evidence)} case evidence</small></span>${icon('chevron')}</button>`;
 }
 function initiativesPanel(){
   const d=state.districts[selected],cat=CATEGORIES.find(c=>c.id===category);
   const cards=INITIATIVES.filter(i=>i.category===category).map(item=>{
-    const finished=(item.scope==='local'?d.completed:state.completed).includes(item.id);
-    const project=state.projects.find(p=>p.id===item.id&&(item.scope==='province'||p.district===selected));
+    const finished=(item.scope==='local'?d.completed:item.scope==='region'?state.regions[DISTRICTS[selected].region].completed:state.completed).includes(item.id);
+    const project=state.projects.find(p=>p.id===item.id&&(item.scope==='province'||(item.scope==='region'?p.region===DISTRICTS[selected].region:p.district===selected)));
     const avail=initiativeAvailability(state,item.id,selected);
     const duration=Math.ceil(item.days*(state.governor==='cruz'&&item.category==='civilian'?0.75:1));
-    return `<article class="initiative-card"><div class="initiative-card-head">${badge(item.icon)}<div><h3>${item.name}</h3><small>${item.scope==='local'?'LOCAL INITIATIVE':'PROVINCE-WIDE POLICY'} · ${duration} DAYS</small></div></div><p>${item.description}</p>
+    return `<article class="initiative-card"><div class="initiative-card-head">${badge(item.icon)}<div><h3>${item.name}</h3><small>${item.scope==='local'?'LOCAL INITIATIVE':item.scope==='region'?'PROVINCIAL PROGRAM':'MANDATE POLICY'} · ${duration} DAYS</small></div></div><p>${item.description}</p>
       ${project?progress(project.remaining,project.total):`<div class="initiative-card-footer"><span>${finished?'DELIVERED':`$${projectCost(state,item.cost)} funding`}</span><button class="small-button ${finished?'secondary':''}" data-action="project" data-id="${item.id}" ${!avail.ok?'disabled':''}>${finished?`${icon('check',12)} Complete`:'Fund initiative'}</button></div>`}
       ${!finished&&!project&&!avail.ok?`<div class="reason" style="margin-top:8px;margin-bottom:0">${avail.message}</div>`:''}</article>`;
   }).join('');
   const active=state.projects.filter(p=>initiativeById(p.id).scope==='province'||p.district===selected);
-  return heading('INITIATIVE DESK',cat.label,`Local projects apply to ${DISTRICTS[selected].name}. Province-wide policies benefit every district.`)+
+  return heading('INITIATIVE DESK',cat.label,`Local projects apply to ${DISTRICTS[selected].name}. Provincial programs cover ${REGIONS[DISTRICTS[selected].region].name}; mandate policies cover all five provinces.`)+
     `<div class="category-tabs">${CATEGORIES.map(c=>`<button data-action="category" data-category="${c.id}" class="${c.id===category?'active':''}">${c.name}</button>`).join('')}</div><div class="scope-label">${icon('pin',11)} SELECTED DISTRICT: ${DISTRICTS[selected].name.toUpperCase()}</div>${cards}
-    <div class="notice"><strong>${state.projects.length} / 6 projects in progress</strong>${active.length?'Projects continue while time is running.':'Select districts on the map to choose where local projects are delivered.'} Inflation adds ${state.inflation.toFixed(1)}% to new funding.</div>`;
+    <div class="notice"><strong>${state.projects.length} / ${MAX_PROJECTS} projects in progress</strong>${active.length?'Projects continue while time is running.':'Select districts on the map to choose where local projects are delivered.'} Inflation adds ${state.inflation.toFixed(1)}% to new funding.</div>`;
 }
 function initiativeById(id){return INITIATIVES.find(i=>i.id===id);}
 function unitsPanel(){
   return heading('SECURITY COMMAND','Your forces','Deploy units across connected districts. Use intelligence to prepare, security to contain, and local institutions to hold.')+
-    `<div class="section-label">ACTIVE ROSTER <span>${state.units.length} / 6 units</span></div>`+
+    `<div class="notice"><strong>Logistics and readiness</strong>Long deployments and operations consume supply and build fatigue. Regional administration, secure stations and the Logistics policy sustain distant units.</div><div class="section-label">ACTIVE ROSTER <span>${state.units.length} / ${MAX_UNITS} units</span></div>`+
     state.units.map(u=>{
       const ready=u.status==='ready';
       const destination=u.status==='moving'?DISTRICTS[u.path.at(-1)].name:DISTRICTS[u.district].name;
       const reason=operationReason('interdict',state.districts[u.district]);
       return `<article class="roster-card" data-roster="${u.id}" ${focusedUnit===u.id?'style="border-color:#71945b"':''}><div class="roster-head">${unitToken(u)}<div><h3>${esc(u.name)}</h3><small>${UNIT_TYPES[u.type].name}</small></div><span class="state-tag ${ready?'good':''}">${{ready:'READY',moving:'EN ROUTE',training:'TRAINING',operating:'ASSIGNED'}[u.status]}</span></div>
         <p>${u.status==='moving'?'Moving to ':u.status==='training'?'Training at ':'Stationed in '}<button class="network-home" data-action="select" data-district="${u.status==='moving'?u.path.at(-1):u.district}">${destination}</button></p>
-        ${!ready&&u.remaining>0?progress(u.remaining,u.total):''}<div class="roster-controls"><span>${u.type==='intel'?'+1.1 LOCAL INTEL / DAY':`${Math.floor(unitPower(state,u))} OPERATIONAL POWER`}</span><button class="small-button" data-action="dispatch" data-unit="${u.id}" ${!ready||state.outcome?'disabled':''}>${dispatchUnit===u.id?'Choose district…':'Deploy'} ${icon('arrow',12)}</button></div>
+        ${!ready&&u.remaining>0?progress(u.remaining,u.total):''}<div class="logistics-grid"><span>Supply <b>${Math.round(u.supply)}%</b></span><span>Readiness <b>${Math.round(u.readiness)}%</b></span><span>Fatigue <b>${Math.round(u.fatigue)}%</b></span></div>${ready?`<button class="small-button secondary resupply-button" data-action="resupply" data-unit="${u.id}" ${state.operations.some(o=>o.district===u.district)||state.money<projectCost(state,8)?'disabled':''}>Resupply · 3d · $${projectCost(state,8)}</button>`:''}<div class="roster-controls"><span>${u.type==='intel'?'+1.1 LOCAL INTEL / DAY':`${Math.floor(unitPower(state,u))} OPERATIONAL POWER`}</span><button class="small-button" data-action="dispatch" data-unit="${u.id}" ${!ready||state.outcome?'disabled':''}>${dispatchUnit===u.id?'Choose district…':'Deploy'} ${icon('arrow',12)}</button></div>
         ${u.type!=='intel'&&ready?`<button class="action-button" data-action="interdict" data-district="${u.district}" ${reason?'disabled':''}>${icon('network',14)}<span><strong>Disrupt network assets</strong><small>${reason||'5 days · reduce funding & build evidence'}</small></span><span class="cost">$${projectCost(state,7)}</span></button>`:''}
       </article>`;
-    }).join('')+`<div class="section-label">RECRUITMENT <span>New units arrive at HQ</span></div>`+
-    Object.entries(UNIT_TYPES).map(([type,def])=>`<div class="recruit-row"><span><strong>${def.name}</strong><small>${def.days} days · ${def.description}</small></span><button class="small-button secondary" data-action="recruit" data-unit-type="${type}" ${state.money<projectCost(state,def.cost)||state.units.length>=6||state.outcome?'disabled':''}>+ $${projectCost(state,def.cost)}</button></div>`).join('')+
+    }).join('')+`<div class="section-label">RECRUITMENT <span>Selected regional base or HQ</span></div>`+
+    Object.entries(UNIT_TYPES).map(([type,def])=>`<div class="recruit-row"><span><strong>${def.name}</strong><small>${def.days} days · ${def.description}</small></span><button class="small-button secondary" data-action="recruit" data-unit-type="${type}" ${state.money<projectCost(state,def.cost)||state.units.length>=MAX_UNITS||state.outcome?'disabled':''}>+ $${projectCost(state,def.cost)}</button></div>`).join('')+
     `<div class="notice"><strong>Containment needs a permanent presence.</strong>Security units suppress local cells each day. Intelligence teams reveal activity. Police stations keep working after a unit moves on.</div>`;
 }
 function networksPanel(){
-  return heading('ORGANIZED CRIME DOSSIERS','The networks','Build a case, arrest each leader, and contain the remaining cells. Leader arrests permanently stop recruitment.')+
-    NETWORKS.map(n=>{
-      const status=state.networks[n.id],requirements=arrestRequirements(state,n.id),home=DISTRICTS[n.home];
-      const threat=totalThreat(state,n.id),cells=state.districts.filter(d=>DISTRICTS[d.id].network===n.id&&d.threat>=1).length;
-      return `<article class="network-card" id="network-${n.id}"><div class="network-card-head">${portrait(n.portrait)}<div><h3>${n.name}</h3><small>${n.leader} · ${n.alias}</small><span class="state-tag ${status.dismantled?'good':status.captured?'':'danger'}">${status.dismantled?'DISMANTLED':status.captured?'LEADER IN CUSTODY':'ACTIVE NETWORK'}</span></div></div><div class="network-card-body"><p>${n.description}</p>
-        ${bar('Case evidence',status.evidence,'intel')}${bar('Network funding',status.funds,'threat')}
-        <p style="margin-top:12px">${cells} active ${cells===1?'cell':'cells'} · ${Math.round(threat)} total threat points</p>
-        <button class="network-home" data-action="select" data-district="${n.home}">${icon('pin',10)} Known base: ${home.name} ${icon('arrow',10)}</button>
-        ${status.captured?`<div class="notice"><strong>${status.dismantled?'Network contained':'Contain the remaining cells'}</strong>${status.dismantled?'Civilian institutions can now hold these districts.':'Recruitment has stopped. Deploy security units and finish containing the network.'}</div>`:`<div class="network-prerequisites">${requirements.map(r=>`<span>${icon('lock',10)}${r}</span>`).join('')}</div>${actionButton({action:'arrest',title:'Arrest network leader',detail:'5 days · permanent recruitment shutdown',cost:`$${projectCost(state,10)}`,iconName:'scales',extra:`data-network="${n.id}"`,disabled:!!requirements.length,danger:true})}`}
-      </div></article>`;
-    }).join('')+
-    `<div class="notice"><strong>Gather evidence in the network’s districts.</strong>Each completed investigation adds case evidence. Special prosecutors, independent audits and witness protection strengthen your cases.</div>`;
+  const def=NETWORKS[focusedNetwork],n=state.networks[focusedNetwork],leader=leaderOf(state,n.id),archetype=ARCHETYPES[def.archetype],req=arrestRequirements(state,n.id),caps=capabilities(state,n.id);
+  const cells=state.districts.filter(d=>d.cells[n.id]>=1),members=state.members.filter(m=>m.network===n.id),pacts=state.pacts.filter(p=>p.a===n.id||p.b===n.id);
+  return heading('ORGANIZED CRIME DOSSIERS','Nine organizations','Follow the money, expose individual members, and break the organization behind its leader.')+
+    `<label class="target-label">CARTEL DOSSIER<select id="faction-focus">${NETWORKS.map(f=>`<option value="${f.id}" ${f.id===n.id?'selected':''}>${f.name}${state.networks[f.id].dismantled?' · dismantled':''}</option>`).join('')}</select></label>
+    <div class="faction-strip">${NETWORKS.map(f=>`<button data-action="view-network" data-network="${f.id}" class="${f.id===n.id?'active':''}" title="${f.name}" aria-label="Open ${f.name} dossier" aria-pressed="${f.id===n.id}" style="--faction:${f.color}">${f.id+1}</button>`).join('')}</div>
+    <article class="network-card" id="network-${n.id}"><div class="network-card-head">${portrait(def.portrait)}<div><h3>${def.name}</h3><small>${esc(leader.name)}${n.successions?' · successor':''}</small><span class="state-tag ${n.dismantled?'good':n.captured?'':'danger'}">${n.dismantled?'DISMANTLED':n.captured?'COMMAND VACUUM':'ACTIVE NETWORK'}</span></div></div><div class="network-card-body">
+    <div class="archetype-tag">${archetype.name}</div><p>${archetype.description}</p>
+    ${bar('Case evidence',n.evidence,'intel')}${bar('Funding',n.funds,'threat')}${bar('Internal cohesion',n.cohesion)}
+    <div class="logistics-grid"><span>Heat <b>${Math.round(n.heat)}%</b></span><span>Logistics <b>${Math.round(n.logistics)}%</b></span><span>Cells <b>${cells.length}</b></span></div>
+    <div class="notice"><strong>${n.dismantled?'Organization dismantled':INTENTS[n.intent]}</strong>${n.dismantled?'All active cells have been contained.':n.captured?`Succession assessed on day ${n.successionAt+1}. Funding, cohesion and surviving members determine whether command recovers.`:`Current focus: ${DISTRICTS[n.focus].name}. Decisions respond to security pressure, intelligence, resources, terrain and rivals.`}</div>
+    <button class="network-home" data-action="select" data-district="${leader.location}" data-network="${n.id}">${icon('pin',10)} ${n.captured?'Last leader location':'Known command location'}: ${DISTRICTS[leader.location].name} ${icon('arrow',10)}</button>
+    ${!n.captured?`<div class="network-prerequisites">${req.map(r=>`<span>${icon('lock',10)}${r}</span>`).join('')}</div>${actionButton({action:'arrest',title:'Arrest current leader',detail:'5 days · opens a succession window',cost:`$${projectCost(state,12)}`,iconName:'scales',extra:`data-network="${n.id}"`,disabled:!!req.length,danger:true})}`:''}
+    <details class="capability-details"><summary>Organization capabilities</summary><div class="capability-list">${['income','recruit','defense','stealth','aggression','logistics','bribe','diplomacy'].map(k=>`<span>${k}<b>${caps[k].toFixed(2)}×</b></span>`).join('')}</div><p>Archetype, active roles, skill and traits modify these values. Removing a financier cuts income; removing a recruiter slows recruitment.</p></details>
+    </div></article>
+    <div class="section-label">INDIVIDUAL MEMBERS <span>${members.filter(m=>m.status==='active').length} active / ${members.length}</span></div>
+    ${members.map(m=>{
+      const capture=memberRequirements(state,m.id),flip=memberRequirements(state,m.id,'flip');
+      return `<article class="member-card"><div class="member-heading"><span class="member-seal">${icon(m.role==='financier'?'coin':m.role==='fixer'?'scales':m.role==='recruiter'?'people':m.role==='leader'?'network':'shield',18)}</span><div><h3>${esc(m.name)}</h3><small>${MEMBER_ROLES[m.role]} · ${m.status}</small></div></div><div class="trait-list">${m.traits.map(t=>`<span title="${TRAITS[t].description}">${TRAITS[t].name}</span>`).join('')}</div><p class="trait-explanation">${m.traits.map(t=>TRAITS[t].description).join(' ')}</p><div class="logistics-grid"><span>Skill <b>${m.skill}</b></span><span>Loyalty <b>${m.loyalty}</b></span><span>Exposure <b>${Math.floor(m.exposure)}%</b></span></div><button class="network-home" data-action="select" data-district="${m.location}" data-network="${n.id}">${icon('pin',10)} ${DISTRICTS[m.location].name}</button>
+        ${m.status==='active'?`<button class="small-button secondary" data-action="investigate-member" data-member="${m.id}" ${state.operations.some(o=>o.district===m.location)||state.money<projectCost(state,6)||state.outcome?'disabled':''}>Investigate location · $${projectCost(state,6)}</button>`:''}${m.status==='active'&&m.role!=='leader'?`<div class="member-actions"><button class="small-button" data-action="capture-member" data-member="${m.id}" ${capture.length?'disabled':''}>Arrest · $${projectCost(state,10)}</button><button class="small-button secondary" data-action="flip-member" data-member="${m.id}" ${flip.length?'disabled':''}>Witness deal · $${projectCost(state,10)}</button></div><p class="reason">${capture[0]?`Arrest: ${capture[0]}. `:''}${flip[0]?`Deal: ${flip[0]}.`:'Deal success depends on loyalty and witness protection.'}</p>`:''}</article>`;
+    }).join('')}
+    <div class="section-label">RIVAL RELATIONS</div><div class="relation-list">${NETWORKS.filter(f=>f.id!==n.id&&!state.networks[f.id].dismantled).map(f=>`<button data-action="view-network" data-network="${f.id}"><span style="color:${f.color}">●</span>${f.name}<b>${state.relations[n.id][f.id]>0?'+':''}${Math.round(state.relations[n.id][f.id])}</b></button>`).join('')}</div>
+    ${pacts.map(p=>`<p class="reason">Arrangement with ${NETWORKS[p.a===n.id?p.b:p.a].name} · ${p.until-state.day} days remaining</p>`).join('')}
+    <div class="section-label">RECENT FACTION DECISIONS</div>${n.aiLog.length?n.aiLog.map(l=>`<div class="activity-logline"><small>DAY ${l.day+1} · ${INTENTS[l.intent]}</small>${esc(l.reason)}</div>`).join(''):'<p class="empty-text">No decisions recorded yet. Advance time to observe this organization.</p>'}`;
 }
 
 function activityPanel(){
   const orders=activeOrders(state),hotspots=state.districts.filter(d=>d.threat>=20).sort((a,b)=>b.threat-a.threat),stable=stableDistricts(state);
   return heading('PROVINCIAL WATCH','A living province','Follow active orders, protect vulnerable communities, and hold the ground you reclaim.')+
     `<div class="activity-summary"><div><strong>${orders.length}</strong><small>Active orders</small></div><div><strong>${hotspots.length}</strong><small>Hotspots</small></div><div><strong>${stable}</strong><small>Stabilized</small></div></div>
-    <div class="notice"><strong>Mandate progress</strong>${bar(`${stable} / 18 districts stabilized`,Math.min(100,stable/18*100))}${bar(`${state.networks.filter(n=>n.dismantled).length} / 3 networks dismantled`,state.networks.filter(n=>n.dismantled).length/3*100)}${state.holdDays?`<p>Both objectives secured for ${state.holdDays} / 14 days.</p>`:''}</div>
+    <div class="notice"><strong>Mandate progress</strong>${bar(`${stable} / ${STABILITY_TARGET} districts stabilized`,Math.min(100,stable/STABILITY_TARGET*100))}${bar(`${state.networks.filter(n=>n.dismantled).length} / ${NETWORKS.length} networks dismantled`,state.networks.filter(n=>n.dismantled).length/NETWORKS.length*100)}${state.holdDays?`<p>Both objectives secured for ${state.holdDays} / 14 days.</p>`:''}</div>
     <div class="section-label">ACTIVE ORDERS <span>Next to finish first</span></div>
     ${orders.length?orders.map(o=>`<button class="order-card ${o.kind}" data-action="select" data-district="${o.district}"><span class="order-card-head"><strong>${o.label}</strong><em>${o.remaining}d</em></span><small>${DISTRICTS[o.district].name}</small><div class="status-track"><i style="width:${progressOf(o)*100}%"></i></div></button>`).join(''):'<p class="activity-empty">No orders in progress. Select a district to investigate, fund services, or deploy a ready unit.</p>'}
     <div class="section-label">DISTRICTS TO WATCH <span>Highest threat</span></div>
     ${hotspots.length?hotspots.slice(0,5).map(d=>`<button class="watch-card" data-action="select" data-district="${d.id}">${icon('pin',14)}<span><strong>${DISTRICTS[d.id].name}</strong><small>${Math.floor(d.intel)}% intelligence · ${Math.floor(d.support)}% support</small></span><em>${Math.floor(d.threat)}%</em></button>`).join(''):'<p class="activity-empty">No district has an entrenched cell. Keep services and institutions strong.</p>'}
-    <div class="activity-deadline"><span>Budget in ${7-state.day%7}d</span><span>${Math.max(0,730-state.day)}d in mandate</span></div>
+    <div class="activity-deadline"><span>Budget in ${7-state.day%7}d</span><span>${Math.max(0,MANDATE_DAYS-state.day)}d in mandate</span></div>
     <div class="section-label">LATEST FROM THE FIELD</div>${state.log.slice(0,4).map(l=>`<div class="activity-logline"><small>DAY ${String(l.day+1).padStart(3,'0')}</small>${esc(l.text)}</div>`).join('')}`;
 }
 
@@ -238,14 +253,14 @@ function renderPanel(){
   }
 }
 function render(){
-  const gov=GOVERNORS.find(g=>g.id===state.governor),stable=stableDistricts(state),progressValue=Math.round(stable/24*100);
+  const gov=GOVERNORS.find(g=>g.id===state.governor),stable=stableDistricts(state),progressValue=Math.round(stable/DISTRICTS.length*100);
   $('#money-value').textContent=`$${Math.floor(state.money)}`;
-  $('#income-value').textContent=`+$${Math.round((15+stable*0.7)*DIFFICULTIES[state.difficulty].income-2-state.units.length*0.65)} / week`;
+  $('#income-value').textContent=`+$${Math.round(budgetForecast(state).net)} / week`;
   $('#trust-value').innerHTML=`${Math.floor(state.trust)}<span>%</span>`;$('#trust-track').style.width=`${state.trust}%`;
   $('#corruption-value').innerHTML=`${Math.floor(state.corruption)}<span>%</span>`;
   $('#corruption-label').textContent=state.corruption<25?'Manageable':state.corruption<50?'Rising concern':'Critical';
-  $('#stability-value').innerHTML=`${stable}<span> / 24</span>`;
-  $('#networks-value').innerHTML=`${state.networks.filter(n=>n.dismantled).length}<span> / 3</span>`;
+  $('#stability-value').innerHTML=`${stable}<span> / ${DISTRICTS.length}</span>`;
+  $('#networks-value').innerHTML=`${state.networks.filter(n=>n.dismantled).length}<span> / ${NETWORKS.length}</span>`;
   const atLarge=state.networks.filter(n=>!n.captured).length;
   $('#threat-label').textContent=atLarge?`${atLarge} ${atLarge===1?'leader':'leaders'} at large`:'All leaders in custody';
   $('#commander').innerHTML=`${portrait(gov.portrait)}<div><small>PROVINCIAL GOVERNOR</small><strong>${gov.name}</strong><p>${gov.role} · ${DIFFICULTIES[state.difficulty].label}</p></div><button class="icon-button" data-action="briefing" title="Governor and mission briefing" aria-label="Governor and mission briefing">${icon('info',15)}</button>`;
@@ -289,18 +304,18 @@ modal.addEventListener('click',e=>{if(e.target===modal&&modal.dataset.locked!=='
 
 function briefing(){
   const gov=GOVERNORS.find(g=>g.id===state.governor),stable=stableDistricts(state);
-  openModal('A province worth protecting','OPERATION SANTA ESPERANZA',`<div class="briefing-lead">${portrait(gov.portrait)}<p>Three criminal networks have taken root in Santa Esperanza. Your mandate is to restore lasting civilian control before public confidence or the two-year mandate runs out.</p></div>
-    <div class="mission-objective"><strong>1. Stabilize at least 18 of 24 districts</strong><p>${stable} / 18 stabilized. A district needs 60% support, less than 8% threat, and a local service or 30% security. Stability then builds to 75% over time.</p></div>
-    <div class="mission-objective"><strong>2. Dismantle all three networks</strong><p>${state.networks.filter(n=>n.dismantled).length} / 3 dismantled. Arrest each leader and reduce all of their district cells below 1 threat point. Hold both objectives for 14 consecutive days to win.</p></div>
+  openModal('A province worth protecting','OPERATION SANTA ESPERANZA',`<div class="briefing-lead">${portrait(gov.portrait)}<p>Nine criminal organizations contest five provinces. Your mandate is to restore lasting civilian control before public confidence or the three-year mandate runs out.</p></div>
+    <div class="mission-objective"><strong>1. Stabilize at least 90 of 120 districts</strong><p>${stable} / ${STABILITY_TARGET} stabilized. A district needs 60% support, less than 8% threat, and a local service or 30% security. Stability then builds to 75% over time.</p></div>
+    <div class="mission-objective"><strong>2. Dismantle all nine networks</strong><p>${state.networks.filter(n=>n.dismantled).length} / ${NETWORKS.length} dismantled. Arrest each leader and reduce their remaining total cell strength below 3 threat points. Hold both objectives for 14 consecutive days to win.</p></div>
     <h3>Your governor: ${gov.name}</h3><p>${gov.description} ${gov.bonus}</p>
-    <h3>Your first moves</h3><ol><li>Investigate Sierra Alta, Puerto Viejo, or La Frontera to raise local intelligence above 40%.</li><li>Deploy ALPHA or BRAVO there. When the unit arrives, start a containment operation.</li><li>Fund water, clinics and employment in quiet districts to build public support.</li><li>Fund Special prosecutors and build 65% case evidence to unlock leader arrests.</li></ol>
+    <h3>Your first moves</h3><ol><li>Investigate a known command location from a cartel dossier to raise local intelligence above 40%.</li><li>Deploy ALPHA or BRAVO there. When the unit arrives, start a containment operation.</li><li>Fund water, clinics and employment in quiet districts to build public support.</li><li>Fund Special prosecutors and build 65% case evidence to unlock leader arrests.</li></ol>
     <p>All people, districts and organizations are fictional. This is a strategy simulation with abstract operations and original artwork.</p>
     ${actionButton({action:'close-modal',title:'Return to command',detail:'Time remains paused while you review your plan.',iconName:'arrow',primary:true})}`);
 }
 function help(){
   openModal('Field manual','COMMAND REFERENCE',`<p>Click a district to inspect its needs and issue orders. Projects and operations only progress while the simulation is running. You can issue orders while paused.</p>
-    <h3>Contain, rebuild, hold</h3><ul><li>Security operations require a ready federal or police unit and at least 40% local intelligence. Their forecast depends on intelligence, unit power, local threat and corruption.</li><li>Investigations take four days and improve local intelligence and evidence against the regional network.</li><li>Uncaptured leaders recruit into existing cells and can spread to neighboring, unprotected districts every three weeks.</li><li>Arresting a leader stops recruitment permanently. Security units and police stations suppress the remaining cells.</li><li>Civilian projects are blocked when local threat is 35% or higher. Water, clinics, schools and jobs count as local services.</li><li>A district stabilizes after support reaches 60%, threat stays below 8%, and a service is delivered or security reaches 30%. Stability needs time to reach 75%.</li><li>New spending increases inflation slightly. Anti-corruption policies protect the mandate; weekly funding supports your campaign.</li></ul>
-    <h3>Time and saves</h3><p>Decisions and dialogs pause the simulation. Autosave runs after orders and every five days. Reopening a save always pauses time. Export saves from the campaign menu for backups.</p>
+    <h3>Contain, rebuild, hold</h3><ul><li>Security operations require a ready federal or police unit and at least 40% local intelligence. Their forecast depends on intelligence, unit power, local threat and corruption.</li><li>Investigations take four days and improve local intelligence and evidence against the regional network.</li><li>Cartels evaluate recruitment, expansion, fortification, bribery, coercion, retreat, leadership relocation, rival attacks and temporary pacts. Each organization has an archetype and five named members with two traits each.</li><li>Arresting a leader disrupts recruitment. A funded and cohesive organization can appoint a successor. Disrupt its assets and capture or turn its staff to prevent recovery.</li><li>Civilian projects are blocked when local threat is 35% or higher. Water, clinics, schools and jobs count as local services.</li><li>A district stabilizes after support reaches 60%, threat stays below 8%, and a service is delivered or security reaches 30%. Stability needs time to reach 75%.</li><li>New spending increases inflation slightly. Anti-corruption policies protect the mandate; weekly funding supports your campaign.</li></ul>
+    <h3>Five provinces and logistics</h3><p>Use the province selector to inspect a region, or fit the entire country. Ferry corridors connect all 120 districts. Provincial water and clinic programs deliver one eligible district per day after opening. Regional administration improves institutions, supply, and unlocks a recruitment hub. Supply, readiness and fatigue change unit power; resupply restores an exhausted unit in three days.</p><h3>Members and succession</h3><p>Investigate a member’s district to raise exposure. Arrest specialist staff to weaken their role, or offer a witness deal. Loyalty determines whether a member is likely to defect. Leader arrests open a succession window; break cohesion and funding before the organization replaces its command.</p><h3>Time and saves</h3><p>Decisions and dialogs pause the simulation. Autosave runs after orders and every five days. Reopening a save always pauses time. Export saves from the campaign menu for backups.</p>
     <h3>The living province</h3><p>Civilian traffic thins out in threatened districts. Service stamps show delivered services or a permanent police station. Progress rings show investigations and construction; moving unit tokens follow their routes. Open Activity to find active orders and threatened communities. While deploying, point to a district or focus it with Tab to preview the route and travel time.</p><p>Clouds, boats, birds, rain and changing light are atmosphere only. They never change costs, travel times or operation outcomes. Ambient life can continue while the mandate is paused; units and orders wait for you. Turn Map life off for a still map. Your device’s reduced-motion setting is respected.</p>
     <h3>Confrontations</h3><p>A containment operation shows security and cartel markers exchanging bursts around the district. Short trails, dust and shifting dots represent the ongoing encounter. They do not indicate individual casualties or extra damage. The ending follows the actual operation report: cell contained, cell weakened, or cell evaded. Confrontations freeze while time is paused. Map life off keeps a static encounter marker.</p>
     <h3>Keyboard</h3><div class="keyboard-grid"><kbd>Space</kbd><span>Pause / resume</span><kbd>1 / 2 / 3</kbd><span>Normal / 3× / 6× speed</span><kbd>H</kbd><span>Open this manual</span><kbd>Escape</kbd><span>Close a dialog, cancel deployment, or open the pause menu</span><kbd>Tab / Enter</kbd><span>Navigate controls and select map districts</span></div>`);
@@ -313,10 +328,10 @@ function settings(){
     ${actionButton({action:'save',title:'Save campaign',detail:'Keep progress on this device',iconName:'save'})}
     ${actionButton({action:'export',title:'Export save',detail:'Download a portable JSON save',iconName:'download'})}
     ${actionButton({action:'import',title:'Import save',detail:'Restore a compatible campaign',iconName:'upload'})}
-    ${actionButton({action:'new-game',title:'New operation',detail:'Choose a governor and difficulty',iconName:'reset'})}</div><div class="notice"><strong>Current campaign</strong>${GOVERNORS.find(g=>g.id===state.governor).name} · ${DIFFICULTIES[state.difficulty].label} · Seed ${state.seed}<br>Day ${state.day+1} of 730 · ${state.stats.projects} projects completed · ${state.stats.arrests} leaders arrested</div>`);
+    ${actionButton({action:'new-game',title:'New operation',detail:'Choose a governor and difficulty',iconName:'reset'})}</div><div class="notice"><strong>Current campaign</strong>${GOVERNORS.find(g=>g.id===state.governor).name} · ${DIFFICULTIES[state.difficulty].label} · Seed ${state.seed}<br>Day ${state.day+1} of ${MANDATE_DAYS} · ${state.stats.projects} projects completed · ${state.stats.arrests} leaders arrested</div>`);
 }
 function newGame(){
-  openModal('A new mandate','CAMPAIGN SETUP',`<div class="province-card"><img src="${ART.province}" alt="Illustrated Santa Esperanza campaign map" width="160" height="106"><div><small>CAMPAIGN 01 / COASTAL CORRIDOR</small><h3>Santa Esperanza</h3><p>24 districts. Three entrenched networks.<br>Restore civilian control before the mandate expires.</p></div></div><p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
+  openModal('A new mandate','CAMPAIGN SETUP',`<div class="province-card"><img src="${ART.province}" alt="Illustrated Santa Esperanza campaign map" width="160" height="106"><div><small>CAMPAIGN 01 / COASTAL CORRIDOR</small><h3>Santa Esperanza</h3><p>120 districts. Five provinces. Nine rival cartels.<br>Restore civilian control before the mandate expires.</p></div></div><p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
     <div class="new-game-fields"><label>Difficulty<select id="new-difficulty">${Object.entries(DIFFICULTIES).map(([id,d])=>`<option value="${id}" ${id==='standard'?'selected':''}>${d.label}</option>`).join('')}</select></label><label>Campaign seed<input id="new-seed" inputmode="numeric" type="number" min="0" max="4294967295" value="${Math.floor(Math.random()*1000000)}"></label></div>
     ${hasCampaign?'<div class="confirmation">Starting a new operation replaces this device’s autosave. Export your current campaign first if you want to keep it.</div>':''}
     ${actionButton({action:'start-new',title:'Begin new operation',detail:'Start paused with a fresh provincial mandate',iconName:'flag',primary:true})}`);
@@ -329,7 +344,7 @@ function pauseMenu(){
     ${actionButton({action:'main-menu',title:'Return to main menu',detail:'Save progress and pause the operation',iconName:'home'})}`);
 }
 function credits(){
-  openModal('A province worth protecting','ABOUT CARTEL: CONTAINMENT',`<p>An original province strategy game about public trust, accountable security and dismantling fictional criminal networks.</p><h3>One province, many communities</h3><p>The illustrated map spans mountain settlements, woodland, farmland, civic centers, border roads and coastal ports. Every district has its own needs.</p><h3>Art direction</h3><p>Angular cut-paper scenery, ochre highlights, cream silhouettes and deep teal ink connect the province, its people and its institutions.</p><p>All characters, organizations and places in the campaign are fictional.</p>${actionButton({action:'close-modal',title:'Return',iconName:'arrow',primary:true})}`);
+  openModal('A province worth protecting','ABOUT CARTEL: CONTAINMENT',`<p>An original province strategy game about public trust, accountable security and dismantling fictional criminal networks.</p><h3>Five provinces, many communities</h3><p>The illustrated map spans mountain settlements, woodland, farmland, civic centers, border roads and coastal ports. Every district has its own needs.</p><h3>Art direction</h3><p>Angular cut-paper scenery, ochre highlights, cream silhouettes and deep teal ink connect the province, its people and its institutions.</p><p>All characters, organizations and places in the campaign are fictional.</p>${actionButton({action:'close-modal',title:'Return',iconName:'arrow',primary:true})}`);
 }
 function eventModal(){
   const event=EVENTS.find(e=>e.id===state.pendingEvent);if(!event)return;
@@ -337,7 +352,7 @@ function eventModal(){
 }
 function outcomeModal(){
   const won=state.outcome==='victory';lastOutcome=state.outcome;
-  openModal(won?'Civilian control restored':'The mandate has ended','CAMPAIGN REPORT',`<div class="outcome-banner">${icon(won?'flag':'scales')}<h3>${won?'Santa Esperanza holds.':'A difficult province.'}</h3><p>${won?'All three networks are dismantled, and civilian institutions have held the majority of districts for fourteen days.':state.trust<=0?'Public trust collapsed before lasting control could be established.':'The two-year mandate expired before both objectives were secured.'}</p></div><div class="outcome-stats"><div><strong>${state.day}</strong><small>Days elapsed</small></div><div><strong>${stableDistricts(state)}</strong><small>Districts stabilized</small></div><div><strong>${state.stats.arrests}</strong><small>Leaders arrested</small></div></div>
+  openModal(won?'Civilian control restored':'The mandate has ended','CAMPAIGN REPORT',`<div class="outcome-banner">${icon(won?'flag':'scales')}<h3>${won?'Santa Esperanza holds.':'A difficult province.'}</h3><p>${won?'All nine networks are dismantled, and civilian institutions have held the majority of districts for fourteen days.':state.trust<=0?'Public trust collapsed before lasting control could be established.':'The two-year mandate expired before both objectives were secured.'}</p></div><div class="outcome-stats"><div><strong>${state.day}</strong><small>Days elapsed</small></div><div><strong>${stableDistricts(state)}</strong><small>Districts stabilized</small></div><div><strong>${state.stats.arrests}</strong><small>Leaders arrested</small></div></div>
     ${actionButton({action:'new-game',title:'Start a new operation',detail:'Try another governor, seed or difficulty',iconName:'reset',primary:true})}${actionButton({action:'close-modal',title:'Review the province',detail:'Inspect the final campaign state',iconName:'map'})}`);
 }
 
@@ -365,15 +380,18 @@ document.addEventListener('click',event=>{
     pane='initiatives';category=button.dataset.category;dispatchUnit=null;$('#panel-content').scrollTop=0;render();
     if(innerWidth<=760)$('#panel-content').scrollIntoView({block:'start',behavior:'smooth'});
   }else if(a==='select'){
-    dispatchUnit=null;selectDistrict(Number(button.dataset.district));
-  }else if(a==='investigate'||a==='raid')command({type:a,district:selected});
+    dispatchUnit=null;selectDistrict(Number(button.dataset.district),button.dataset.network===undefined?null:Number(button.dataset.network));
+  }else if(a==='investigate'||a==='raid')command({type:a,district:selected,network:targetNetwork??dominantNetwork(state.districts[selected])});
   else if(a==='interdict')command({type:a,district:Number(button.dataset.district)});
   else if(a==='project')command({type:a,id:button.dataset.id,district:selected});
-  else if(a==='recruit')command({type:a,unitType:button.dataset.unitType});
+  else if(a==='recruit')command({type:a,unitType:button.dataset.unitType,district:recruitmentBase(state,selected)?selected:recruitmentBase(state,REGIONS[DISTRICTS[selected].region].hub)?REGIONS[DISTRICTS[selected].region].hub:HQ});
+  else if(a==='investigate-member'){const m=state.members.find(m=>m.id===button.dataset.member);if(m)command({type:'investigate',district:m.location,network:m.network});}
+  else if(a==='resupply')command({type:a,unit:Number(button.dataset.unit)});
+  else if(a==='capture-member'||a==='flip-member')command({type:a==='capture-member'?'capture':'flip',member:button.dataset.member});
   else if(a==='arrest')command({type:a,network:Number(button.dataset.network)});
   else if(a==='focus-unit'){pane='units';focusedUnit=Number(button.dataset.unit);render();}
   else if(a==='view-network'){
-    pane='networks';render();document.getElementById(`network-${button.dataset.network}`)?.scrollIntoView({block:'start',behavior:'smooth'});
+    pane='networks';focusedNetwork=Number(button.dataset.network);$('#panel-content').scrollTop=0;render();document.getElementById(`network-${button.dataset.network}`)?.scrollIntoView({block:'start',behavior:'smooth'});
   }else if(a==='dispatch'){
     dispatchUnit=Number(button.dataset.unit);focusedUnit=dispatchUnit;state.paused=true;render();
     if(innerWidth<=760)$('.map-area').scrollIntoView({block:'start',behavior:'smooth'});
@@ -381,8 +399,8 @@ document.addEventListener('click',event=>{
   else if(a==='pause'){
     if(state.pendingEvent!==null)eventModal();else command({type:'pause'},{quiet:true});
   }else if(a==='speed')command({type:a,speed:Number(button.dataset.speed)},{quiet:true});
-  else if(a==='zoom-in')map.setZoom(0.2);
-  else if(a==='zoom-out')map.setZoom(-0.2);
+  else if(a==='zoom-in')map.setZoom(0.45);
+  else if(a==='zoom-out')map.setZoom(-0.45);
   else if(a==='zoom-fit')map.fit();
   else if(a==='help')help();else if(a==='briefing')briefing();else if(a==='reports')reports();else if(a==='settings')settings();
   else if(a==='sound'){
@@ -404,6 +422,9 @@ document.addEventListener('click',event=>{
     const result=command({type:'event',choice:Number(button.dataset.choice)});if(result.ok){wasRunningBeforeModal=false;closeModal();}
   }
 });
+$('#region-focus').innerHTML='<option value="all">All five provinces</option>'+REGIONS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+$('#region-focus').addEventListener('change',event=>{if(event.target.value==='all')map.fit();else map.focusRegion(Number(event.target.value));});
+document.addEventListener('change',event=>{if(event.target.id==='faction-focus'){focusedNetwork=Number(event.target.value);$('#panel-content').scrollTop=0;render();}if(event.target.id==='district-network'){targetNetwork=Number(event.target.value);render();}});
 $('#map-layer').addEventListener('change',event=>{
   layer=event.target.value;render();
   $('#map-key').innerHTML=layer==='control'?'<span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span>':`<span>LIGHT: LOW ${layer==='support'?'SUPPORT':'INTELLIGENCE'}</span><span>DEEP GREEN: HIGH COVERAGE</span>`;

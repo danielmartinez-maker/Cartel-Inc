@@ -1,58 +1,45 @@
 // A deterministic legal-orders-only campaign driver for balance regression.
-// It never edits resources, threat, evidence or progress directly.
-import {createGame,act,tick,stableDistricts,arrestRequirements,totalThreat,localPower,serialize,restore} from '../src/engine.js';
-import {DISTRICTS,NETWORKS} from '../src/data.js';
+// It never edits campaign resources, evidence, locations or AI state.
+import {createGame,act,tick,stableDistricts,arrestRequirements,totalThreat,localPower,serialize,restore,leaderOf} from '../src/engine.js';
+import {DISTRICTS,REGIONS,MANDATE_DAYS,HQ} from '../src/data.js';
 import {fileURLToPath} from 'node:url';
-
-export function simulateCampaign({seed=72841,difficulty='standard',governor='cruz',maxDays=730}={}){
+export function simulateCampaign({seed=72841,difficulty='standard',governor='cruz',maxDays=MANDATE_DAYS}={}){
   let s=createGame({seed,difficulty,governor});
   const issue=a=>act(s,a).ok;
-  const scheduled=id=>s.completed.includes(id)||s.projects.some(p=>p.id===id);
+  const scheduled=(id,region=null)=>s.completed.includes(id)||region!==null&&s.regions[region].completed.includes(id)||s.projects.some(p=>p.id===id&&(region===null||p.region===region));
   for(let day=0;day<maxDays&&!s.outcome;day++){
-    if(s.pendingEvent){issue({type:'event',choice:1});}
-    if(s.units.length<4)issue({type:'recruit',unitType:'police'});
-    for(const id of ['analysis','prosecutors','outreach','integrity'])if(!scheduled(id))issue({type:'project',id,district:9});
-    for(const n of s.networks){
-      if(!n.captured){
-        const home=NETWORKS[n.id].home,d=s.districts[home];
-        if(n.evidence<65||d.intel<60)issue({type:'investigate',district:home});
-        if(!arrestRequirements(s,n.id).length)issue({type:'arrest',network:n.id});
-      }
-    }
-    const security=s.units.filter(u=>u.type!=='intel');
+    if(s.pendingEvent)issue({type:'event',choice:1});
+    // Secure core institutions before expanding the force and provincial programs.
+    for(const id of ['outreach','analysis','prosecutors','integrity','training','witness','finance','radio','logistics','oversight','audit'])if(!scheduled(id)&&s.money>45)issue({type:'project',id,district:HQ});
+    if(s.units.length<11&&s.money>70)issue({type:'recruit',unitType:s.units.length%3===0?'federal':'police'});
+    const security=s.units.filter(u=>u.type!=='intel'),assigned=new Set();
     for(const [index,u]of security.entries()){
       if(u.status!=='ready')continue;
-      const network=index%3,n=s.networks[network],home=NETWORKS[network].home;
-      const local=s.districts[u.district];
-      if(DISTRICTS[u.district].network===network&&local.threat>5){
-        if(local.intel<40)issue({type:'investigate',district:u.district});
-        else issue({type:'raid',district:u.district});
-        continue;
-      }
-      let target=home;
-      if(n.captured){
-        const targets=s.districts.filter(d=>DISTRICTS[d.id].network===network&&d.threat>0.5).sort((a,b)=>b.threat-a.threat);
-        if(targets.length)target=targets[0].id;
-        else continue;
-      }
-      if(u.district!==target)issue({type:'move',unit:u.id,district:target});
+      let nid=index%9;
+      if(s.networks[nid].dismantled)nid=s.networks.filter(n=>!n.dismantled&&!assigned.has(n.id)).sort((a,b)=>totalThreat(s,b.id)-totalThreat(s,a.id))[0]?.id;
+      if(nid===undefined)continue;assigned.add(nid);
+      const n=s.networks[nid],leader=leaderOf(s,nid),local=s.districts[u.district];
+      if((u.supply<48||u.fatigue>45)&&issue({type:'resupply',unit:u.id}))continue;
+      const target=n.captured?s.districts.filter(d=>d.cells[nid]>1).sort((a,b)=>b.cells[nid]-a.cells[nid]||a.id-b.id)[0]?.id:leader.location;
+      if(target===undefined)continue;
+      const d=s.districts[target];
+      if(!n.captured&&(n.evidence<65||d.intel<65||leader.watchedUntil<s.day+6)&&s.money>15)issue({type:'investigate',district:target,network:nid});
+      if(u.district!==target){issue({type:'move',unit:u.id,district:target});continue;}
+      if(s.operations.some(o=>o.district===target))continue;
+      if(!n.captured&&local.threat<=30&&n.cohesion<63&&!arrestRequirements(s,nid).length){issue({type:'arrest',network:nid});continue;}
+      if(local.threat>28||n.captured){
+        const cell=local.cells[nid]>1?nid:local.cells.indexOf(Math.max(...local.cells));
+        if(local.intel<40)issue({type:'investigate',district:target,network:nid});else issue({type:'raid',district:target,network:cell});
+      }else if(!n.captured&&n.cohesion>=63&&local.intel>=30)issue({type:'interdict',district:target,network:nid});
     }
+    // Civilian rollouts stabilize whole provinces without issuing 120 duplicate orders.
+    for(const r of REGIONS)for(const id of ['regional-water','regional-clinics','regional-administration'])if(!scheduled(id,r.id)&&s.money>100)issue({type:'project',id,district:r.hub});
     const intel=s.units.find(u=>u.type==='intel');
     if(intel?.status==='ready'){
-      const target=s.districts.filter(d=>d.threat>0&&d.intel<60).sort((a,b)=>b.threat-a.threat)[0];
-      if(target&&intel.district!==target.id)issue({type:'move',unit:intel.id,district:target.id});
-    }
-    // A local job program plus time and community outreach can establish support.
-    const quiet=s.districts.filter(d=>d.threat<25&&d.services<1&&!s.projects.some(p=>p.district===d.id&&['jobs','clinic','water'].includes(p.id))).sort((a,b)=>b.support-a.support);
-    const serviceCount=s.districts.filter(d=>d.services>0).length+s.projects.filter(p=>['jobs','clinic','water'].includes(p.id)).length;
-    if(serviceCount<19&&s.networks.filter(n=>n.captured).length>=2){
-      for(const d of quiet)if(issue({type:'project',id:'jobs',district:d.id}))break;
-    }
-    for(const d of s.districts.filter(d=>d.services>0&&d.support<60&&d.threat<25&&!d.completed.includes('water'))){
-      if(s.networks.every(n=>n.captured))if(issue({type:'project',id:'water',district:d.id}))break;
+      const target=s.networks.filter(n=>!n.captured).map(n=>leaderOf(s,n.id)).filter(m=>s.districts[m.location].intel<70).sort((a,b)=>s.districts[a.location].intel-s.districts[b.location].intel)[0];
+      if(target&&intel.district!==target.location)issue({type:'move',unit:intel.id,district:target.location});
     }
     tick(s,{force:true});
-    // Validate saves while work is in flight, not just at campaign creation.
     if(day%37===0)s=restore(serialize(s));
   }
   return s;
@@ -60,9 +47,7 @@ export function simulateCampaign({seed=72841,difficulty='standard',governor='cru
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   const runs=[];
   for(const difficulty of ['relaxed','standard','veteran'])for(const seed of [72841,4,197]){
-    const s=simulateCampaign({seed,difficulty});
-    runs.push({difficulty,seed,outcome:s.outcome,day:s.day,stable:stableDistricts(s),captured:s.stats.arrests,remainingThreat:Math.round(totalThreat(s)),trust:Math.round(s.trust),money:Math.round(s.money)});
+    const s=simulateCampaign({seed,difficulty});runs.push({difficulty,seed,outcome:s.outcome,day:s.day,stable:stableDistricts(s),arrests:s.stats.arrests,dismantled:s.networks.filter(n=>n.dismantled).length,remainingThreat:Math.round(totalThreat(s)),trust:Math.round(s.trust),money:Math.round(s.money)});
   }
-  console.table(runs);
-  if(runs.some(r=>r.outcome!=='victory'))process.exitCode=1;
+  console.table(runs);if(runs.some(r=>r.outcome!=='victory'))process.exitCode=1;
 }

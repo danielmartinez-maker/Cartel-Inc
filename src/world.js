@@ -1,4 +1,4 @@
-import {DISTRICTS,HQ,INITIATIVES} from './data.js';
+import {DISTRICTS,HQ,INITIATIVES,REGIONS} from './data.js';
 import {NEIGHBORS} from './geography.js';
 
 // Presentation uses its own deterministic geometry, never the campaign PRNG.
@@ -33,14 +33,10 @@ export function unitPose(unit,fraction=0,slot=0){
   }
   const d=DISTRICTS[unit.district];return {x:d.x+29+slot*21,y:d.y+1,angle:0};
 }
-export const CIVILIAN_ROUTES=NEIGHBORS.flatMap((neighbors,a)=>neighbors.filter(b=>a<b&&(a+b)%3!==0).map(b=>({
+export const CIVILIAN_ROUTES=NEIGHBORS.flatMap((neighbors,a)=>neighbors.filter(b=>a<b&&DISTRICTS[a].region===DISTRICTS[b].region&&(a+b)%3!==0).map(b=>({
   a,b,phase:((a*17+b*31)%97)/97,points:[[DISTRICTS[a].x,DISTRICTS[a].y],[DISTRICTS[b].x,DISTRICTS[b].y]],
 })));
-export const SEA_ROUTES=[
-  [[74,280],[65,420],[125,567],[240,685],[390,746]],
-  [[400,758],[565,766],[760,753],[982,728],[1093,642]],
-  [[1112,228],[1148,377],[1133,531],[1089,645]],
-];
+export const SEA_ROUTES=[[[1100,200],[1250,350],[1350,500]],[[1200,1450],[1450,1400],[2000,1450]],[[2100,750],[2150,1000],[2350,1100]],[[800,840],[550,900],[200,880]],[[3120,900],[3150,1100],[3200,1400]]];
 export function roadIsActive(s,route){
   const a=s.districts[route.a],b=s.districts[route.b];
   return a.threat<35&&b.threat<35&&route.phase<0.3+(a.support+b.support)/220;
@@ -52,8 +48,8 @@ export function atmosphere(seed,day){
   const rain=day>=7&&((Math.floor(day/14)*5+(seed%13))%7)<2;
   return {light,night,rain,label:rain?'Passing rain':night?'Clear skies':phase>=28&&phase<40?'Coastal haze':'Clear skies',shade:night?0.2:phase>=28&&phase<40?0.065:0};
 }
-export const projectDistrict=p=>INITIATIVES.find(i=>i.id===p.id)?.scope==='province'?HQ:p.district;
-const operationNames={investigate:'Investigation',raid:'Containment',interdict:'Asset disruption',arrest:'Leader arrest'};
+export const projectDistrict=p=>INITIATIVES.find(i=>i.id===p.id)?.scope==='province'?HQ:INITIATIVES.find(i=>i.id===p.id)?.scope==='region'?REGIONS[p.region].hub:p.district;
+const operationNames={investigate:'Investigation',raid:'Containment',interdict:'Asset disruption',arrest:'Leader arrest',capture:'Member arrest',flip:'Witness negotiation',resupply:'Unit resupply'};
 export function activeOrders(s){
   const orders=[
     ...s.operations.map(o=>({key:`operation-${o.district}`,district:o.district,label:operationNames[o.type],kind:'operation',...o})),

@@ -47,6 +47,6 @@ const solidSymbols={
 export const icon=(name,size=20)=>solidSymbols[name]
   ?`<svg class="icon icon-solid" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="${solidSymbols[name]}"/></svg>`
   :`<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.info}"/></svg>`;
-export const portrait=(index,extra='')=>`<span class="portrait portrait-${index} ${extra}" role="img" aria-label="Illustrated character portrait"></span>`;
+export const portrait=(index,extra='')=>`<span class="portrait portrait-${index%6} ${index>=6?'portrait-new':''} ${extra}" role="img" aria-label="Illustrated character portrait"></span>`;
 export const badge=index=>`<span class="art-badge badge-${index}" aria-hidden="true"></span>`;
 export const escapeHTML=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));

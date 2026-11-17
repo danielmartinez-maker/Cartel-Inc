@@ -1,7 +1,7 @@
-import {DISTRICTS,TERRAIN,LAND,NETWORKS} from './data.js';
+import {DISTRICTS,TERRAIN,LANDS,NETWORKS,REGIONS,MAP,TRANSPORT_LINKS} from './data.js';
 import {CELLS,polygonPath} from './geography.js';
 import {ART} from './assets.js';
-import {movementPlan} from './engine.js';
+import {movementPlan,dominantNetwork} from './engine.js';
 import {ConfrontationLayer} from './confrontation.js';
 import {CIVILIAN_ROUTES,SEA_ROUTES,roadIsActive,samplePolyline,unitPose,progressOf,atmosphere,projectDistrict,campaignSnapshot,campaignMilestones} from './world.js';
 
@@ -10,57 +10,34 @@ const node=(tag,attrs={},content='')=>{const n=document.createElementNS(ns,tag);
 const hash=(a,b)=>{const n=Math.sin(a*127.1+b*311.7)*43758.5453;return n-Math.floor(n);};
 export class ProvinceMap{
   constructor(element,onSelect,onUnit,onPreview=()=>{}){
-    this.element=element;this.onSelect=onSelect;this.onUnit=onUnit;this.layer='control';this.zoom=1;this.center=[590,400];
+    this.element=element;this.onSelect=onSelect;this.onUnit=onUnit;this.layer='control';this.zoom=1;this.center=[MAP.width/2,MAP.height/2];
     this.onPreview=onPreview;this.motion=true;this.ambientTime=0;this.effectTime=0;this.lastFrame=0;
     this.unitViews=new Map();this.ringViews=new Map();this.effects=[];this.dispatchUnit=null;this.previewDestination=null;
-    element.innerHTML=`<svg id="province-map" viewBox="0 0 1200 800" role="group" aria-label="Santa Esperanza province. Select a district for information and orders.">
+    element.innerHTML=`<svg id="province-map" viewBox="0 0 ${MAP.width} ${MAP.height}" role="group" aria-label="Five-province mandate. Select one of 120 districts for information and orders.">
       <defs>
-        <pattern id="sea-grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="#a5b89a" stroke-opacity=".07" stroke-width=".65"/></pattern>
+        <pattern id="sea-grid" width="90" height="90" patternUnits="userSpaceOnUse"><path d="M90 0H0V90" fill="none" stroke="#a5b89a" stroke-opacity=".08" stroke-width="1"/></pattern>
         <pattern id="contested" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="9" stroke="#9b5944" stroke-width="1" opacity=".18"/></pattern>
-        <filter id="land-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#001d19" flood-opacity=".35"/></filter>
-        <clipPath id="land-clip"><path d="${polygonPath(LAND)}"/></clipPath>
-        <mask id="sea-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="1200" height="800"><rect width="1200" height="800" fill="white"/><path d="${polygonPath(LAND)}" fill="black"/></mask>
+        <clipPath id="land-clip"><path d="${LANDS.map(polygonPath).join(' ')}"/></clipPath>
+        <mask id="sea-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${MAP.width}" height="${MAP.height}"><rect width="100%" height="100%" fill="white"/><path d="${LANDS.map(polygonPath).join(' ')}" fill="black"/></mask>
         ${CELLS.map((p,i)=>`<clipPath id="clip-${i}"><path d="${polygonPath(p)}"/></clipPath>`).join('')}
       </defs>
-      <rect class="ocean" x="-2000" y="-2000" width="5200" height="4800" fill="#0b3632"/>
-      <rect x="-2000" y="-2000" width="5200" height="4800" fill="url(#sea-grid)"/>
-      <g class="sea-lines" fill="none" stroke="#88a98d" stroke-width=".8" opacity=".2">
-        <path d="M90 170Q40 330 75 485T292 731M74 160Q20 330 57 493T281 747M60 148Q1 330 39 500T269 765"/>
-        <path d="M1035 560Q1030 661 913 736T674 730m374-162q-10 112-126 183t-250-1"/>
-      </g>
-      <g class="sea-life" mask="url(#sea-mask)" pointer-events="none" aria-hidden="true">
-        <g class="water-ripples">${[[86,370],[126,626],[500,748],[1000,730],[1109,425]].map(([x,y],i)=>`<g transform="translate(${x} ${y})"><ellipse class="water-ripple" rx="31" ry="7" style="animation-delay:-${i*1.3}s"/><ellipse class="water-ripple" rx="19" ry="4" style="animation-delay:-${i*1.3+2}s"/></g>`).join('')}</g>
-        <g id="harbor-boats">${SEA_ROUTES.map((_,i)=>`<g class="harbor-boat" data-boat="${i}"><path class="boat-wake" d="M-22-4L-10-2M-25 4L-10 2"/><path class="boat-hull" d="M-8-3H7L10 0 7 3H-8Z"/><path class="boat-sail" d="M-2-1L-2-9 5-1Z"/></g>`).join('')}</g>
-      </g>
-      <text class="sea-label" x="110" y="650" transform="rotate(33 110 650)">MAR DE LA CALMA</text>
-      <text class="map-geographic-label" x="796" y="61">NORTHERN TERRITORIES</text>
-      <path d="${polygonPath(LAND)}" fill="#dfc497" stroke="#eacb90" stroke-width="6" filter="url(#land-shadow)"/>
-      <image class="province-art" href="${ART.province}" x="0" y="0" width="1200" height="800" preserveAspectRatio="none" clip-path="url(#land-clip)" pointer-events="none"/>
-      <g id="districts"></g>
-      <g clip-path="url(#land-clip)" class="cartography" pointer-events="none">
-        <path class="river river-border" d="M735 105C678 179 722 201 646 250S713 356 610 410 655 498 565 551 607 659 541 715"/>
-        <path class="river" d="M735 105C678 179 722 201 646 250S713 356 610 410 655 498 565 551 607 659 541 715"/>
-        <path class="road road-border" d="M274 568L323 435 375 307 515 305 657 316 802 329 978 282M657 316L614 464 685 591 930 614M323 435L468 434 614 464 763 465 958 411M240 177L390 184 540 165 700 180 847 203 978 282"/>
-        <path class="road" d="M274 568L323 435 375 307 515 305 657 316 802 329 978 282M657 316L614 464 685 591 930 614M323 435L468 434 614 464 763 465 958 411M240 177L390 184 540 165 700 180 847 203 978 282"/>
-      </g>
-      <g id="terrain" pointer-events="none"></g>
+      <rect class="ocean" x="-2000" y="-2000" width="7300" height="5900" fill="#0b3632"/>
+      <rect width="${MAP.width}" height="${MAP.height}" fill="url(#sea-grid)"/>
+      <g class="sea-life" mask="url(#sea-mask)" pointer-events="none" aria-hidden="true"><g id="harbor-boats">${SEA_ROUTES.map((_,i)=>`<g class="harbor-boat" data-boat="${i}"><path class="boat-wake" d="M-22-4L-10-2M-25 4L-10 2"/><path class="boat-hull" d="M-8-3H7L10 0 7 3H-8Z"/><path class="boat-sail" d="M-2-1L-2-9 5-1Z"/></g>`).join('')}</g></g>
+      <g class="transport-corridors" pointer-events="none">${TRANSPORT_LINKS.map(({a,b,days})=>`<path d="M${DISTRICTS[a].x} ${DISTRICTS[a].y}L${DISTRICTS[b].x} ${DISTRICTS[b].y}"><title>Transport corridor · ${days} days</title></path>`).join('')}</g>
+      <path d="${LANDS.map(polygonPath).join(' ')}" fill="#dfc497" stroke="#eacb90" stroke-width="5"/>
+      <image class="province-art" href="${ART.province}" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" clip-path="url(#land-clip)" pointer-events="none"/>
+      <g id="districts"></g><g id="terrain" pointer-events="none"></g>
       <g class="civilian-traffic" clip-path="url(#land-clip)" pointer-events="none" aria-hidden="true">${CIVILIAN_ROUTES.map((r,i)=>`<g data-traffic="${i}"><path class="civilian-link" d="M${r.points.map(p=>p.join(',')).join('L')}"/><g class="civilian-vehicle"><path class="vehicle-trail" d="M-10 0H-3"/><rect x="-3" y="-1.5" width="6" height="3" rx="1"/></g></g>`).join('')}</g>
-      <g class="province-atmosphere" pointer-events="none" aria-hidden="true">
-        <rect class="world-shade" width="1200" height="800" clip-path="url(#land-clip)"/>
-        <g class="clouds" clip-path="url(#land-clip)">${[0,1,2].map(i=>`<g class="cloud-bank" data-cloud="${i}"><path d="M-100 0Q-110-13-78-15Q-65-36-26-22Q-5-46 32-25Q62-36 73-15Q112-17 108 0Z"/><path d="M-75 5Q-30 14 84 5"/></g>`).join('')}</g>
-        <g class="rain-streaks" clip-path="url(#land-clip)">${Array.from({length:26},(_,i)=>`<path class="rain-streak" d="M${170+(i*137)%850} ${110+(i*67)%550}l-4 13" style="animation-delay:-${i*.13}s"/>`).join('')}</g>
-        <g class="bird-flocks">${[0,1,2].map(i=>`<g class="bird-flock" data-flock="${i}">${[[-9,2],[0,0],[10,5]].map(([x,y])=>`<path class="bird-wing" transform="translate(${x} ${y})" d="M-4 0Q-2-3 0 0Q2-3 4 0"/>`).join('')}</g>`).join('')}</g>
+      <g class="province-atmosphere" pointer-events="none" aria-hidden="true"><rect class="world-shade" width="${MAP.width}" height="${MAP.height}" clip-path="url(#land-clip)"/>
+        <g class="clouds" clip-path="url(#land-clip)">${Array.from({length:10},(_,i)=>`<g class="cloud-bank" data-cloud="${i}"><path d="M-100 0Q-110-13-78-15Q-65-36-26-22Q-5-46 32-25Q62-36 73-15Q112-17 108 0Z"/><path d="M-75 5Q-30 14 84 5"/></g>`).join('')}</g>
+        <g class="rain-streaks" clip-path="url(#land-clip)">${Array.from({length:90},(_,i)=>`<path class="rain-streak" d="M${170+(i*137)%2900} ${110+(i*167)%1650}l-4 13" style="animation-delay:-${i*.13}s"/>`).join('')}</g>
+        <g class="bird-flocks">${REGIONS.map((_,i)=>`<g class="bird-flock" data-flock="${i}">${[[-9,2],[0,0],[10,5]].map(([x,y])=>`<path class="bird-wing" transform="translate(${x} ${y})" d="M-4 0Q-2-3 0 0Q2-3 4 0"/>`).join('')}</g>`).join('')}</g>
       </g>
-      <g id="service-markers" pointer-events="none"></g>
-      <g id="work-markers" pointer-events="none"></g>
-      <g id="settlements" pointer-events="none"></g>
+      <g id="service-markers" pointer-events="none"></g><g id="work-markers" pointer-events="none"></g><g id="settlements" pointer-events="none"></g>
       <g class="town-lights" pointer-events="none" aria-hidden="true">${DISTRICTS.filter(d=>['urban','capital','port'].includes(d.terrain)).map(d=>`<g transform="translate(${d.x} ${d.y})">${[[12,-12],[20,-7],[-15,-9],[-10,8]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g>`).join('')}</g>
-      <g id="unit-paths" pointer-events="none"></g>
-      <path id="route-preview-line" pointer-events="none" hidden/>
-      <g id="units"></g>
-      <g id="map-effects" pointer-events="none" aria-hidden="true"></g>
-      <g class="compass" transform="translate(1091 651)" pointer-events="none"><path d="M0-31L8 3 0-1-8 3ZM0 25L-7 0 0 4 7 0Z" fill="#385e54"/><path d="M-23 0H23M0-24V24" stroke="#385e54" stroke-width=".8"/><circle r="17" fill="none" stroke="#385e54" stroke-width=".7"/><text y="-40" text-anchor="middle">N</text></g>
-      <g class="scale" transform="translate(100 728)" pointer-events="none"><path d="M0-5v5h100v-5M50 0v-5" stroke="#406056" fill="none" stroke-width="1.5"/><text x="0" y="17">0</text><text x="82" y="17">20 km</text></g>
+      <g class="region-labels" pointer-events="none">${REGIONS.map(r=>`<text x="${r.x+600}" y="${r.y+765}" text-anchor="middle">${r.name.toUpperCase()}<tspan x="${r.x+600}" dy="27">24 DISTRICTS / ${r.subtitle.toUpperCase()}</tspan></text>`).join('')}</g>
+      <g id="unit-paths" pointer-events="none"></g><path id="route-preview-line" pointer-events="none" hidden/><g id="units"></g><g id="map-effects" pointer-events="none" aria-hidden="true"></g>
     </svg>`;
     this.svg=element.querySelector('svg');
     this.confrontations=new ConfrontationLayer(this.svg);
@@ -105,17 +82,19 @@ export class ProvinceMap{
       if(!drag||this.zoom===1)return;
       const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
       if(Math.hypot(dx,dy)<5)return;this.wasDragged=true;
-      const ratio=1200/this.svg.getBoundingClientRect().width/this.zoom;
-      this.center=[Math.max(300,Math.min(900,drag.center[0]-dx*ratio)),Math.max(230,Math.min(570,drag.center[1]-dy*ratio))];this.setView();
+      const ratio=MAP.width/this.svg.getBoundingClientRect().width/this.zoom;
+      this.center=[Math.max(0,Math.min(MAP.width,drag.center[0]-dx*ratio)),Math.max(0,Math.min(MAP.height,drag.center[1]-dy*ratio))];this.setView();
     });
-    window.addEventListener('pointerup',()=>{drag=null;});
+    window.addEventListener('pointerup',()=>{drag=null;});this.setView();
   }
   setView(){
-    const w=1200/this.zoom,h=800/this.zoom;
+    const w=MAP.width/this.zoom,h=MAP.height/this.zoom;
+    this.svg.classList.toggle('country-view',this.zoom<2.2);
     this.svg.setAttribute('viewBox',`${this.center[0]-w/2} ${this.center[1]-h/2} ${w} ${h}`);
   }
-  setZoom(delta){this.zoom=Math.max(1,Math.min(2.2,this.zoom+delta));if(this.zoom===1)this.center=[590,400];this.setView();return this.zoom;}
-  fit(){this.zoom=1;this.center=[590,400];this.setView();}
+  setZoom(delta){this.zoom=Math.max(1,Math.min(5,this.zoom+delta));if(this.zoom===1)this.center=[MAP.width/2,MAP.height/2];this.setView();return this.zoom;}
+  fit(){this.zoom=1;this.center=[MAP.width/2,MAP.height/2];this.setView();}
+  focusRegion(id){const r=REGIONS[id];if(!r)return;this.zoom=2.65;this.center=[r.x+600,r.y+400];this.setView();}
   setMotion(enabled){this.motion=enabled;this.svg.dataset.motion=String(enabled);this.confrontations.setMotion(enabled);if(!enabled){this.effects.forEach(e=>e.element.remove());this.effects=[];}}
   previewRoute(destination){
     this.previewDestination=destination;const line=this.svg.querySelector('#route-preview-line');
@@ -155,7 +134,7 @@ export class ProvinceMap{
       m.querySelector('.district-aura').setAttribute('class',`district-aura ${d.id===selected?'active':stable?'stable':''}`);
       m.querySelector('.district-hub').setAttribute('fill',d.id===9?'#134d3c':d.threat>=25?'#a35230':stable?'#326f4c':'#fff0c5');
       m.querySelector('.population-dots').setAttribute('fill',stable?'#246147':d.threat>=25?'#9d4d2c':'#405a40');
-      m.querySelector('.enemy-dots').innerHTML=d.threat>=12?Array.from({length:Math.min(5,Math.ceil(d.threat/12))},(_,i)=>`<circle cx="${i*6.5}" r="2.8" fill="${NETWORKS[def.network].color}" stroke="#f0d8ba" stroke-width=".6"/>`).join(''):'';
+      m.querySelector('.enemy-dots').innerHTML=d.threat>=12?Array.from({length:Math.min(5,Math.ceil(d.threat/12))},(_,i)=>`<circle cx="${i*6.5}" r="2.8" fill="${NETWORKS[dominantNetwork(d)].color}" stroke="#f0d8ba" stroke-width=".6"/>`).join(''):'';
       const dots=m.querySelector('.enemy-dots');dots.classList.toggle('active-cell',d.threat>=25);
     }
     const services=s.districts.map(d=>`${d.id}:${d.services}:${d.completed.join(',')}`).join('|');
@@ -240,8 +219,8 @@ export class ProvinceMap{
       vehicle.style.opacity=Math.min(1,t*12,(1-t)*12);
     }
     this.boats.forEach((boat,i)=>{const t=(time/(48+i*9)+i*.29)%1,p=samplePolyline(SEA_ROUTES[i],t);boat.setAttribute('transform',`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.angle.toFixed(1)})`);boat.style.opacity=Math.min(.9,t*10,(1-t)*10);});
-    this.clouds.forEach((cloud,i)=>cloud.setAttribute('transform',`translate(${120+((time*(4+i)+i*330)%1080)} ${180+i*175}) scale(${1+i*.18} .75)`));
-    this.flocks.forEach((flock,i)=>flock.setAttribute('transform',`translate(${170+((time*(7+i)+i*295)%850)} ${175+i*170+Math.sin(time*.22+i)*35})`));
+    this.clouds.forEach((cloud,i)=>{const r=REGIONS[Math.floor(i/2)];cloud.setAttribute('transform',`translate(${r.x+100+((time*(4+i%2)+i*330)%1000)} ${r.y+180+(i%2)*300}) scale(1.4 .8)`);});
+    this.flocks.forEach((flock,i)=>{const r=REGIONS[i];flock.setAttribute('transform',`translate(${r.x+170+((time*(7+i)+i*295)%850)} ${r.y+175+Math.sin(time*.22+i)*35})`);});
     this.updateOrders(fraction);
     this.confrontations.frame(delta,{visible,running:this.svg.dataset.running==='true'});
     this.effects=this.effects.filter(effect=>{if(this.effectTime-effect.born>4){effect.element.remove();return false;}return true;});

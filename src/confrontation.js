@@ -1,4 +1,4 @@
-import {DISTRICTS,NETWORKS} from './data.js';
+import {DISTRICTS,NETWORKS,MANDATE_DAYS,MAX_UNITS} from './data.js';
 import {bounded,progressOf,unitPose} from './world.js';
 
 export const RESULT_LABELS=Object.freeze({cleared:'CELL CONTAINED',suppressed:'CELL WEAKENED',evaded:'CELL EVADED'});
@@ -7,12 +7,12 @@ export function activeConfrontations(s){
   return s.operations.filter(o=>o.type==='raid'&&s.districts[o.district]?.threat>0).flatMap(o=>{
     const unit=s.units.find(u=>u.id===o.unit&&u.type!=='intel'&&u.status==='operating'&&u.district===o.district);
     if(!unit)return [];
-    return [{key:`${o.district}:${o.unit}:${s.day-(o.total-o.remaining)}`,district:o.district,unit,operation:o,network:DISTRICTS[o.district].network,
-      members:Math.max(1,Math.min(5,Math.ceil(s.districts[o.district].threat/12)))}];
+    return [{key:`${o.district}:${o.unit}:${s.day-(o.total-o.remaining)}`,district:o.district,unit,operation:o,network:o.network??DISTRICTS[o.district].network,
+      members:Math.max(1,Math.min(5,Math.ceil((s.districts[o.district].cells?.[o.network]??s.districts[o.district].threat)/12)))}];
   });
 }
 export function encounterResults(log){
-  return log.filter(l=>Number.isInteger(l.day)&&l.day>=0&&l.day<=730&&l.encounter&&Object.hasOwn(RESULT_LABELS,l.encounter.result)&&Number.isInteger(l.encounter.district)&&DISTRICTS[l.encounter.district]&&Number.isInteger(l.encounter.unit)&&l.encounter.unit>0)
+  return log.filter(l=>Number.isInteger(l.day)&&l.day>=0&&l.day<=MANDATE_DAYS&&l.encounter&&Object.hasOwn(RESULT_LABELS,l.encounter.result)&&Number.isInteger(l.encounter.district)&&DISTRICTS[l.encounter.district]&&Number.isInteger(l.encounter.unit)&&l.encounter.unit>0)
     .map(l=>({day:l.day,...l.encounter}));
 }
 // Bursts illustrate an active confrontation; they are not per-hit damage events.
@@ -83,7 +83,7 @@ export class ConfrontationLayer{
     // A district keeps only its latest outcome, with a hard province-wide cap.
     for(const [oldKey,view]of this.results)if(view.event.district===event.district){view.element.remove();this.results.delete(oldKey);}
     this.results.set(key,{element:g,event,timeline:new EncounterTimeline(),dots:g.querySelector('.resolution-dots'),ring:g.querySelector('.resolution-ring')});
-    while(this.results.size>6){const key=this.results.keys().next().value;this.results.get(key).element.remove();this.results.delete(key);}
+    while(this.results.size>MAX_UNITS){const key=this.results.keys().next().value;this.results.get(key).element.remove();this.results.delete(key);}
   }
   paint(){
     for(const view of this.views.values()){

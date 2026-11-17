@@ -1,66 +1,70 @@
 # Cartel: Containment
 
-A playable, original JavaScript province strategy game about restoring civilian control and dismantling three fictional cartel networks. Inspired by the readability and competing priorities of province stabilization games, with its own map, rules, characters, interface and artwork.
+An original JavaScript strategy game about restoring civilian control across five fictional provinces. The v0.5 campaign expands the playable land and district count by exactly 5×: 120 districts, nine rival cartels, six organizational archetypes and 45 named members.
 
-![Living Santa Esperanza province and operational activity view](docs/living-province.jpg)
+The cut-paper terrain, portraits, cream symbols and animated dot formations follow the project's established art direction. All people, places and organizations are fictional.
 
-Screens: [confrontation animation](docs/confrontation-detail.gif) · [confrontation result](docs/confrontation-result.jpg) · [deployment preview](docs/deployment-preview.jpg) · [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
+## Play
 
-Artwork: [province painting](assets/santa-esperanza-map.webp) · [district scenes](assets/district-scenes.webp) · [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp)
-
-## Play locally
-
-Requires Node.js 20 or newer. There are **no runtime dependencies, installs, accounts or API keys**.
+Requires Node.js 20 or newer. No runtime dependencies, accounts or API keys.
 
 ```sh
 npm start
 ```
 
-Open **http://localhost:8080**. The main menu offers **Continue operation**, **New operation**, save import, the field manual and game information. A new operation lets you choose a governor, difficulty and seed. The illustrated loading screen prepares the artwork before opening command.
+Open http://localhost:8080. Choose **New operation**, a governor, difficulty and seed. Issue orders while paused, then press **Begin**. The main menu, loading screen, autosave, import/export, field manual and pause menu are included. Modules need a web server; opening the HTML directly through `file://` is unsupported.
 
-In the campaign, select districts on the map, issue orders, then press **Begin** to advance time. Use the book button for your mission briefing and the question mark for the field manual. Escape opens the pause menu; returning to the main menu saves progress and pauses time.
+Use the province selector for detailed regional command or **Fit province** for the country overview. All 120 districts are selectable. Ferry corridors connect the five land masses; deployments follow weighted routes with terrain, transport and road-repair costs.
 
-JavaScript modules require a web server. Opening `index.html` directly through `file://` is not supported. Any static web server works, including `python3 -m http.server 8080`.
+## The expanded simulation
 
-## The campaign
+| Layer | Campaign behavior |
+| --- | --- |
+| Communities | Support, intelligence, security, stability, prosperity, fear, displacement, institutions and delivered services interact over time. |
+| Cartel cells | Multiple rival factions can occupy one district. Operations target a particular faction; total threat is the sum of its cells. |
+| Organizations | Funds, cohesion, heat, logistics, evidence, territory, rival relations and temporary pacts shape decisions and recovery. |
+| Individual members | Each organization has a leader, lieutenant, financier, recruiter and fixer. Every member has a name, skill, loyalty, exposure, location and two traits. |
+| Security forces | Up to 18 units have supply, readiness and fatigue. Distant deployment and operations consume resources; a three-day resupply restores an exhausted unit. |
+| Government | Twenty policies and initiatives span local projects, provincial programs and mandate-wide institutions. Inflation, corruption, prosperity, weekly funding and upkeep affect the budget. |
 
-- A generated, illustrated province painting with 24 precisely interactive districts, eight terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence. Each district also has a terrain-specific scenery panel.
-- A main-menu panorama, saved-campaign summary, governor and mandate setup, pause menu and an illustrated loading screen. Loading progress follows actual image loads; failed artwork can be retried or skipped so the campaign remains playable.
-- A living province: civilian traffic responds to local threat, fishing boats follow coastal routes, birds and cloud shadows cross the terrain, and changing light brings town lights and occasional passing rain. Native dot and icon assets keep the map readable.
-- Smooth unit travel, animated route lines, investigation scans, construction progress rings, delivered-service stamps and map notifications for arrivals, completed work and changes in local control.
-- Animated confrontations during containment: cartel dots and security teams exchange bursts, reposition and throw up dust, with actual operation progress and distinct contained, weakened or evaded endings. Encounters pause with campaign time and become static with Map life off.
-- An Activity view combines projects, investigations, training and deployment in completion order, with threatened districts, mandate progress and weekly funding dates. During deployment, point to or keyboard-focus a district to see its exact route and ETA.
-- Three governors: Elena Cruz (civilian delivery), Rafael Ibarra (security power), and Lucía Vega (evidence and integrity).
-- Three fictional cartel networks, each with its own leader, regional cells, funding and case evidence. Networks recruit and can expand into neighboring, unprotected districts.
-- Federal units, police and intelligence teams. Movement takes time along connected districts. Recruitment, containment, investigations, asset disruption and leader arrests have real costs and prerequisites.
-- Sixteen local initiatives and province-wide policies across civilian affairs, security, intelligence and governance. Spending, inflation, corruption, weekly income and unit upkeep create competing priorities.
-- Provincial decisions, public trust, a two-year mandate, victory and defeat, three difficulty levels, and deterministic campaign seeds.
-- Local autosave, JSON export/import, keyboard access, optional generated sound cues, reduced-motion support and a responsive layout.
+### Cartel archetypes and AI
 
-The province painting, menu panorama, district scenery, character portraits and initiative emblems follow the approved art reference: angular cut-paper shapes, ochre highlights, cream silhouettes, deep teal ink and restrained paper grain. They were made with image generation and are included in the repo. Precise district boundaries, selection, status overlays, routes and unit markers remain code-native SVG above the painting. If the painting fails to load, the original terrain map remains available. See [artwork provenance](docs/ARTWORK.md).
+- **Territorial strongholds** favor difficult terrain, defenses and organizational cohesion.
+- **Mercantile networks** value ports, income, transport and arrangements with rivals.
+- **Clandestine cells** protect command locations, avoid exposure and relocate under pressure.
+- **Predatory enforcers** favor aggression, coercion and recruitment, creating fear and exposure.
+- **Patronage machines** exploit weak institutions and poor legitimate livelihoods.
+- **Mobile raiders** exploit vulnerable districts and withdraw from concentrated security pressure.
 
-## How to win
+The AI ranks affordable plans using current government presence, terrain, support, prosperity, institutions, resources, exposure, member capabilities and rival activity. It chooses among leading plans through the seeded campaign PRNG. Actions include fortification, recruitment, expansion, bribery, coercion, withdrawal, command relocation, attacks on rivals and temporary pacts. Decisions have real costs and effects. Each dossier records recent decisions and their reasons.
 
-Stabilize at least **18 of 24 districts**, dismantle **all three networks**, and hold both conditions for **14 consecutive days**.
+Fourteen member traits alter capabilities, loyalty or succession prospects. Removing a financier lowers income; a recruiter affects recruitment, a lieutenant defensive coordination, and a fixer bribery. Investigate a member's district to raise exposure, then capture them or negotiate a witness deal. Loyalty and witness protection affect deal success.
 
-A district needs at least 60% public support, less than 8% local threat, and either one delivered civilian service or 30% security. Its stability then builds over time; it counts as stabilized at 75% stability.
+Arresting a leader opens a succession window. A funded, cohesive organization with enough remaining territory and an active candidate can appoint a named successor. Disrupt its assets and specialist staff to prevent recovery. Succession promotes an existing member, leaving their old role vacant. It does not create an unlimited supply of new leaders.
 
-An arrest needs Special prosecutors, 65% case evidence, 60% intelligence at the leader's base, a ready security unit there, local threat no higher than 30%, and the arrest budget. Arresting a leader stops all further recruitment and expansion for that network. Its remaining cells must still be contained; the network is dismantled when its combined threat falls below one point.
+### Civilian control and logistics
 
-Lose if public trust reaches zero or the two-year mandate expires. All people, districts and organizations are fictional. Operations are abstract game mechanics.
+Provincial water and clinic programs deliver one eligible district per day after the program opens. Threatened districts wait until conditions improve; in-flight local deliveries are never duplicated. Regional administration improves institutions, supply and security, and opens a regional recruitment base. Secure police stations can also recruit locally.
 
-### First moves
+Prosperity expands the weekly tax base, while more units increase upkeep. Fear and displacement erode support. Institutions, services and permanent police presence help contain cells after units leave. Supply corridors, regional bases and the logistics policy sustain distant forces; supply, readiness and fatigue modify operational power.
 
-1. Investigate Sierra Alta, Puerto Viejo or La Frontera.
-2. Open **Forces**, press **Deploy** for ALPHA or BRAVO, and select a destination on the map. Advance time until arrival.
-3. Once local intelligence is at least 40%, carry out a containment operation.
-4. Fund services in quiet districts, and develop the provincial institutions needed to build cases against the leaders.
+### Objectives
 
-Space pauses or resumes during a campaign. Keys 1, 2 and 3 select 1×, 3× and 6× time. H opens the manual. Tab and Enter navigate controls and districts. Escape closes dialogs, cancels deployment or opens the pause menu. Decisions pause time until answered. Time never advances on the main menu or loading screen.
+Stabilize **90 of 120 districts**, dismantle **all nine networks**, and hold both conditions for **14 consecutive days**. The mandate lasts 1,095 days. A district counts as stable at 75% stability, at least 60% support and less than 8% total threat. Stability builds with a delivered civilian service or at least 30% security.
 
-**Map life** toggles ambient motion independently of the mandate. Civilian ambience can move while planning; unit travel and order progress stop when campaign time is paused. Changing light and weather are cosmetic. Reduced motion is respected, and the map preference is saved separately from campaign data. See [living-map behavior](docs/LIVING-MAP.md).
+Leader arrests require Special prosecutors, 65% case evidence, 60% local intelligence at the current leader location, at least 12 ready security power there, no more than 30% local threat, and the arrest budget. A captured organization is dismantled when its remaining total cell strength falls below three threat points. Public trust reaching zero or the mandate expiring causes defeat.
 
-## Develop and verify
+## Presentation and controls
+
+Animated confrontations show opposing dot formations, alternating bursts and dust, progress and confirmed operation results. Civilian traffic responds to local threat. Boats, birds, clouds, rain and changing light animate the country. Unit travel and work progress follow campaign time; decorative atmosphere does not affect the simulation or consume its randomness.
+
+Space pauses/resumes, 1/2/3 select time speeds, H opens the manual, and Escape closes a dialog, cancels deployment or opens the pause menu. Tab and Enter navigate districts and controls. Map life can be disabled and reduced motion is respected.
+
+Version-one saves migrate automatically: the original 24 districts, units, cases, resources and in-flight work are preserved while the wider campaign is added. Prior victories open the expanded mandate; prior defeats remain campaign reports. Imports are validated, and restored campaigns always pause.
+
+Artwork: [five-province terrain](assets/mandate-map.webp), [new leaders](assets/cartel-leaders.webp), [original portraits](assets/portraits-print.webp), [terrain scenes](assets/district-scenes.webp), [initiative emblems](assets/initiatives-print.webp). See [artwork provenance](docs/ARTWORK.md), [simulation design](docs/SIMULATION.md), [map animation](docs/LIVING-MAP.md) and [confrontation behavior](docs/CONFRONTATIONS.md).
+
+## Verify and build
 
 ```sh
 npm run check
@@ -70,27 +74,21 @@ npm run build
 node tools/serve.mjs --dist
 ```
 
-`npm test` runs 38 checks covering confrontation triggers and outcomes, animation pause and lifecycle timing, legacy save compatibility, the animation clock, route previews, activity ordering, milestone accuracy, artwork coverage, bounded asset loading, image failures, campaign rules, graph connectivity, resource guards, timed work, arrests, decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
+The 57 tests cover campaign rules, exact map area and connectivity, weighted routing, AI plans and costs, trait effects, pacts, succession, member capture and defection, multi-faction encounters, regional delivery, supply, recruitment, version-one migration, save validation, deterministic replay, loading failures and animation behavior. Five complete campaigns are played through legal orders in the suite. The separate balance driver runs nine campaigns across three seeds and three difficulties without granting resources or directly editing simulation state.
 
-`npm run build` copies the static release into `dist/`. Deploy that directory to any static host, preserving its relative paths. Asset URLs also work when hosted below a subdirectory. The development server supports `PORT=8081 npm start` or `node tools/serve.mjs --port=8081`.
-
-## Project structure
+The build copies the static release to `dist/`. Deploy its contents to any static host, preserving relative paths. Subdirectory hosting is supported. Use `PORT=8081 npm start` or `node tools/serve.mjs --port=8081` for another development port.
 
 | Path | Purpose |
 | --- | --- |
-| `src/engine.js` | Deterministic simulation, orders, victory and validated saves; no DOM dependency |
-| `src/data.js` | Campaign definitions, policies, fictional characters and decisions |
-| `src/geography.js` | Clipped district geometry, adjacency and route finding |
-| `src/map.js` | SVG cartography, units, map layers, selection, zoom and panning |
-| `src/world.js` | Presentation clock, motion sampling, civilian routes, weather, activity queue and milestones |
-| `src/confrontation.js` | Containment encounters, exchange timing and confirmed result effects |
-| `src/app.js` | Command interface, dialogs, clock, autosave and keyboard controls |
-| `src/assets.js` | Artwork manifest, bounded preloading, real progress and load failure handling |
-| `screens.css` | Main menu, loading screen, district scenery and illustrated map overlays |
-| `living-map.css` | Ambient life, operational animation, map controls and the Activity view |
-| `confrontation.css` | Security and cartel formations, tracers, contact dust and outcome styling |
-| `assets/` | Generated image atlases and favicon |
-| `tools/` | Static server, production build, syntax checks and legal-order campaign driver |
-| `tests/` | Node-based regression and campaign tests |
-
-This is a complete first campaign, not a copy of Rebel Inc. Future expansion can add more province maps, distinct network behaviors, longer policy trees and additional campaign events.
+| `src/simulation.js` | Campaign rules, resources, orders, progression and objectives |
+| `src/cartels.js` | Archetypes, members, traits, capabilities and faction cells |
+| `src/cartel-ai.js` | Ranked AI plans, decisions, diplomacy and succession |
+| `src/saves.js`, `src/legacy-save.js` | Validated version-two saves and version-one migration |
+| `src/engine.js` | DOM-independent public simulation API |
+| `src/data.js`, `src/geography.js` | Campaign definitions, exact district geometry and routing |
+| `src/map.js`, `src/world.js` | Map rendering, presentation clock, animation and activity |
+| `src/confrontation.js` | Confrontations and confirmed result effects |
+| `src/app.js` | Interface, dialogs, clock, autosave and keyboard controls |
+| `strategy.css` | Country overview, regional controls, logistics and dossiers |
+| `assets/`, `docs/` | Generated art, provenance and implementation notes |
+| `tests/`, `tools/` | Regression tests, legal-order balance driver and build tools |
