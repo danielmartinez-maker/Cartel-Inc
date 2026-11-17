@@ -56,7 +56,7 @@
 .loading-progress-label strong { font-weight: 400; color: #e0b86c; }
 #asset-progress { appearance: none; -webkit-appearance: none; width: 100%; height: 4px; display: block; border: 0; background: #3c5b47; color: #dfb46a; }
 #asset-progress::-webkit-progress-bar { background: #3c5b47; }
-#asset-progress::-webkit-progress-value { background: #dfb46a; transition: width .2s; }
+#asset-progress::-webkit-progress-value { background: #dfb46a; }
 #asset-progress::-moz-progress-bar { background: #dfb46a; }
 .loading-tip { font-size: 11px; line-height: 1.8; color: #a5b691; border-left: 2px solid #9d915b; padding-left: 14px; margin-top: 28px; }
 .loading-back { background: none; color: #d6bc84; padding: 12px 0; margin-top: 15px; font-size: 10px; }
@@ -84,7 +84,8 @@
 .map-art-ready[data-layer="control"] .stabilized .district-fill { fill-opacity: .35; }
 .map-art-ready[data-layer="control"] .selected .district-fill { fill-opacity: .22; }
 .map-art-ready[data-layer="support"] .district-fill, .map-art-ready[data-layer="intelligence"] .district-fill { fill-opacity: .9; }
-.map-art-ready .threat-fill { opacity: .35; }
+.map-art-ready .district:not(.hostile) .threat-fill { opacity: 0; }
+.map-art-ready .hostile .threat-fill { opacity: .35; }
 .map-art-ready #terrain, .map-art-ready .river, .map-art-ready .road-border { display: none; }
 .map-art-ready .road { stroke: #fff0c2; opacity: .48; stroke-width: 1; }
 .map-art-ready .district-name { fill: #fff0cb; stroke: #163f32; stroke-width: 2.8px; font-weight: 600; }
