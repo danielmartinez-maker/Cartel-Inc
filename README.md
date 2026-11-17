@@ -28,6 +28,7 @@ JavaScript modules require a web server. Opening `index.html` directly through `
 - A main-menu panorama, saved-campaign summary, governor and mandate setup, pause menu and an illustrated loading screen. Loading progress follows actual image loads; failed artwork can be retried or skipped so the campaign remains playable.
 - A living province: civilian traffic responds to local threat, fishing boats follow coastal routes, birds and cloud shadows cross the terrain, and changing light brings town lights and occasional passing rain. Native dot and icon assets keep the map readable.
 - Smooth unit travel, animated route lines, investigation scans, construction progress rings, delivered-service stamps and map notifications for arrivals, completed work and changes in local control.
+- Animated confrontations during containment: cartel dots and security teams exchange bursts, reposition and throw up dust, with actual operation progress and distinct contained, weakened or evaded endings. Encounters pause with campaign time and become static with Map life off.
 - An Activity view combines projects, investigations, training and deployment in completion order, with threatened districts, mandate progress and weekly funding dates. During deployment, point to or keyboard-focus a district to see its exact route and ETA.
 - Three governors: Elena Cruz (civilian delivery), Rafael Ibarra (security power), and Lucía Vega (evidence and integrity).
 - Three fictional cartel networks, each with its own leader, regional cells, funding and case evidence. Networks recruit and can expand into neighboring, unprotected districts.
@@ -69,7 +70,7 @@ npm run build
 node tools/serve.mjs --dist
 ```
 
-`npm test` runs 31 checks covering the animation clock, route previews, activity ordering, milestone accuracy, artwork coverage, bounded asset loading, image failures, campaign rules, graph connectivity, resource guards, timed work, arrests, decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
+`npm test` runs 38 checks covering confrontation triggers and outcomes, animation pause and lifecycle timing, legacy save compatibility, the animation clock, route previews, activity ordering, milestone accuracy, artwork coverage, bounded asset loading, image failures, campaign rules, graph connectivity, resource guards, timed work, arrests, decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
 
 `npm run build` copies the static release into `dist/`. Deploy that directory to any static host, preserving its relative paths. Asset URLs also work when hosted below a subdirectory. The development server supports `PORT=8081 npm start` or `node tools/serve.mjs --port=8081`.
 
@@ -82,10 +83,12 @@ node tools/serve.mjs --dist
 | `src/geography.js` | Clipped district geometry, adjacency and route finding |
 | `src/map.js` | SVG cartography, units, map layers, selection, zoom and panning |
 | `src/world.js` | Presentation clock, motion sampling, civilian routes, weather, activity queue and milestones |
+| `src/confrontation.js` | Containment encounters, exchange timing and confirmed result effects |
 | `src/app.js` | Command interface, dialogs, clock, autosave and keyboard controls |
 | `src/assets.js` | Artwork manifest, bounded preloading, real progress and load failure handling |
 | `screens.css` | Main menu, loading screen, district scenery and illustrated map overlays |
 | `living-map.css` | Ambient life, operational animation, map controls and the Activity view |
+| `confrontation.css` | Security and cartel formations, tracers, contact dust and outcome styling |
 | `assets/` | Generated image atlases and favicon |
 | `tools/` | Static server, production build, syntax checks and legal-order campaign driver |
 | `tests/` | Node-based regression and campaign tests |

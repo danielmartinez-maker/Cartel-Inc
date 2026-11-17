@@ -1,0 +1,27 @@
+# Confrontation animation, v0.4
+
+Containment orders now show a small encounter at the actual district and assigned security unit. Warm cream security markers face network-colored cartel dots. Alternating short trails, muzzle glows, contact dust and shifting formations make the confrontation readable at the normal province camera. A perimeter arc displays the order's actual progress. The unit remains selectable beneath the non-interactive effect layer.
+
+The active exchange is an illustration of the ongoing operation. The game resolves that operation once, using its existing chance, intelligence and power calculation. No individual shot adds damage, consumes randomness or changes the forecast.
+
+## Effect contract
+
+| Effect | Trigger and attachment | End and cleanup |
+| --- | --- | --- |
+| Confrontation formation | Accepted `raid` order, present operating federal/police unit, and positive local threat; district space with the security side anchored to the actual unit marker | Order disappears, unit no longer matches, local cell disappears, or campaign object changes |
+| Exchanges and dust | Two alternating releases in a 1.8-second loop; trail travels for 0.3 seconds before contact dust | Each contact fades after 0.32 seconds; no queued timers or released particles survive an interrupted encounter |
+| Progress perimeter | Actual order duration and remaining days | Removed with the encounter |
+| Contained/weakening ending | Engine success report tagged `cleared` or `suppressed` | Ring and dots fade over 3.2 seconds of running presentation time |
+| Evasion ending | Engine failure report tagged `evaded` | Dots retreat; ochre result label and ring fade on the same bounded lifetime |
+
+Results come from optional structured `encounter` metadata on the existing field-log entry. They distinguish successful weakening from evasion even though both can reduce threat. Metadata is validated on import; old version-1 saves without it still load. Already-saved results establish a baseline and are not replayed when a campaign opens.
+
+One persistent group belongs to each active encounter. Repeated UI renders update it rather than stacking effects. At most six active security units can own encounters, and the result pool is capped at six groups with one latest result per district. New campaigns clear both pools. Hidden views remove transient result groups and stop presentation updates. Motion-off removes result effects and retains static faction markers and order progress. Reduced-motion settings use the same static path.
+
+All confrontation motion freezes when campaign time is paused. Visibility and motion checks gate its separate presentation timeline, so the province's moving boats and clouds cannot advance a paused firefight. Existing SVG markers preserve keyboard input and pointer hit testing.
+
+## Verification
+
+Automated coverage checks valid raid ownership, exclusion of intelligence/disruption work, release-before-contact timing, pause/visibility/motion gates, the three engine outcomes, backward-compatible saves, malformed metadata rejection, and unchanged campaign resources and randomness. The nine legal-order balance runs retain the same victory days and resources as v0.3.
+
+These are original code-drawn SVG effects layered over the approved generated province artwork. No new external assets, providers or runtime dependencies are needed.

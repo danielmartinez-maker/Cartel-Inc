@@ -15,8 +15,8 @@ function random(s){
   let t=s.rng; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61);
   return ((t^(t>>>14))>>>0)/4294967296;
 }
-function report(s,text,kind='info'){
-  s.log.unshift({day:s.day,text,kind});
+function report(s,text,kind='info',encounter=null){
+  s.log.unshift({day:s.day,text,kind,...(encounter?{encounter}:{})});
   s.log=s.log.slice(0,70);
 }
 export function createGame({seed=72841,governor='cruz',difficulty='standard'}={}){
@@ -191,11 +191,11 @@ function finishOperation(s,o){
       const removed=22+o.power*0.55+d.intel*0.08;
       d.threat=clamp(d.threat-removed);d.security=clamp(d.security+12);d.support=clamp(d.support+4);
       d.intel=clamp(d.intel+7);n.evidence=clamp(n.evidence+8);n.funds=clamp(n.funds-9);
-      report(s,`Security operation succeeded in ${name}. ${d.threat<1?'The local cell was dismantled.':'Armed presence reduced.'}`,'success');
+      report(s,`Security operation succeeded in ${name}. ${d.threat<1?'The local cell was dismantled.':'Armed presence reduced.'}`,'success',{district:d.id,unit:o.unit,result:d.threat<1?'cleared':'suppressed'});
     }else{
       d.threat=clamp(d.threat-8);d.intel=clamp(d.intel+10);
       s.trust=clamp(s.trust-(has(s,'oversight')?1:3));
-      report(s,`The cell in ${name} evaded containment. New intelligence recovered; public confidence fell.`,'warning');
+      report(s,`The cell in ${name} evaded containment. New intelligence recovered; public confidence fell.`,'warning',{district:d.id,unit:o.unit,result:'evaded'});
     }
   }
   const unit=s.units.find(u=>u.id===o.unit);if(unit)unit.status='ready';
@@ -301,6 +301,7 @@ export function restore(text){
   assert(s.units.filter(u=>u.status==='operating').every(u=>s.operations.some(o=>o.unit===u.id)));
   assert(integer(s.nextEvent,0,1000)&&integer(s.eventCount,0,100)&&(s.pendingEvent===null||EVENTS.some(e=>e.id===s.pendingEvent)));
   assert(Array.isArray(s.log)&&s.log.length<=70&&s.log.every(l=>integer(l.day,0,730)&&typeof l.text==='string'&&l.text.length<1000&&['info','project','success','warning','decision'].includes(l.kind)));
+  assert(s.log.every(l=>l.encounter===undefined||(l.encounter&&typeof l.encounter==='object'&&!Array.isArray(l.encounter)&&integer(l.encounter.district,0,23)&&s.units.some(u=>u.id===l.encounter.unit&&u.type!=='intel')&&['cleared','suppressed','evaded'].includes(l.encounter.result))));
   assert(s.stats&&['raids','arrests','projects','spending'].every(k=>num(s.stats[k],0,100000)));
   s.paused=true;return s;
 }

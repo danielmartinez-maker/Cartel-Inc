@@ -74,5 +74,5 @@ test('map milestones describe completed work once and never claim a raid succeed
   assert.deepEqual(campaignMilestones(after,after),[]);
   const raidBefore={...after,operations:[{district:0,type:'raid'}]};
   const raidAfter={...after,day:after.day+1};
-  assert.deepEqual(campaignMilestones(raidBefore,raidAfter),[{district:0,text:'Operation resolved',kind:'info'}]);
+  assert.deepEqual(campaignMilestones(raidBefore,raidAfter),[{district:0,text:'Operation resolved',kind:'info',operation:'raid'}]);
 });

@@ -2,6 +2,7 @@ import {DISTRICTS,TERRAIN,LAND,NETWORKS} from './data.js';
 import {CELLS,polygonPath} from './geography.js';
 import {ART} from './assets.js';
 import {movementPlan} from './engine.js';
+import {ConfrontationLayer} from './confrontation.js';
 import {CIVILIAN_ROUTES,SEA_ROUTES,roadIsActive,samplePolyline,unitPose,progressOf,atmosphere,projectDistrict,campaignSnapshot,campaignMilestones} from './world.js';
 
 const ns='http://www.w3.org/2000/svg';
@@ -62,6 +63,7 @@ export class ProvinceMap{
       <g class="scale" transform="translate(100 728)" pointer-events="none"><path d="M0-5v5h100v-5M50 0v-5" stroke="#406056" fill="none" stroke-width="1.5"/><text x="0" y="17">0</text><text x="82" y="17">20 km</text></g>
     </svg>`;
     this.svg=element.querySelector('svg');
+    this.confrontations=new ConfrontationLayer(this.svg);
     this.svg.querySelector('.province-art').addEventListener('load',()=>this.svg.classList.add('map-art-ready'));
     this.svg.querySelector('.province-art').addEventListener('error',()=>this.svg.classList.remove('map-art-ready'));
     const groups=this.svg.querySelector('#districts');
@@ -114,7 +116,7 @@ export class ProvinceMap{
   }
   setZoom(delta){this.zoom=Math.max(1,Math.min(2.2,this.zoom+delta));if(this.zoom===1)this.center=[590,400];this.setView();return this.zoom;}
   fit(){this.zoom=1;this.center=[590,400];this.setView();}
-  setMotion(enabled){this.motion=enabled;this.svg.dataset.motion=String(enabled);if(!enabled){this.effects.forEach(e=>e.element.remove());this.effects=[];}}
+  setMotion(enabled){this.motion=enabled;this.svg.dataset.motion=String(enabled);this.confrontations.setMotion(enabled);if(!enabled){this.effects.forEach(e=>e.element.remove());this.effects=[];}}
   previewRoute(destination){
     this.previewDestination=destination;const line=this.svg.querySelector('#route-preview-line');
     const plan=this.dispatchUnit!==null&&destination!==null&&this.currentState?movementPlan(this.currentState,this.dispatchUnit,destination):null;
@@ -127,7 +129,8 @@ export class ProvinceMap{
     this.svg.dataset.layer=layer;
     if(this.currentState!==s){this.previous=null;this.effects.forEach(e=>e.element.remove());this.effects=[];}
     const snapshot=campaignSnapshot(s);
-    if(this.motion)for(const event of campaignMilestones(this.previous,snapshot))this.addMilestone(event);
+    const resolvedRaids=new Set((this.previous?.operations||[]).filter(o=>o.type==='raid'&&!snapshot.operations.some(n=>n.district===o.district)).map(o=>o.district));
+    if(this.motion)for(const event of campaignMilestones(this.previous,snapshot))if(!resolvedRaids.has(event.district))this.addMilestone(event);
     this.previous=snapshot;this.currentState=s;this.dispatchUnit=dispatchUnit;
     this.svg.classList.toggle('dispatching',dispatchUnit!==null);
     this.svg.dataset.running=String(!s.paused&&!s.outcome&&s.pendingEvent===null);
@@ -173,7 +176,8 @@ export class ProvinceMap{
       if(!view){
         const g=node('g',{role:'button',tabindex:0,'data-unit':u.id});
         const symbol=u.type==='intel'?'<circle r="3" fill="none" stroke="#f3e9cd"/><path d="M3 3l3 3" stroke="#f3e9cd"/>':u.type==='federal'?'<path d="M-4-3h8v4l-4 4-4-4Z" fill="none" stroke="#f3e9cd" stroke-width="1.2"/>':'<circle r="3" fill="#f3e9cd"/>';
-        g.innerHTML=`<circle r="14" class="unit-beacon"/><circle r="10" class="unit-shadow"/><circle r="8.5" class="unit-body"/>${symbol}<text class="unit-map-label" y="-18" text-anchor="middle">${u.name}</text>`;
+        g.innerHTML=`<circle r="14" class="unit-beacon"/><circle r="10" class="unit-shadow"/><circle r="8.5" class="unit-body"/>${symbol}<text class="unit-map-label" y="-18" text-anchor="middle"></text>`;
+        g.querySelector('.unit-map-label').textContent=u.name;
         g.addEventListener('click',e=>{e.stopPropagation();this.onUnit(u.id);});
         g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.onUnit(u.id);}});
         const route=node('path',{class:'unit-route'});routes.append(route);units.append(g);view={element:g,route};this.unitViews.set(u.id,view);
@@ -185,6 +189,11 @@ export class ProvinceMap{
       if(u.status==='moving')view.route.setAttribute('d','M'+u.path.map(id=>`${DISTRICTS[id].x},${DISTRICTS[id].y}`).join('L'));
     }
     for(const [id,view]of this.unitViews)if(!visible.has(id)){view.element.remove();view.route.remove();this.unitViews.delete(id);}
+    this.confrontations.sync(s,this.unitViews);
+    const engagedDistricts=this.confrontations.districts,engagedUnits=this.confrontations.units;
+    this.markers.forEach((marker,id)=>marker.classList.toggle('engaged',engagedDistricts.has(id)));
+    for(const [id,view]of this.unitViews)view.element.classList.toggle('engaged',engagedUnits.has(id));
+    for(const view of this.ringViews.values())view.element.classList.toggle('has-confrontation',view.item.type==='raid'&&engagedDistricts.has(view.item.district));
     this.updateOrders(this.motion?fraction:0);this.previewRoute(this.previewDestination);
   }
   renderWork(s){
@@ -220,6 +229,7 @@ export class ProvinceMap{
   }
   frame(now,{visible,fraction=0}){
     if(this.svg.dataset.active!==String(visible))this.svg.dataset.active=String(visible);
+    if(!visible)this.confrontations.suspend();
     if(!visible||!this.motion||now-this.lastFrame<32)return;
     const delta=Math.min(100,now-(this.lastFrame||now))/1000;this.lastFrame=now;
     this.ambientTime+=delta;this.effectTime+=delta;
@@ -233,6 +243,7 @@ export class ProvinceMap{
     this.clouds.forEach((cloud,i)=>cloud.setAttribute('transform',`translate(${120+((time*(4+i)+i*330)%1080)} ${180+i*175}) scale(${1+i*.18} .75)`));
     this.flocks.forEach((flock,i)=>flock.setAttribute('transform',`translate(${170+((time*(7+i)+i*295)%850)} ${175+i*170+Math.sin(time*.22+i)*35})`));
     this.updateOrders(fraction);
+    this.confrontations.frame(delta,{visible,running:this.svg.dataset.running==='true'});
     this.effects=this.effects.filter(effect=>{if(this.effectTime-effect.born>4){effect.element.remove();return false;}return true;});
   }
 }

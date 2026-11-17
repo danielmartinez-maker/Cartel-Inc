@@ -83,7 +83,7 @@ export function campaignMilestones(before,after){
     if(u.status==='ready'&&['moving','training'].includes(old?.status))events.push({district:u.district,text:`${u.name} ${old.status==='moving'?'arrived':'ready'}`,kind:'info'});
   }
   for(const o of before.operations){
-    if(!after.operations.some(n=>n.district===o.district))events.push({district:o.district,text:o.type==='investigate'?'Intelligence updated':o.type==='arrest'?'Leader in custody':'Operation resolved',kind:o.type==='raid'?'info':'success'});
+    if(!after.operations.some(n=>n.district===o.district))events.push({district:o.district,text:o.type==='investigate'?'Intelligence updated':o.type==='arrest'?'Leader in custody':'Operation resolved',kind:o.type==='raid'?'info':'success',operation:o.type});
   }
   for(const id of after.completed.filter(id=>!before.completed.includes(id)))events.push({district:HQ,text:INITIATIVES.find(i=>i.id===id).name+' active',kind:'success'});
   return events.slice(0,8);
