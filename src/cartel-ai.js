@@ -77,6 +77,9 @@ export function stepCartels(s,random,report){
       if(n.captured&&total(s,n.id)<3){
         n.dismantled=true;n.cohesion=0;for(const d of s.districts)alterCell(d,n.id,-d.cells[n.id]);
         for(const m of s.members.filter(m=>m.network===n.id&&m.status==='active'))m.status='defected';
+        const cancelled=s.operations.filter(o=>o.network===n.id&&o.type!=='resupply');
+        for(const o of cancelled){const unit=s.units.find(u=>u.id===o.unit);if(unit)unit.status='ready';}
+        s.operations=s.operations.filter(o=>o.network!==n.id||o.type==='resupply');
         s.trust=clamp(s.trust+4);report(s,`${NETWORKS[n.id].name} has been dismantled. Remaining members have abandoned the organization.`,'success');
       }
       if(n.captured)continue;

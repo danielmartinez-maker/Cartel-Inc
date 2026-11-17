@@ -61,6 +61,12 @@ const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
   const preview=$('#route-preview');preview.hidden=!plan||dispatchUnit===null;
   if(plan){const unit=state.units.find(u=>u.id===dispatchUnit);preview.innerHTML=`<strong>${esc(unit?.name||'Unit')} → ${DISTRICTS[destination].name}</strong>${plan.ok?`${plan.days} days · ${plan.path.length-1} district crossings`:'Unavailable'}<small>${plan.ok?'Select this district to dispatch.':esc(plan.message)}</small>`;}
 });
+map.onView=id=>{
+  const r=id===null?null:REGIONS[id];$('#region-focus').value=id===null?'all':String(id);
+  $('.map-heading h1').textContent=r?r.name:'Santa Esperanza';
+  $('.map-heading .eyebrow').textContent=r?`PROVINCE ${r.id+1} / ${r.subtitle.toUpperCase()}`:'FIVE PROVINCES / ONE MANDATE';
+  $('.map-heading p').textContent=r?'24 districts in the wider 120-district mandate.':'120 districts. Nine rival organizations.';
+};
 map.setMotion(mapMotion);
 reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches||!customMotion){mapMotion=!reducedMotion.matches;map.setMotion(mapMotion);render();}});
 $('#brand-mark').innerHTML=badge(0);
@@ -156,7 +162,7 @@ function districtPanel(){
   if(selected===HQ&&state.day===0)priority='Your headquarters is secure. Investigate a district with cartel presence, then send ALPHA to contain it.';
   return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[def.terrain].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[def.terrain]}"></div><span>${TERRAIN[def.terrain].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / ${DISTRICTS.length}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
     <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${REGIONS[def.region].name}</span><span>${icon('people')}${def.population},000 residents</span></div>
-    <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><details class="civilian-details"><summary>Community conditions</summary>${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Displacement',d.displacement,'threat')}${bar('Institutions',d.institutions)}<p>Supply access: ${Math.round(supplyScore(state,selected))}%. Fear and displacement weaken support. Prosperity and institutions constrain recruitment.</p></details><label class="target-label">TARGET FACTION<select id="district-network">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])} threat</option>`).join('')}</select></label>
+    <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><details class="civilian-details"><summary>Community conditions</summary>${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Displacement',d.displacement,'threat')}${bar('Institutions',d.institutions)}<p>Supply access: ${Math.round(supplyScore(state,selected))}%. Fear and displacement weaken support. Prosperity and institutions constrain recruitment.</p></details><label class="target-label">TARGET FACTION<select id="district-network" aria-label="Target faction">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])} threat</option>`).join('')}</select></label>
     <div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
     ${op?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway',capture:'Member arrest underway',flip:'Witness negotiation underway',resupply:'Resupply underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[op?.network??nid].color}"></i>${NETWORKS[op?.network??nid].name}</span></div>`:''}</div>`:''}
     ${actionButton({action:'investigate',title:'Gather intelligence',detail:'4 days · build intelligence & case evidence',iconName:'eye',cost:`$${projectCost(state,6)}`,disabled:!!investigateReason,primary:true})}
@@ -206,7 +212,7 @@ function networksPanel(){
   const def=NETWORKS[focusedNetwork],n=state.networks[focusedNetwork],leader=leaderOf(state,n.id),archetype=ARCHETYPES[def.archetype],req=arrestRequirements(state,n.id),caps=capabilities(state,n.id);
   const cells=state.districts.filter(d=>d.cells[n.id]>=1),members=state.members.filter(m=>m.network===n.id),pacts=state.pacts.filter(p=>p.a===n.id||p.b===n.id);
   return heading('ORGANIZED CRIME DOSSIERS','Nine organizations','Follow the money, expose individual members, and break the organization behind its leader.')+
-    `<label class="target-label">CARTEL DOSSIER<select id="faction-focus">${NETWORKS.map(f=>`<option value="${f.id}" ${f.id===n.id?'selected':''}>${f.name}${state.networks[f.id].dismantled?' · dismantled':''}</option>`).join('')}</select></label>
+    `<label class="target-label">CARTEL DOSSIER<select id="faction-focus" aria-label="Cartel dossier">${NETWORKS.map(f=>`<option value="${f.id}" ${f.id===n.id?'selected':''}>${f.name}${state.networks[f.id].dismantled?' · dismantled':''}</option>`).join('')}</select></label>
     <div class="faction-strip">${NETWORKS.map(f=>`<button data-action="view-network" data-network="${f.id}" class="${f.id===n.id?'active':''}" title="${f.name}" aria-label="Open ${f.name} dossier" aria-pressed="${f.id===n.id}" style="--faction:${f.color}">${f.id+1}</button>`).join('')}</div>
     <article class="network-card" id="network-${n.id}"><div class="network-card-head">${portrait(def.portrait)}<div><h3>${def.name}</h3><small>${esc(leader.name)}${n.successions?' · successor':''}</small><span class="state-tag ${n.dismantled?'good':n.captured?'':'danger'}">${n.dismantled?'DISMANTLED':n.captured?'COMMAND VACUUM':'ACTIVE NETWORK'}</span></div></div><div class="network-card-body">
     <div class="archetype-tag">${archetype.name}</div><p>${archetype.description}</p>
@@ -423,6 +429,7 @@ document.addEventListener('click',event=>{
   }
 });
 $('#region-focus').innerHTML='<option value="all">All five provinces</option>'+REGIONS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+map.fit();
 $('#region-focus').addEventListener('change',event=>{if(event.target.value==='all')map.fit();else map.focusRegion(Number(event.target.value));});
 document.addEventListener('change',event=>{if(event.target.id==='faction-focus'){focusedNetwork=Number(event.target.value);$('#panel-content').scrollTop=0;render();}if(event.target.id==='district-network'){targetNetwork=Number(event.target.value);render();}});
 $('#map-layer').addEventListener('change',event=>{

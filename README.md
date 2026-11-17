@@ -74,7 +74,7 @@ npm run build
 node tools/serve.mjs --dist
 ```
 
-The 57 tests cover campaign rules, exact map area and connectivity, weighted routing, AI plans and costs, trait effects, pacts, succession, member capture and defection, multi-faction encounters, regional delivery, supply, recruitment, version-one migration, save validation, deterministic replay, loading failures and animation behavior. Five complete campaigns are played through legal orders in the suite. The separate balance driver runs nine campaigns across three seeds and three difficulties without granting resources or directly editing simulation state.
+The 58 tests cover campaign rules, exact map area and connectivity, weighted routing, AI plans and costs, trait effects, pacts, succession, member capture and defection, multi-faction encounters, regional delivery, supply, recruitment, version-one migration, save validation, deterministic replay, loading failures and animation behavior. Five complete campaigns are played through legal orders in the suite. The separate balance driver runs nine campaigns across three seeds and three difficulties without granting resources or directly editing simulation state.
 
 The build copies the static release to `dist/`. Deploy its contents to any static host, preserving relative paths. Subdirectory hosting is supported. Use `PORT=8081 npm start` or `node tools/serve.mjs --port=8081` for another development port.
 

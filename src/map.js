@@ -90,6 +90,8 @@ export class ProvinceMap{
   setView(){
     const w=MAP.width/this.zoom,h=MAP.height/this.zoom;
     this.svg.classList.toggle('country-view',this.zoom<2.2);
+    const region=this.zoom<2.2?null:REGIONS.reduce((a,b)=>Math.hypot(a.x+600-this.center[0],a.y+400-this.center[1])<Math.hypot(b.x+600-this.center[0],b.y+400-this.center[1])?a:b).id;
+    this.onView?.(region);
     this.svg.setAttribute('viewBox',`${this.center[0]-w/2} ${this.center[1]-h/2} ${w} ${h}`);
   }
   setZoom(delta){this.zoom=Math.max(1,Math.min(5,this.zoom+delta));if(this.zoom===1)this.center=[MAP.width/2,MAP.height/2];this.setView();return this.zoom;}

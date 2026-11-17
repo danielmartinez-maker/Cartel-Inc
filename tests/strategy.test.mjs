@@ -104,3 +104,13 @@ test('version-one migration preserves all original districts and in-flight order
 test('new save fields reject broken member identities, cells, relations, projects and operations',()=>{
   for(const damage of [s=>s.members[1].id=s.members[0].id,s=>s.members[0].network=8,s=>s.members[0].traits=['unknown','loyal'],s=>s.members[0].location=120,s=>s.districts[0].cells[0]=99,s=>s.networks[0].leaderId='missing',s=>s.units[0].supply=-1,s=>s.relations[0][1]=s.relations[1][0]+1,s=>s.regions[0].completed=['water'],s=>s.pacts=[{a:0,b:0,until:5}]]){const s=createGame();damage(s);assert.throws(()=>restore(serialize(s)));}
 });
+
+
+test('dismantling an organization stands down its in-flight member orders and keeps saves valid',()=>{
+  const s=createGame(),n=s.networks[0],m=s.members.find(m=>m.network===0&&m.role==='financier');
+  n.captured=true;n.cohesion=20;leaderOf(s,0).status='captured';n.evidence=80;
+  for(const d of s.districts)alterCell(d,0,-d.cells[0]);alterCell(s.districts[m.location],0,3.1);
+  m.exposure=60;s.districts[m.location].intel=85;s.units[0].district=m.location;
+  assert.equal(act(s,{type:'capture',member:m.id}).ok,true);advance(s,1);
+  assert.equal(n.dismantled,true);assert.equal(s.operations.length,0);assert.equal(s.units[0].status,'ready');assert.equal(m.status,'defected');assert.equal(restore(serialize(s)).networks[0].dismantled,true);
+});
