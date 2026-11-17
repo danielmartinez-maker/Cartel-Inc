@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#203a33">
+  <meta name="description" content="An original province strategy game. Restore public trust and dismantle three fictional cartel networks in Santa Esperanza.">
+  <title>Cartel: Containment</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="game-shell">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="Cartel: Containment home"><span id="brand-mark" class="brand-mark"></span><span><strong>CARTEL<span class="brand-colon">:</span></strong><small>CONTAINMENT</small></span></a>
+      <div class="operation-label"><span class="live-dot"></span><div><small>PROVINCIAL STABILIZATION MANDATE</small><span>Operation Santa Esperanza</span></div><span class="version-label">01 / CAMPAIGN</span></div>
+      <div class="header-actions">
+        <span id="save-status" class="save-status">LOCAL AUTOSAVE</span>
+        <button class="icon-button" data-action="sound" id="sound-button" aria-label="Enable sound" title="Enable sound"></button>
+        <button class="icon-button" data-action="help" aria-label="Field manual" title="Field manual (H)" id="help-button"></button>
+        <button class="icon-button" data-action="settings" aria-label="Campaign and save options" title="Campaign and save options" id="settings-button"></button>
+      </div>
+    </header>
+    <section class="metrics" aria-label="Province status">
+      <div class="metric"><span class="metric-icon" id="money-icon"></span><div><small>TREASURY</small><div class="metric-number"><span id="money-value">$80</span><em id="income-value">+$11 / week</em></div></div></div>
+      <div class="metric"><span class="metric-icon" id="trust-icon"></span><div><small>PUBLIC TRUST</small><div class="metric-number"><span id="trust-value">76<span>%</span></span><div class="mini-track"><i id="trust-track"></i></div></div></div></div>
+      <div class="metric"><span class="metric-icon amber" id="corruption-icon"></span><div><small>CORRUPTION</small><div class="metric-number"><span id="corruption-value">18<span>%</span></span><em id="corruption-label" class="amber">Manageable</em></div></div></div>
+      <div class="metric"><span class="metric-icon" id="stability-icon"></span><div><small>DISTRICTS STABILIZED</small><div class="metric-number"><span id="stability-value">1<span> / 24</span></span><em>Target: 18</em></div></div></div>
+      <div class="metric"><span class="metric-icon rust" id="network-icon"></span><div><small>NETWORKS DISMANTLED</small><div class="metric-number"><span id="networks-value">0<span> / 3</span></span><em id="threat-label">3 leaders at large</em></div></div></div>
+    </section>
+    <main class="workspace">
+      <nav class="rail" aria-label="Command views">
+        <div class="rail-top"><button data-action="view" data-view="district" class="rail-button active" title="Province map" aria-label="Province map"></button><button data-action="view" data-view="units" class="rail-button" title="Security forces" aria-label="Security forces"></button><button data-action="view" data-view="initiatives" class="rail-button" title="Initiatives" aria-label="Initiatives"></button><button data-action="view" data-view="networks" class="rail-button" title="Cartel networks" aria-label="Cartel networks"></button></div>
+        <div class="rail-bottom"><button data-action="reports" class="rail-button" title="Field reports" aria-label="Field reports"></button><button data-action="briefing" class="rail-button" title="Mission briefing" aria-label="Mission briefing"></button></div>
+      </nav>
+      <section class="stage" aria-label="Province map and initiative desk">
+        <div class="map-area">
+          <div class="map-heading"><div class="eyebrow">REGION 01 <span> / </span> COASTAL CORRIDOR</div><h1>Santa Esperanza</h1><p>24 districts. One province to reclaim.</p></div>
+          <div class="layer-control"><label for="map-layer">MAP LAYER</label><select id="map-layer" aria-label="Map layer"><option value="control">Territorial control</option><option value="support">Public support</option><option value="intelligence">Intelligence coverage</option></select></div>
+          <div id="map-container" class="map-container"></div>
+          <div class="map-key" id="map-key"><span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span></div>
+          <div class="map-controls"><button data-action="zoom-in" class="map-control" aria-label="Zoom in" title="Zoom in"></button><button data-action="zoom-out" class="map-control" aria-label="Zoom out" title="Zoom out"></button><button data-action="zoom-fit" class="map-control" aria-label="Fit province" title="Fit province"></button></div>
+          <button class="field-report" data-action="reports"><span class="field-report-head"><span class="live-dot"></span> FIELD REPORT <span id="report-day">DAY 001</span></span><span id="latest-report">Mandate received. Protect communities and build lasting control.</span><span class="report-read">View activity log <span aria-hidden="true">↗</span></span></button>
+          <div id="dispatch-hint" class="dispatch-hint" hidden></div>
+        </div>
+        <section class="initiative-desk" aria-label="Initiative categories"><div class="desk-heading"><span>INITIATIVE DESK</span><small>Lasting control starts beyond the front line.</small></div><div id="initiative-categories" class="initiative-categories"></div></section>
+      </section>
+      <aside class="command-panel" aria-label="Command center">
+        <div class="commander" id="commander"></div>
+        <div class="panel-tabs" role="tablist" aria-label="Command panel"><button role="tab" data-action="view" data-view="district" aria-selected="true" class="active">District</button><button role="tab" data-action="view" data-view="initiatives" aria-selected="false">Initiatives</button><button role="tab" data-action="view" data-view="units" aria-selected="false">Forces</button><button role="tab" data-action="view" data-view="networks" aria-selected="false">Networks</button></div>
+        <div class="panel-content" id="panel-content" role="tabpanel"></div>
+      </aside>
+    </main>
+    <footer class="timebar">
+      <div class="date-block"><span id="day-display">DAY 001</span><small id="week-display">WEEK 01 · YEAR 1</small></div>
+      <div class="simulation-state"><span id="simulation-indicator" class="simulation-indicator"></span><div><strong id="simulation-label">Planning phase</strong><small id="simulation-detail">Issue orders, then advance time.</small></div></div>
+      <div class="time-controls"><button class="resume-button" data-action="pause" id="pause-button"></button><div class="speed-controls" aria-label="Simulation speed"><button data-action="speed" data-speed="1" class="active" aria-label="Normal speed" aria-pressed="true">1×</button><button data-action="speed" data-speed="2" aria-label="Three times speed" aria-pressed="false">3×</button><button data-action="speed" data-speed="3" aria-label="Six times speed" aria-pressed="false">6×</button></div></div>
+      <div class="mission-progress"><span>PROVINCIAL STABILITY <strong id="mission-percent">4%</strong></span><div class="mission-track"><i id="mission-track"></i></div></div>
+      <button class="briefing-button" data-action="briefing">Mission briefing <span id="briefing-icon"></span></button>
+    </footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal" class="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+  <input type="file" id="import-save" accept=".json,application/json" hidden>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
