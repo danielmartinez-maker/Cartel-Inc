@@ -4,7 +4,7 @@ import {bounded,progressOf,unitPose} from './world.js';
 export const RESULT_LABELS=Object.freeze({cleared:'CELL CONTAINED',suppressed:'CELL WEAKENED',evaded:'CELL EVADED'});
 export const encounterKey=e=>`${e.day}:${e.district}:${e.unit}:${e.result}`;
 export function activeConfrontations(s){
-  return s.operations.filter(o=>o.type==='raid'&&s.districts[o.district]?.threat>0).flatMap(o=>{
+  return s.operations.filter(o=>o.type==='raid'&&(s.districts[o.district]?.cells?.[o.network]??s.districts[o.district]?.threat)>0).flatMap(o=>{
     const unit=s.units.find(u=>u.id===o.unit&&u.type!=='intel'&&u.status==='operating'&&u.district===o.district);
     if(!unit)return [];
     return [{key:`${o.district}:${o.unit}:${s.day-(o.total-o.remaining)}`,district:o.district,unit,operation:o,network:o.network??DISTRICTS[o.district].network,

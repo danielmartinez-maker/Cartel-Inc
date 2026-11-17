@@ -1,4 +1,4 @@
-# Confrontation animation, v0.4
+# Confrontation animation, v0.5
 
 ![Detail from a live browser recording](confrontation-detail.gif)
 
@@ -20,14 +20,14 @@ The active exchange is an illustration of the ongoing operation. The game resolv
 
 Results come from optional structured `encounter` metadata on the existing field-log entry. They distinguish successful weakening from evasion even though both can reduce threat. Metadata is validated on import; old version-1 saves without it still load. Already-saved results establish a baseline and are not replayed when a campaign opens.
 
-One persistent group belongs to each active encounter. Repeated UI renders update it rather than stacking effects. At most six active security units can own encounters, and the result pool is capped at six groups with one latest result per district. New campaigns clear both pools. Hidden views remove transient result groups and stop presentation updates. Motion-off removes result effects and retains static faction markers and order progress. Reduced-motion settings use the same static path.
+One persistent group belongs to each active encounter. Repeated UI renders update it rather than stacking effects. At most 18 active security units can own encounters, and the result pool is capped at 18 groups with one latest result per district. New campaigns clear both pools. Hidden views remove transient result groups and stop presentation updates. Motion-off removes result effects and retains static faction markers and order progress. Reduced-motion settings use the same static path.
 
 All confrontation motion freezes when campaign time is paused. Visibility and motion checks gate its separate presentation timeline, so the province's moving boats and clouds cannot advance a paused firefight. Existing SVG markers preserve keyboard input and pointer hit testing.
 
 ## Verification
 
-Automated coverage checks valid raid ownership, exclusion of intelligence/disruption work, release-before-contact timing, pause/visibility/motion gates, the three engine outcomes, backward-compatible saves, malformed metadata rejection, and unchanged campaign resources and randomness. The nine legal-order balance runs retain the same victory days and resources as v0.3.
+Automated coverage checks valid raid ownership, exclusion of intelligence/disruption work, release-before-contact timing, pause/visibility/motion gates, the three engine outcomes, backward-compatible saves, malformed metadata rejection, and unchanged campaign resources and randomness. The v0.5 expansion retains these timing and resource-isolation tests while adding explicit rival-faction targeting. Encounter markers use the order’s target faction and disappear if that particular cell disappears, even when a rival remains in the district. See [current verification](VERIFICATION.md).
 
 These are original code-drawn SVG effects layered over the approved generated province artwork. No new external assets, providers or runtime dependencies are needed.
 
-Live review verified a BRAVO/La Frontera confrontation at La Cantera, alternating trails, an interruption by a provincial decision, frozen actor positions and trails while paused, and a cleared-cell ending that agreed with the field report. The active group disappeared on resolution; result groups were absent after playback continued. Returning through the main menu did not replay old results. A single active encounter used 49 descendant SVG nodes, including unused member slots; this is a DOM allocation count, not a hardware frame-time measurement.
+The v0.4 live review verified a BRAVO/La Frontera confrontation at La Cantera, alternating trails, an interruption by a provincial decision, frozen actor positions and trails while paused, and a cleared-cell ending that agreed with the field report. The active group disappeared on resolution; result groups were absent after playback continued. Returning through the main menu did not replay old results. A single active encounter used 49 descendant SVG nodes, including unused member slots; this is a DOM allocation count, not a hardware frame-time measurement.

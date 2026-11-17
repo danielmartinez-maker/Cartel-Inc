@@ -4,6 +4,10 @@ An original JavaScript strategy game about restoring civilian control across fiv
 
 The cut-paper terrain, portraits, cream symbols and animated dot formations follow the project's established art direction. All people, places and organizations are fictional.
 
+![Five-province country view and cartel dossier](docs/expanded-campaign.jpg)
+
+[Regional command and individual member traits](docs/cartel-member-traits.jpg) · [Verification notes](docs/VERIFICATION.md)
+
 ## Play
 
 Requires Node.js 20 or newer. No runtime dependencies, accounts or API keys.

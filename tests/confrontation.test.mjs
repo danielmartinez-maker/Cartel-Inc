@@ -25,7 +25,7 @@ test('a confrontation belongs to an accepted raid with a present operating secur
 });
 test('disruption operations and districts with no cell do not display a firefight',()=>{
   const s=prepared();assert.equal(act(s,{type:'interdict',district:0}).ok,true);assert.deepEqual(activeConfrontations(s),[]);
-  const battle=raid();battle.districts[0].threat=0;assert.deepEqual(activeConfrontations(battle),[]);
+  const battle=raid();alterCell(battle.districts[0],0,-battle.districts[0].cells[0]);assert.deepEqual(activeConfrontations(battle),[]);
 });
 test('a tracer travels before dust contact and exchanges alternate with quiet intervals',()=>{
   assert.equal(exchangeFrame(0).some(f=>f.visible||f.contact>0||f.muzzle>0),false);

@@ -77,6 +77,7 @@ test('witness deals use loyalty, remove a member and reveal the surviving organi
 test('rival cells coexist and an explicitly targeted operation affects the correct faction',()=>{
   const s=createGame();alterCell(s.districts[0],1,25);assert.equal(dominantNetwork(s.districts[0]),0);s.units[0].district=0;s.districts[0].intel=100;
   assert.equal(act(s,{type:'raid',district:0,network:1}).ok,true);s.operations[0].chance=1;assert.equal(activeConfrontations(s)[0].network,1);advance(s,4);assert.equal(s.districts[0].cells[1],0);assert.ok(s.districts[0].cells[0]>30);assert.equal(s.log.find(l=>l.encounter).encounter.network,1);
+  const ongoing=createGame();ongoing.units[0].district=0;ongoing.districts[0].intel=100;alterCell(ongoing.districts[0],1,15);act(ongoing,{type:'raid',district:0,network:1});alterCell(ongoing.districts[0],1,-ongoing.districts[0].cells[1]);assert.ok(ongoing.districts[0].threat>0);assert.deepEqual(activeConfrontations(ongoing),[]);
 });
 test('regional programs roll out one district each day and never duplicate an active local delivery',()=>{
   const s=createGame();s.money=1000;assert.equal(act(s,{type:'project',id:'regional-water',district:HQ}).ok,true);assert.equal(act(s,{type:'project',id:'regional-water',district:13}).ok,false);assert.equal(act(s,{type:'project',id:'regional-water',district:33}).ok,true);
