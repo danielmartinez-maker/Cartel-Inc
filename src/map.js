@@ -9,21 +9,21 @@ export class ProvinceMap{
     this.element=element;this.onSelect=onSelect;this.onUnit=onUnit;this.layer='control';this.zoom=1;this.center=[590,400];
     element.innerHTML=`<svg id="province-map" viewBox="0 0 1200 800" role="group" aria-label="Santa Esperanza province. Select a district for information and orders.">
       <defs>
-        <pattern id="sea-grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="#6b8e85" stroke-opacity=".12" stroke-width=".65"/></pattern>
+        <pattern id="sea-grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="#a5b89a" stroke-opacity=".07" stroke-width=".65"/></pattern>
         <pattern id="contested" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="9" stroke="#9b5944" stroke-width="1" opacity=".18"/></pattern>
-        <filter id="land-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#315e56" flood-opacity=".17"/></filter>
+        <filter id="land-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#001d19" flood-opacity=".35"/></filter>
         <clipPath id="land-clip"><path d="${polygonPath(LAND)}"/></clipPath>
         ${CELLS.map((p,i)=>`<clipPath id="clip-${i}"><path d="${polygonPath(p)}"/></clipPath>`).join('')}
       </defs>
-      <rect class="ocean" x="-2000" y="-2000" width="5200" height="4800" fill="#b8c9ba"/>
+      <rect class="ocean" x="-2000" y="-2000" width="5200" height="4800" fill="#0b3632"/>
       <rect x="-2000" y="-2000" width="5200" height="4800" fill="url(#sea-grid)"/>
-      <g class="sea-lines" fill="none" stroke="#739b8f" stroke-width=".8" opacity=".3">
+      <g class="sea-lines" fill="none" stroke="#88a98d" stroke-width=".8" opacity=".2">
         <path d="M90 170Q40 330 75 485T292 731M74 160Q20 330 57 493T281 747M60 148Q1 330 39 500T269 765"/>
         <path d="M1035 560Q1030 661 913 736T674 730m374-162q-10 112-126 183t-250-1"/>
       </g>
       <text class="sea-label" x="110" y="650" transform="rotate(33 110 650)">MAR DE LA CALMA</text>
       <text class="map-geographic-label" x="796" y="61">NORTHERN TERRITORIES</text>
-      <path d="${polygonPath(LAND)}" fill="#c7c6a2" stroke="#ebdfbd" stroke-width="8" filter="url(#land-shadow)"/>
+      <path d="${polygonPath(LAND)}" fill="#dfc497" stroke="#eacb90" stroke-width="6" filter="url(#land-shadow)"/>
       <g id="districts"></g>
       <g clip-path="url(#land-clip)" class="cartography" pointer-events="none">
         <path class="river river-border" d="M735 105C678 179 722 201 646 250S713 356 610 410 655 498 565 551 607 659 541 715"/>
@@ -88,10 +88,10 @@ export class ProvinceMap{
     for(const d of s.districts){
       const g=this.cells[d.id],def=DISTRICTS[d.id],stable=d.stability>=75&&d.support>=60&&d.threat<8;
       let color=TERRAIN[def.terrain].fill;
-      if(layer==='support')color=`hsl(${38+d.support*1.1} 23% ${77-d.support*0.17}%)`;
-      if(layer==='intelligence')color=`hsl(${148+d.intel*0.45} ${12+d.intel*0.18}% ${81-d.intel*0.28}%)`;
-      if(layer==='control'&&stable)color='#a5bca0';
-      if(layer==='control'&&d.threat>=25)color='#c1a68b';
+      if(layer==='support')color=`hsl(${39+d.support*1.08} 30% ${79-d.support*0.22}%)`;
+      if(layer==='intelligence')color=`hsl(${148+d.intel*0.36} ${20+d.intel*0.17}% ${81-d.intel*0.33}%)`;
+      if(layer==='control'&&stable)color='#8daf93';
+      if(layer==='control'&&d.threat>=25)color='#c9976d';
       g.classList.toggle('selected',d.id===selected);g.classList.toggle('hostile',d.threat>=25);
       g.setAttribute('aria-pressed',d.id===selected?'true':'false');
       g.setAttribute('aria-label',`${def.name}. ${stable?'Stabilized':d.threat>=25?'Cartel presence':'Unsecured'}. Support ${Math.floor(d.support)} percent. Intelligence ${Math.floor(d.intel)} percent.`);
@@ -99,8 +99,8 @@ export class ProvinceMap{
       g.querySelector('.threat-fill').setAttribute('opacity',d.threat>=25?0.7:0);
       const m=this.markers[d.id];m.classList.toggle('selected',d.id===selected);
       m.querySelector('.district-aura').setAttribute('class',`district-aura ${d.id===selected?'active':stable?'stable':''}`);
-      m.querySelector('.district-hub').setAttribute('fill',d.id===9?'#305e52':d.threat>=25?'#a14f3e':stable?'#4a7b60':'#f4e9c9');
-      m.querySelector('.population-dots').setAttribute('fill',stable?'#3f7961':d.threat>=25?'#a55e4b':'#727b5b');
+      m.querySelector('.district-hub').setAttribute('fill',d.id===9?'#134d3c':d.threat>=25?'#a35230':stable?'#326f4c':'#fff0c5');
+      m.querySelector('.population-dots').setAttribute('fill',stable?'#246147':d.threat>=25?'#9d4d2c':'#405a40');
       m.querySelector('.enemy-dots').innerHTML=d.threat>=12?Array.from({length:Math.min(5,Math.ceil(d.threat/12))},(_,i)=>`<circle cx="${i*6.5}" r="2.8" fill="${NETWORKS[def.network].color}" stroke="#f0d8ba" stroke-width=".6"/>`).join(''):'';
       const op=s.operations.find(o=>o.district===d.id);
       m.querySelector('.op-indicator').innerHTML=op?`<circle r="7" class="operation-pulse" fill="${op.type==='investigate'?'#3f7d86':'#b56f46'}"/><path d="M-2-2h4v4h-4Z" fill="#f8eaca"/>`:'';

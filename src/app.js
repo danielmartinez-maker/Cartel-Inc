@@ -48,7 +48,7 @@ const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
   focusedUnit=id;pane='units';dispatchUnit=null;render();
   setTimeout(()=>document.querySelector(`[data-roster="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
 });
-$('#brand-mark').innerHTML=icon('shield');
+$('#brand-mark').innerHTML=badge(0);
 for(const [id,name]of [['money','coin'],['trust','heart'],['corruption','scales'],['stability','flag'],['network','network']])$(`#${id}-icon`).innerHTML=icon(name);
 $('#sound-button').innerHTML=icon('mute',16);$('#help-button').innerHTML=icon('help',17);$('#settings-button').innerHTML=icon('save',16);$('#briefing-icon').innerHTML=icon('book');
 const railIcons={district:'map',units:'shield',initiatives:'leaf',networks:'network'};

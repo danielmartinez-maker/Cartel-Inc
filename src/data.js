@@ -19,10 +19,10 @@ const regions = [
 ];
 export const DISTRICTS = regions.map(([name,x,y,terrain,population,network,threat],id)=>({id,name,x,y,terrain,population,network,threat}));
 export const TERRAIN = {
-  mountain: { label:'Highlands', fill:'#b3b396', travel:3 }, forest:{label:'Woodland',fill:'#aebc92',travel:2},
-  rural:{label:'Rural district',fill:'#c7c6a2',travel:2}, urban:{label:'Urban district',fill:'#d0cbb0',travel:1},
-  capital:{label:'Provincial capital',fill:'#d8d0b2',travel:1}, border:{label:'Border crossing',fill:'#c3b99a',travel:2},
-  coast:{label:'Coastal district',fill:'#c3c7a5',travel:2}, port:{label:'Port district',fill:'#ccc4a6',travel:1},
+  mountain: { label:'Highlands', fill:'#b9a17b', travel:3 }, forest:{label:'Woodland',fill:'#9cad8b',travel:2},
+  rural:{label:'Rural district',fill:'#dfc497',travel:2}, urban:{label:'Urban district',fill:'#ecd1a2',travel:1},
+  capital:{label:'Provincial capital',fill:'#f4dbaa',travel:1}, border:{label:'Border crossing',fill:'#c9ab80',travel:2},
+  coast:{label:'Coastal district',fill:'#d4bd91',travel:2}, port:{label:'Port district',fill:'#e1c28e',travel:1},
 };
 export const GOVERNORS = [
   {id:'cruz',name:'Elena Cruz',role:'The community builder',portrait:0,bonus:'Civilian projects finish 25% faster.',description:'Rebuild public confidence from the ground up.'},

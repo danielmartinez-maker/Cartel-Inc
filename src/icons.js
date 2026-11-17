@@ -37,7 +37,16 @@ const paths={
   pin:'M12 22s8-8 8-14a8 8 0 10-16 0c0 6 8 14 8 14zm0-17a3 3 0 100 6 3 3 0 000-6',
   expand:'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5',
 };
-export const icon=(name,size=20)=>`<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.info}"/></svg>`;
+// Match the approved cream cut-paper emblems at tiny navigation and unit sizes.
+// Even-odd cutouts keep the star, iris and windows crisp at every scale.
+const solidSymbols={
+  shield:'M12 2l9 3v6c0 6-4 9-9 12-5-3-9-6-9-12V5l9-3ZM12 6l1.5 4.5H18l-3.7 2.7 1.4 4.4L12 15l-3.7 2.6 1.4-4.4L6 10.5h4.5Z',
+  eye:'M1 12C6 3 18 3 23 12 18 21 6 21 1 12ZM12 7a5 5 0 100 10 5 5 0 000-10ZM12 10a2 2 0 100 4 2 2 0 000-4Z',
+  people:'M9 2h6v20H9ZM11 5v2h2V5ZM11 9v2h2V9ZM11 13v2h2v-2ZM11 17v2h2v-2ZM2 8l5-2v16H2ZM4 10v2h1.5v-2ZM4 14v2h1.5v-2ZM4 18v2h1.5v-2ZM17 6l5 2v14h-5ZM18.5 10v2H20v-2ZM18.5 14v2H20v-2ZM18.5 18v2H20v-2Z',
+};
+export const icon=(name,size=20)=>solidSymbols[name]
+  ?`<svg class="icon icon-solid" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="${solidSymbols[name]}"/></svg>`
+  :`<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.info}"/></svg>`;
 export const portrait=(index,extra='')=>`<span class="portrait portrait-${index} ${extra}" role="img" aria-label="Illustrated character portrait"></span>`;
 export const badge=index=>`<span class="art-badge badge-${index}" aria-hidden="true"></span>`;
 export const escapeHTML=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));

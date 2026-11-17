@@ -1,12 +1,14 @@
 # Artwork provenance
 
-Both raster atlases were generated for this project using the built-in image generation tool, then resized and encoded as WebP with Pillow. Their original composition and colors were preserved. The final files are checked into `assets/`; the game does not contact a generation service.
+The active artwork follows the user-approved reference: angular cut-paper faces, warm ochre and burnt-sienna planes, deep petrol teal backgrounds, bold cream silhouettes and fine screenprint grain. The supplied reference was used as a style guide; it was not included as a game asset or modified.
+
+The built-in image generation tool produced both active atlases, then they were resized and encoded as WebP. Drafts remain in `assets/portraits.webp` and `assets/initiatives.webp`; the game uses the versioned `-print` assets below. The game makes no image generation or external asset requests.
 
 ## Character portraits
 
-File: `assets/portraits.webp`, 768 × 512, 3 columns × 2 rows. No generated image text is used.
+File: `assets/portraits-print.webp`, 1152 × 768, 3 columns × 2 rows. All six fictional characters retain their campaign roles and positions, now with clear angular planes and a common teal backdrop.
 
-| Cell | Fictional character | Role |
+| Cell | Character | Role |
 | --- | --- | --- |
 | 0, 0 | Elena Cruz | Governor |
 | 1, 0 | Rafael Ibarra | Governor / commissioner |
@@ -15,17 +17,35 @@ File: `assets/portraits.webp`, 768 × 512, 3 columns × 2 rows. No generated ima
 | 1, 1 | Inés Valdés | La Marea leader |
 | 2, 1 | Tomás Roca | La Frontera leader |
 
-Prompt: “Use case: stylized-concept. Asset type: one unified six-panel character portrait atlas for an original fictional province strategy game, Cartel: Containment. Create a perfectly regular 3 columns by 2 rows grid of six individual square bust portraits, edge to edge, no gaps, no borders, no typography. Each cell is an independent character centered at the same scale, shoulders to top of head with generous headroom. All adults, all fictional, no resemblance to real people. Editorial gouache and screenprinted game key art, confident angular shapes, subtle paper grain, restrained detail readable at 80px. Muted sea green and charcoal, warm ivory highlights, dusty ochre accents. Top-left: Elena Cruz, a composed Mexican female civilian governor about 45, short dark wavy hair, cream blazer and muted green blouse, neutral dark teal backdrop. Top-middle: Rafael Ibarra, Mexican male federal security commissioner about 50, grey temples, plain dark field jacket, no hat, dark teal backdrop. Top-right: Lucía Vega, Mexican female anti-corruption prosecutor about 35, tied back dark hair, round glasses, charcoal blazer, dark teal backdrop. Bottom-left: fictional cartel boss Mateo Salcedo about 50, tired face, salt-and-pepper beard, burgundy open-collar shirt, dusty dark ochre backdrop. Bottom-middle: fictional cartel boss Inés Valdés about 40, straight black bob haircut, cream collared shirt and dark waistcoat, dusty ochre backdrop. Bottom-right: fictional cartel boss Tomás Roca about 45, shaved head, short moustache, olive work shirt, dusty dark ochre backdrop. Sober, grounded political thriller mood, dignified and human, no glamorization, no weapons, no insignia, no text, no skull motifs, no UI, no watermark. Exactly six equally sized square panels arranged 3x2. Landscape image with a 3:2 aspect ratio.”
+Generation prompt:
 
-## Initiative icons
+> undefined
 
-File: `assets/initiatives.webp`, 768 × 384 with alpha, 4 columns × 2 rows.
+## Initiative emblems
+
+File: `assets/initiatives-print.webp`, 1024 × 512, RGB, 4 columns × 2 rows. Cream silhouettes on square teal panels replace the circular draft badges.
 
 | Row | Icons, from left to right |
 | --- | --- |
-| 0 | Security, intelligence, justice, healthcare |
-| 1 | Education, roads, water, community |
+| 0 | Star shield, open eye, justice scales, healthcare cross |
+| 1 | Education, roads, water, community buildings |
 
-Prompt: “Use case: stylized-concept. Asset type: a single production sprite atlas of eight original initiative badge icons for a restrained illustrated political strategy game. Exactly 4 equal square cells across and 2 equal square cells down, aspect ratio 2:1, no cell borders or labels. Each cell contains one centered dark teal circular badge of exactly the same size, with lots of transparent margin and a warm ivory simplified pictogram inside. Top row left to right: shield with a small check mark (accountable security), eye inside a magnifying glass (intelligence), balanced scales (justice), medical cross (healthcare). Bottom row left to right: open book (education), simple two-lane curving road (infrastructure), water droplet with a wave (clean water), two hands supporting a small house (community support). Strong simple silhouettes readable at tiny sizes, flat screenprinted gouache shapes, faint paper grain, no gradients, dark teal circles and cream pictograms only. No text, no letters, no numbers, no shadows outside badges, no decorative objects, no weapons, no watermark. Genuine transparent background outside each circular badge. These icons are game assets, not a UI mockup.”
+Generation prompt:
 
-Map geometry, terrain marks, population dots, unit markers and navigation symbols are original code-native SVG. No assets, logos, maps, characters, sounds or source code from Rebel Inc. were used. Sound cues are synthesized locally with Web Audio.
+> Use case: stylized-concept. Asset type: single production sprite atlas for Cartel: Containment game. Image 1 is the user's approved visual STYLE REFERENCE; match its BOTTOM ROW of oversized cream cut-paper emblems on deep petrol teal square panels. Create a new icon-only sprite atlas with exactly 4 equal square columns and 2 equal square rows, 2:1 landscape, aligned edge to edge, no gutters. Every cell has the exact same uniform textured deep teal background, approximately #0b3632, with one bold centered warm cream silhouette icon, approximately #f6dfae. The icon fills about 70 percent of its square with generous clear margins. Top row left to right: (1) broad heraldic shield with a dark teal five-point star cutout, (2) wide open almond-shaped eye with round iris, (3) balanced justice scales with sturdy base and two hanging pans, (4) equal-armed medical cross. Bottom row left to right: (5) open book with a center fold, (6) simple curving road with dark dashed central line, (7) single water droplet, (8) a group of three apartment buildings with square dark window cutouts, matching the reference. Flat bold block shapes, minimal details, slightly imperfect paper-cut edges and subtle fine ink grain exactly like the reference's shield, eye, scales and buildings. Solid cream emblems on teal panels, not circular badges. No gradients, no 3D, no glossy lighting, no drop shadows, no thin outline-only icons, no photographs, no text, no numbers, no letters, no border, no people, no extra symbols, no UI, no watermark. This is an asset atlas, not a mockup.
+
+## Interface and cartography
+
+`art-direction.css` applies the reference palette to the command panels, initiative desk, portraits, dialogs, time controls and map framing. The province uses warm paper against teal water. Status colors and geometric unit markers remain distinct. Portraits are larger in the commander header and network dossiers so their faces remain legible.
+
+| Color | Use |
+| --- | --- |
+| `#0b3632` | Teal ink, water, header and emblem backgrounds |
+| `#f6dfae` | Cream symbols and titles |
+| `#d6a04f` | Ochre accents and time controls |
+| `#b75d3c` | Burnt-sienna warnings and hostile presence |
+| `#f3e7cc` | Warm paper command surfaces |
+
+`assets/print-grain.svg` provides a subtle static grain overlay without blocking input. Solid SVG shield, eye and building symbols match the raster emblems at small sizes. Map geometry, terrain marks, population dots, unit markers and navigation symbols are original code-native SVG.
+
+No assets, logos, maps, characters, sounds or source code from Rebel Inc. were used. Sound cues are synthesized locally with Web Audio.

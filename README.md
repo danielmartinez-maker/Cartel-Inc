@@ -2,7 +2,7 @@
 
 A playable, original JavaScript province strategy game about restoring civilian control and dismantling three fictional cartel networks. Inspired by the readability and competing priorities of province stabilization games, with its own map, rules, characters, interface and artwork.
 
-![The six fictional campaign characters](assets/portraits.webp)
+![The six fictional campaign characters in the approved cut-paper style](assets/portraits-print.webp)
 
 ## Play locally
 
@@ -18,7 +18,7 @@ JavaScript modules require a web server. Opening `index.html` directly through `
 
 ## The campaign
 
-- One illustrated province with 24 connected districts, seven terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence.
+- One illustrated province with 24 connected districts, eight terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence.
 - Three governors: Elena Cruz (civilian delivery), Rafael Ibarra (security power), and Lucía Vega (evidence and integrity).
 - Three fictional cartel networks, each with its own leader, regional cells, funding and case evidence. Networks recruit and can expand into neighboring, unprotected districts.
 - Federal units, police and intelligence teams. Movement takes time along connected districts. Recruitment, containment, investigations, asset disruption and leader arrests have real costs and prerequisites.
@@ -26,7 +26,7 @@ JavaScript modules require a web server. Opening `index.html` directly through `
 - Provincial decisions, public trust, a two-year mandate, victory and defeat, three difficulty levels, and deterministic campaign seeds.
 - Local autosave, JSON export/import, keyboard access, optional generated sound cues, reduced-motion support and a responsive layout.
 
-The character portrait atlas and initiative badge atlas were made with image generation and are included in the repo. The map, units and navigation symbols are code-native SVG for precise scaling and readable state changes. See [artwork provenance](docs/ARTWORK.md).
+The character and initiative atlases follow the approved art reference: angular cut-paper portraits, ochre highlights, cream silhouettes, deep teal ink and restrained paper grain. Both were made with image generation and are included in the repo. The map, units and navigation symbols are code-native SVG for precise scaling and readable state changes. See [artwork provenance](docs/ARTWORK.md).
 
 ## How to win
 
