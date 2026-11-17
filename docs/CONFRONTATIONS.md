@@ -1,5 +1,9 @@
 # Confrontation animation, v0.4
 
+![Detail from a live browser recording](confrontation-detail.gif)
+
+Native captures: [full province](confrontation-map.jpg) · [confirmed result](confrontation-result.jpg) · [motion off](confrontation-motion-off.jpg) · [motion on](confrontation-motion-on.jpg). The comparison captures use the same containment order and normal province camera. The GIF crops the encounter area from 24 browser frames recorded over 1.85 seconds, with their original sampling intervals; it is a recorded detail, not a generated illustration.
+
 Containment orders now show a small encounter at the actual district and assigned security unit. Warm cream security markers face network-colored cartel dots. Alternating short trails, muzzle glows, contact dust and shifting formations make the confrontation readable at the normal province camera. A perimeter arc displays the order's actual progress. The unit remains selectable beneath the non-interactive effect layer.
 
 The active exchange is an illustration of the ongoing operation. The game resolves that operation once, using its existing chance, intelligence and power calculation. No individual shot adds damage, consumes randomness or changes the forecast.
@@ -25,3 +29,5 @@ All confrontation motion freezes when campaign time is paused. Visibility and mo
 Automated coverage checks valid raid ownership, exclusion of intelligence/disruption work, release-before-contact timing, pause/visibility/motion gates, the three engine outcomes, backward-compatible saves, malformed metadata rejection, and unchanged campaign resources and randomness. The nine legal-order balance runs retain the same victory days and resources as v0.3.
 
 These are original code-drawn SVG effects layered over the approved generated province artwork. No new external assets, providers or runtime dependencies are needed.
+
+Live review verified a BRAVO/La Frontera confrontation at La Cantera, alternating trails, an interruption by a provincial decision, frozen actor positions and trails while paused, and a cleared-cell ending that agreed with the field report. The active group disappeared on resolution; result groups were absent after playback continued. Returning through the main menu did not replay old results. A single active encounter used 49 descendant SVG nodes, including unused member slots; this is a DOM allocation count, not a hardware frame-time measurement.

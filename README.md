@@ -4,7 +4,7 @@ A playable, original JavaScript province strategy game about restoring civilian 
 
 ![Living Santa Esperanza province and operational activity view](docs/living-province.jpg)
 
-Screens: [deployment preview](docs/deployment-preview.jpg) · [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
+Screens: [confrontation animation](docs/confrontation-detail.gif) · [confrontation result](docs/confrontation-result.jpg) · [deployment preview](docs/deployment-preview.jpg) · [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
 
 Artwork: [province painting](assets/santa-esperanza-map.webp) · [district scenes](assets/district-scenes.webp) · [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp)
 
