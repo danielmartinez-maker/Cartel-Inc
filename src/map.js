@@ -1,5 +1,6 @@
 import {DISTRICTS,TERRAIN,LAND,NETWORKS} from './data.js';
 import {CELLS,polygonPath} from './geography.js';
+import {ART} from './assets.js';
 
 const ns='http://www.w3.org/2000/svg';
 const node=(tag,attrs={},content='')=>{const n=document.createElementNS(ns,tag);for(const [key,value]of Object.entries(attrs))n.setAttribute(key,value);n.innerHTML=content;return n;};
@@ -24,6 +25,7 @@ export class ProvinceMap{
       <text class="sea-label" x="110" y="650" transform="rotate(33 110 650)">MAR DE LA CALMA</text>
       <text class="map-geographic-label" x="796" y="61">NORTHERN TERRITORIES</text>
       <path d="${polygonPath(LAND)}" fill="#dfc497" stroke="#eacb90" stroke-width="6" filter="url(#land-shadow)"/>
+      <image class="province-art" href="${ART.province}" x="0" y="0" width="1200" height="800" preserveAspectRatio="none" clip-path="url(#land-clip)" pointer-events="none"/>
       <g id="districts"></g>
       <g clip-path="url(#land-clip)" class="cartography" pointer-events="none">
         <path class="river river-border" d="M735 105C678 179 722 201 646 250S713 356 610 410 655 498 565 551 607 659 541 715"/>
@@ -39,6 +41,8 @@ export class ProvinceMap{
       <g class="scale" transform="translate(100 728)" pointer-events="none"><path d="M0-5v5h100v-5M50 0v-5" stroke="#406056" fill="none" stroke-width="1.5"/><text x="0" y="17">0</text><text x="82" y="17">20 km</text></g>
     </svg>`;
     this.svg=element.querySelector('svg');
+    this.svg.querySelector('.province-art').addEventListener('load',()=>this.svg.classList.add('map-art-ready'));
+    this.svg.querySelector('.province-art').addEventListener('error',()=>this.svg.classList.remove('map-art-ready'));
     const groups=this.svg.querySelector('#districts');
     this.cells=DISTRICTS.map(d=>{
       const g=node('g',{'data-district':d.id,role:'button',tabindex:0,'aria-label':d.name,class:'district'});
@@ -85,6 +89,7 @@ export class ProvinceMap{
   fit(){this.zoom=1;this.center=[590,400];this.setView();}
   render(s,selected,layer='control'){
     this.layer=layer;
+    this.svg.dataset.layer=layer;
     for(const d of s.districts){
       const g=this.cells[d.id],def=DISTRICTS[d.id],stable=d.stability>=75&&d.support>=60&&d.threat<8;
       let color=TERRAIN[def.terrain].fill;
@@ -93,6 +98,7 @@ export class ProvinceMap{
       if(layer==='control'&&stable)color='#8daf93';
       if(layer==='control'&&d.threat>=25)color='#c9976d';
       g.classList.toggle('selected',d.id===selected);g.classList.toggle('hostile',d.threat>=25);
+      g.classList.toggle('stabilized',stable);
       g.setAttribute('aria-pressed',d.id===selected?'true':'false');
       g.setAttribute('aria-label',`${def.name}. ${stable?'Stabilized':d.threat>=25?'Cartel presence':'Unsecured'}. Support ${Math.floor(d.support)} percent. Intelligence ${Math.floor(d.intel)} percent.`);
       g.querySelector('.district-fill').setAttribute('fill',color);

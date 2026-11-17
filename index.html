@@ -9,13 +9,48 @@
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./art-direction.css">
+  <link rel="stylesheet" href="./screens.css">
 </head>
 <body>
-  <div class="game-shell">
+  <section id="main-menu" class="main-menu" aria-labelledby="menu-title" hidden>
+    <div class="menu-atmosphere" aria-hidden="true"></div>
+    <div class="menu-topline"><span>AN ORIGINAL PROVINCE STRATEGY GAME</span><span>CAMPAIGN 01 / SANTA ESPERANZA</span></div>
+    <div class="menu-layout">
+      <div class="menu-content">
+        <div class="menu-insignia" id="menu-insignia" aria-hidden="true"></div>
+        <p class="menu-eyebrow">A PROVINCE WORTH PROTECTING</p>
+        <h1 id="menu-title">CARTEL<span>CONTAINMENT</span></h1>
+        <p class="menu-intro">Restore trust. Reclaim the province.<br>Bring the networks to justice.</p>
+        <nav class="menu-actions" aria-label="Main menu">
+          <button class="menu-button continue-button" data-action="continue-game" id="continue-button" disabled><span class="menu-button-number">01</span><span>Continue operation<small id="continue-summary">No saved operation</small></span><span aria-hidden="true">↗</span></button>
+          <button class="menu-button new-operation-button" data-action="new-game" id="menu-new-game"><span class="menu-button-number">02</span><span>New operation<small>Choose your governor and mandate</small></span><span aria-hidden="true">→</span></button>
+          <div class="menu-secondary"><button data-action="import">Import campaign</button><button data-action="help">Field manual</button><button data-action="credits">About the game</button></div>
+        </nav>
+        <div class="menu-save-card" id="menu-save-card" hidden></div>
+      </div>
+      <div class="menu-province-caption"><span class="menu-coordinate">25° N / FICTIONAL TERRITORY</span><h2>Santa Esperanza</h2><p>From the highlands to the harbor,<br>every district is a foothold.</p><span class="menu-province-stats">24 DISTRICTS <i></i> 3 NETWORKS <i></i> ONE MANDATE</span></div>
+    </div>
+    <footer class="menu-footer"><span>PUBLIC TRUST <b>·</b> INTELLIGENCE <b>·</b> LASTING CONTROL</span><button class="menu-sound" data-action="sound" id="menu-sound-button" aria-label="Enable sound">Sound off</button></footer>
+  </section>
+  <section id="loading-screen" class="loading-screen" aria-labelledby="loading-title">
+    <div class="loading-topline"><span>CARTEL: CONTAINMENT</span><span>PROVINCIAL COMMAND</span></div>
+    <div class="loading-layout">
+      <div class="loading-map"><img src="./assets/santa-esperanza-map.webp" alt="Illustrated Santa Esperanza province" width="1200" height="800"><span class="loading-map-label">SANTA ESPERANZA / COASTAL CORRIDOR</span></div>
+      <div class="loading-copy"><p class="menu-eyebrow" id="loading-kicker">PREPARING THE PROVINCE</p><h1 id="loading-title">A new mandate<br>takes shape.</h1><p class="loading-description">The highlands, the coast, and every community in between.</p>
+        <div class="loading-progress-label"><span id="loading-stage">Preparing campaign</span><strong id="loading-percent">0%</strong></div><progress id="asset-progress" max="100" value="0" aria-label="Campaign loading progress">0%</progress>
+        <p class="loading-tip" id="loading-tip">Public support turns temporary security into lasting control.</p>
+        <div class="loading-recovery" id="loading-recovery" hidden><p>Some artwork could not load. The map and campaign controls are still available.</p><div><button data-action="retry-loading">Retry artwork</button><button data-action="finish-loading">Continue anyway</button></div></div>
+        <button class="loading-back" id="loading-back" data-action="main-menu" hidden>← Back to main menu</button>
+      </div>
+    </div>
+    <div class="loading-bottomline"><span>01 / INVESTIGATE</span><span>02 / CONTAIN</span><span>03 / REBUILD</span><span>04 / HOLD</span></div>
+  </section>
+  <div class="game-shell" id="game-screen" hidden inert>
     <header class="masthead">
-      <a class="brand" href="./" aria-label="Cartel: Containment home"><span id="brand-mark" class="brand-mark"></span><span><strong>CARTEL<span class="brand-colon">:</span></strong><small>CONTAINMENT</small></span></a>
+      <button class="brand" data-action="main-menu" aria-label="Return to main menu"><span id="brand-mark" class="brand-mark"></span><span><strong>CARTEL<span class="brand-colon">:</span></strong><small>CONTAINMENT</small></span></button>
       <div class="operation-label"><span class="live-dot"></span><div><small>PROVINCIAL STABILIZATION MANDATE</small><span>Operation Santa Esperanza</span></div><span class="version-label">01 / CAMPAIGN</span></div>
       <div class="header-actions">
+        <button class="icon-button" data-action="pause-menu" id="campaign-menu-button" aria-label="Pause and campaign menu" title="Pause and campaign menu"></button>
         <span id="save-status" class="save-status">LOCAL AUTOSAVE</span>
         <button class="icon-button" data-action="sound" id="sound-button" aria-label="Enable sound" title="Enable sound"></button>
         <button class="icon-button" data-action="help" aria-label="Field manual" title="Field manual (H)" id="help-button"></button>
@@ -63,6 +98,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <dialog id="modal" class="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
   <input type="file" id="import-save" accept=".json,application/json" hidden>
+  <noscript><div class="noscript-message">Enable JavaScript to play Cartel: Containment.</div></noscript>
   <script type="module" src="./src/app.js"></script>
 </body>
 </html>

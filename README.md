@@ -14,13 +14,16 @@ Requires Node.js 20 or newer. There are **no runtime dependencies, installs, acc
 npm start
 ```
 
-Open **http://localhost:8080**. Select districts on the map, issue orders, then press **Begin** to advance time. Use the book button for your mission briefing and the question mark for the field manual.
+Open **http://localhost:8080**. The main menu offers **Continue operation**, **New operation**, save import, the field manual and game information. A new operation lets you choose a governor, difficulty and seed. The illustrated loading screen prepares the artwork before opening command.
+
+In the campaign, select districts on the map, issue orders, then press **Begin** to advance time. Use the book button for your mission briefing and the question mark for the field manual. Escape opens the pause menu; returning to the main menu saves progress and pauses time.
 
 JavaScript modules require a web server. Opening `index.html` directly through `file://` is not supported. Any static web server works, including `python3 -m http.server 8080`.
 
 ## The campaign
 
-- One illustrated province with 24 connected districts, eight terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence.
+- A generated, illustrated province painting with 24 precisely interactive districts, eight terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence. Each district also has a terrain-specific scenery panel.
+- A main-menu panorama, saved-campaign summary, governor and mandate setup, pause menu and an illustrated loading screen. Loading progress follows actual image loads; failed artwork can be retried or skipped so the campaign remains playable.
 - Three governors: Elena Cruz (civilian delivery), Rafael Ibarra (security power), and Lucía Vega (evidence and integrity).
 - Three fictional cartel networks, each with its own leader, regional cells, funding and case evidence. Networks recruit and can expand into neighboring, unprotected districts.
 - Federal units, police and intelligence teams. Movement takes time along connected districts. Recruitment, containment, investigations, asset disruption and leader arrests have real costs and prerequisites.
@@ -28,7 +31,7 @@ JavaScript modules require a web server. Opening `index.html` directly through `
 - Provincial decisions, public trust, a two-year mandate, victory and defeat, three difficulty levels, and deterministic campaign seeds.
 - Local autosave, JSON export/import, keyboard access, optional generated sound cues, reduced-motion support and a responsive layout.
 
-The character and initiative atlases follow the approved art reference: angular cut-paper portraits, ochre highlights, cream silhouettes, deep teal ink and restrained paper grain. Both were made with image generation and are included in the repo. The map, units and navigation symbols are code-native SVG for precise scaling and readable state changes. See [artwork provenance](docs/ARTWORK.md).
+The province painting, menu panorama, district scenery, character portraits and initiative emblems follow the approved art reference: angular cut-paper shapes, ochre highlights, cream silhouettes, deep teal ink and restrained paper grain. They were made with image generation and are included in the repo. Precise district boundaries, selection, status overlays, routes and unit markers remain code-native SVG above the painting. If the painting fails to load, the original terrain map remains available. See [artwork provenance](docs/ARTWORK.md).
 
 ## How to win
 
@@ -47,7 +50,7 @@ Lose if public trust reaches zero or the two-year mandate expires. All people, d
 3. Once local intelligence is at least 40%, carry out a containment operation.
 4. Fund services in quiet districts, and develop the provincial institutions needed to build cases against the leaders.
 
-Space pauses or resumes. Keys 1, 2 and 3 select 1×, 3× and 6× time. H opens the manual. Tab and Enter navigate controls and districts; Escape closes dialogs or cancels deployment. Decisions pause time until answered.
+Space pauses or resumes during a campaign. Keys 1, 2 and 3 select 1×, 3× and 6× time. H opens the manual. Tab and Enter navigate controls and districts. Escape closes dialogs, cancels deployment or opens the pause menu. Decisions pause time until answered. Time never advances on the main menu or loading screen.
 
 ## Develop and verify
 
@@ -72,6 +75,8 @@ node tools/serve.mjs --dist
 | `src/geography.js` | Clipped district geometry, adjacency and route finding |
 | `src/map.js` | SVG cartography, units, map layers, selection, zoom and panning |
 | `src/app.js` | Command interface, dialogs, clock, autosave and keyboard controls |
+| `src/assets.js` | Artwork manifest, bounded preloading, real progress and load failure handling |
+| `screens.css` | Main menu, loading screen, district scenery and illustrated map overlays |
 | `assets/` | Generated image atlases and favicon |
 | `tools/` | Static server, production build, syntax checks and legal-order campaign driver |
 | `tests/` | Node-based regression and campaign tests |

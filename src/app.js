@@ -2,14 +2,16 @@ import {HQ,DISTRICTS,TERRAIN,GOVERNORS,DIFFICULTIES,NETWORKS,UNIT_TYPES,INITIATI
 import {createGame,act,tick,projectCost,stableDistricts,totalThreat,unitsHere,unitPower,operationForecast,initiativeAvailability,arrestRequirements,serialize,restore} from './engine.js';
 import {ProvinceMap} from './map.js';
 import {icon,portrait,badge,escapeHTML as esc} from './icons.js';
+import {ART,TERRAIN_ART,preloadAssets} from './assets.js';
 
 const $=selector=>document.querySelector(selector);
 const SAVE_KEY='cartel-containment:v1';
-let state=createGame(),loadNotice='',storageAvailable=true;
-try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);loadNotice='Campaign restored. Time is paused.';}}
+let state=createGame(),loadNotice='',storageAvailable=true,hasCampaign=false;
+try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);hasCampaign=true;loadNotice='Campaign restored. Time is paused.';}}
 catch{loadNotice='The saved campaign could not be read. A new campaign is ready.';}
 let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUnit=null,layer='control';
 let sound=false,audioContext=null,toastTimer=null,lastOutcome=null,newGovernor='cruz',wasRunningBeforeModal=false;
+let scene='loading',loadingTarget='menu',loadingSerial=0,loadingDone=false;
 const modal=$('#modal');
 
 function notify(message,error=false){
@@ -28,6 +30,7 @@ function chime(error=false){
   }catch{sound=false;}
 }
 function save(silent=true){
+  if(!hasCampaign)return;
   try{localStorage.setItem(SAVE_KEY,serialize(state));storageAvailable=true;$('#save-status').textContent='CAMPAIGN SAVED';if(!silent)notify('Campaign saved on this device.');}
   catch{storageAvailable=false;$('#save-status').textContent='AUTOSAVE UNAVAILABLE';if(!silent)notify('Browser storage is unavailable. Use Export save to keep this campaign.',true);}
 }
@@ -49,6 +52,8 @@ const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
   setTimeout(()=>document.querySelector(`[data-roster="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
 });
 $('#brand-mark').innerHTML=badge(0);
+$('#menu-insignia').innerHTML=badge(0);
+$('#campaign-menu-button').innerHTML=icon('home',16);
 for(const [id,name]of [['money','coin'],['trust','heart'],['corruption','scales'],['stability','flag'],['network','network']])$(`#${id}-icon`).innerHTML=icon(name);
 $('#sound-button').innerHTML=icon('mute',16);$('#help-button').innerHTML=icon('help',17);$('#settings-button').innerHTML=icon('save',16);$('#briefing-icon').innerHTML=icon('book');
 const railIcons={district:'map',units:'shield',initiatives:'leaf',networks:'network'};
@@ -56,6 +61,58 @@ document.querySelectorAll('.rail-top button').forEach(b=>b.innerHTML=icon(railIc
 document.querySelector('.rail-bottom [data-action="reports"]').innerHTML=icon('chart');
 document.querySelector('.rail-bottom [data-action="briefing"]').innerHTML=icon('book');
 for(const [action,name]of [['zoom-in','plus'],['zoom-out','minus'],['zoom-fit','expand']])document.querySelector(`[data-action="${action}"]`).innerHTML=icon(name);
+
+function setScene(next){
+  scene=next;document.body.dataset.scene=next;
+  for(const [id,value]of [['main-menu','menu'],['loading-screen','loading'],['game-screen','game']]){
+    const element=document.getElementById(id);element.hidden=value!==next;element.inert=value!==next;
+  }
+}
+function renderMenu(){
+  const gov=GOVERNORS.find(g=>g.id===state.governor);
+  $('#main-menu').dataset.hasCampaign=String(hasCampaign);
+  $('#continue-button').disabled=!hasCampaign;
+  $('#continue-summary').textContent=hasCampaign?`${gov.name} · Day ${state.day+1} · ${DIFFICULTIES[state.difficulty].label}`:'No saved operation';
+  const card=$('#menu-save-card');card.hidden=!hasCampaign;
+  if(hasCampaign)card.innerHTML=`${portrait(gov.portrait)}<div><strong>${state.outcome?'Campaign report available':'Your mandate continues'}</strong><small>${stableDistricts(state)} / 24 districts stabilized · ${Math.floor(state.trust)}% public trust<br>${state.networks.filter(n=>n.dismantled).length} / 3 networks dismantled</small></div>`;
+  $('#menu-sound-button').innerHTML=icon(sound?'volume':'mute',15)+`Sound ${sound?'on':'off'}`;
+}
+function showMenu(){
+  loadingSerial++;state.paused=true;dispatchUnit=null;wasRunningBeforeModal=false;
+  if(modal.open)modal.close();save();renderMenu();setScene('menu');
+  (hasCampaign?$('#continue-button'):$('#menu-new-game')).focus({preventScroll:true});
+}
+function finishLoading(){
+  if(!loadingDone)return;
+  if(loadingTarget==='menu'){showMenu();return;}
+  state.paused=true;render();setScene('game');
+  $('#pause-button').focus({preventScroll:true});
+  if(loadNotice){notify(loadNotice);loadNotice='';}
+  if(state.pendingEvent!==null)eventModal();else if(state.outcome)outcomeModal();
+}
+async function runLoading(target){
+  const serial=++loadingSerial,started=performance.now();
+  loadingTarget=target;loadingDone=false;state.paused=true;
+  if(modal.open)modal.close();wasRunningBeforeModal=false;
+  $('#loading-recovery').hidden=true;$('#loading-back').hidden=target==='menu';
+  $('#loading-kicker').textContent=target==='game'?'OPERATION SANTA ESPERANZA':'PREPARING THE PROVINCE';
+  $('#loading-title').innerHTML=target==='game'?'Your province.<br>Your mandate.':'A new mandate<br>takes shape.';
+  $('#loading-tip').textContent=hasCampaign&&state.day>0?'Containment lasts when local institutions can hold after your units move on.':'Public support turns temporary security into lasting control.';
+  setScene('loading');
+  const result=await preloadAssets(Object.values(ART),{onProgress:({percent})=>{
+    if(serial!==loadingSerial)return;
+    $('#asset-progress').value=percent;$('#asset-progress').textContent=`${percent}%`;
+    $('#loading-percent').textContent=`${percent}%`;
+    $('#loading-stage').textContent=percent<35?'Charting the province':percent<85?'Preparing the mandate':'Opening provincial command';
+  }});
+  // Keep the transition readable on cached loads; the percentage is always
+  // calculated from actual image loads, never from this short visual hold.
+  await new Promise(resolve=>setTimeout(resolve,Math.max(0,750-(performance.now()-started))));
+  if(serial!==loadingSerial)return;
+  loadingDone=true;
+  if(result.failed.length){$('#loading-stage').textContent='Campaign ready';$('#loading-recovery').hidden=false;return;}
+  finishLoading();
+}
 
 const percent=n=>`${Math.floor(n)}%`;
 const bar=(label,value,type='')=>`<div class="status-row"><div><span>${label}</span><strong>${percent(value)}</strong></div><div class="status-track ${type}"><i style="width:${Math.max(0,Math.min(100,value))}%"></i></div></div>`;
@@ -83,7 +140,7 @@ function districtPanel(){
   const investigateReason=operationReason('investigate',d),raidReason=operationReason('raid',d);
   let priority=d.threat>=25?'Contain the local cell before committing to civilian projects.':d.support<60?'Public support is too low for lasting control. Fund local services.':d.stability<75?'Support is growing. Keep threat below 8% and allow stability to build.':'Keep local institutions strong and prevent the networks from returning.';
   if(selected===HQ&&state.day===0)priority='Your headquarters is secure. Investigate a district with cartel presence, then send ALPHA to contain it.';
-  return `<div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / 24</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
+  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[def.terrain].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[def.terrain]}"></div><span>${TERRAIN[def.terrain].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / 24</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
     <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${TERRAIN[def.terrain].label}</span><span>${icon('people')}${def.population},000 residents</span></div>
     <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div>
     <div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
@@ -196,7 +253,7 @@ function openModal(title,kicker,body,{resume=false,locked=false}={}){
   modal.dataset.locked=locked?'true':'false';if(!modal.open)modal.showModal();
 }
 function closeModal(){
-  modal.close();if(wasRunningBeforeModal&&!state.pendingEvent&&!state.outcome)state.paused=false;
+  modal.close();if(scene==='game'&&wasRunningBeforeModal&&!state.pendingEvent&&!state.outcome)state.paused=false;
   wasRunningBeforeModal=false;save();render();
 }
 modal.addEventListener('cancel',e=>{e.preventDefault();if(modal.dataset.locked!=='true')closeModal();});
@@ -216,7 +273,7 @@ function help(){
   openModal('Field manual','COMMAND REFERENCE',`<p>Click a district to inspect its needs and issue orders. Projects and operations only progress while the simulation is running. You can issue orders while paused.</p>
     <h3>Contain, rebuild, hold</h3><ul><li>Security operations require a ready federal or police unit and at least 40% local intelligence. Their forecast depends on intelligence, unit power, local threat and corruption.</li><li>Investigations take four days and improve local intelligence and evidence against the regional network.</li><li>Uncaptured leaders recruit into existing cells and can spread to neighboring, unprotected districts every three weeks.</li><li>Arresting a leader stops recruitment permanently. Security units and police stations suppress the remaining cells.</li><li>Civilian projects are blocked when local threat is 35% or higher. Water, clinics, schools and jobs count as local services.</li><li>A district stabilizes after support reaches 60%, threat stays below 8%, and a service is delivered or security reaches 30%. Stability needs time to reach 75%.</li><li>New spending increases inflation slightly. Anti-corruption policies protect the mandate; weekly funding supports your campaign.</li></ul>
     <h3>Time and saves</h3><p>Decisions and dialogs pause the simulation. Autosave runs after orders and every five days. Reopening a save always pauses time. Export saves from the campaign menu for backups.</p>
-    <h3>Keyboard</h3><div class="keyboard-grid"><kbd>Space</kbd><span>Pause / resume</span><kbd>1 / 2 / 3</kbd><span>Normal / 3× / 6× speed</span><kbd>H</kbd><span>Open this manual</span><kbd>Escape</kbd><span>Close a dialog or cancel deployment</span><kbd>Tab / Enter</kbd><span>Navigate controls and select map districts</span></div>`);
+    <h3>Keyboard</h3><div class="keyboard-grid"><kbd>Space</kbd><span>Pause / resume</span><kbd>1 / 2 / 3</kbd><span>Normal / 3× / 6× speed</span><kbd>H</kbd><span>Open this manual</span><kbd>Escape</kbd><span>Close a dialog, cancel deployment, or open the pause menu</span><kbd>Tab / Enter</kbd><span>Navigate controls and select map districts</span></div>`);
 }
 function reports(){
   openModal('Reports from the field','PROVINCIAL ACTIVITY LOG',state.log.map(l=>`<div class="report-entry ${l.kind}"><span>DAY ${String(l.day+1).padStart(3,'0')}</span><span>${esc(l.text)}</span></div>`).join(''));
@@ -229,10 +286,20 @@ function settings(){
     ${actionButton({action:'new-game',title:'New operation',detail:'Choose a governor and difficulty',iconName:'reset'})}</div><div class="notice"><strong>Current campaign</strong>${GOVERNORS.find(g=>g.id===state.governor).name} · ${DIFFICULTIES[state.difficulty].label} · Seed ${state.seed}<br>Day ${state.day+1} of 730 · ${state.stats.projects} projects completed · ${state.stats.arrests} leaders arrested</div>`);
 }
 function newGame(){
-  openModal('A new mandate','CAMPAIGN SETUP',`<p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
+  openModal('A new mandate','CAMPAIGN SETUP',`<div class="province-card"><img src="${ART.province}" alt="Illustrated Santa Esperanza campaign map" width="160" height="106"><div><small>CAMPAIGN 01 / COASTAL CORRIDOR</small><h3>Santa Esperanza</h3><p>24 districts. Three entrenched networks.<br>Restore civilian control before the mandate expires.</p></div></div><p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
     <div class="new-game-fields"><label>Difficulty<select id="new-difficulty">${Object.entries(DIFFICULTIES).map(([id,d])=>`<option value="${id}" ${id==='standard'?'selected':''}>${d.label}</option>`).join('')}</select></label><label>Campaign seed<input id="new-seed" inputmode="numeric" type="number" min="0" max="4294967295" value="${Math.floor(Math.random()*1000000)}"></label></div>
-    <div class="confirmation">Starting a new operation replaces this device’s autosave. Export your current campaign first if you want to keep it.</div>
+    ${hasCampaign?'<div class="confirmation">Starting a new operation replaces this device’s autosave. Export your current campaign first if you want to keep it.</div>':''}
     ${actionButton({action:'start-new',title:'Begin new operation',detail:'Start paused with a fresh provincial mandate',iconName:'flag',primary:true})}`);
+}
+function pauseMenu(){
+  openModal('Provincial command','CAMPAIGN PAUSED',`<p>${GOVERNORS.find(g=>g.id===state.governor).name} · Day ${state.day+1} · ${DIFFICULTIES[state.difficulty].label}</p>
+    ${actionButton({action:'resume-game',title:state.outcome?'Review the province':'Resume operation',detail:'Return to the map and your current orders',iconName:'play',primary:true})}
+    ${actionButton({action:'save',title:'Save campaign',detail:'Keep this mandate on your device',iconName:'save'})}
+    ${actionButton({action:'settings',title:'Campaign desk',detail:'Export, import or start another operation',iconName:'book'})}
+    ${actionButton({action:'main-menu',title:'Return to main menu',detail:'Save progress and pause the operation',iconName:'home'})}`);
+}
+function credits(){
+  openModal('A province worth protecting','ABOUT CARTEL: CONTAINMENT',`<p>An original province strategy game about public trust, accountable security and dismantling fictional criminal networks.</p><h3>One province, many communities</h3><p>The illustrated map spans mountain settlements, woodland, farmland, civic centers, border roads and coastal ports. Every district has its own needs.</p><h3>Art direction</h3><p>Angular cut-paper scenery, ochre highlights, cream silhouettes and deep teal ink connect the province, its people and its institutions.</p><p>All characters, organizations and places in the campaign are fictional.</p>${actionButton({action:'close-modal',title:'Return',iconName:'arrow',primary:true})}`);
 }
 function eventModal(){
   const event=EVENTS.find(e=>e.id===state.pendingEvent);if(!event)return;
@@ -247,7 +314,15 @@ function outcomeModal(){
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
   const a=button.dataset.action;
-  if(a==='view'){
+  if(a==='main-menu'){showMenu();}
+  else if(a==='continue-game'){if(hasCampaign)void runLoading('game');}
+  else if(a==='retry-loading'){if(scene==='loading'&&loadingDone)void runLoading(loadingTarget);}
+  else if(a==='finish-loading'){if(scene==='loading')finishLoading();}
+  else if(a==='pause-menu')pauseMenu();
+  else if(a==='credits')credits();
+  else if(a==='resume-game'){
+    wasRunningBeforeModal=false;closeModal();if(!state.outcome&&!state.pendingEvent&&state.paused)command({type:'pause'},{quiet:true});
+  }else if(a==='view'){
     pane=button.dataset.view;dispatchUnit=null;$('#panel-content').scrollTop=0;render();
     if(innerWidth<=760)$('#panel-content').scrollIntoView({block:'start',behavior:'smooth'});
   }else if(a==='category'){
@@ -275,7 +350,7 @@ document.addEventListener('click',event=>{
   else if(a==='zoom-fit')map.fit();
   else if(a==='help')help();else if(a==='briefing')briefing();else if(a==='reports')reports();else if(a==='settings')settings();
   else if(a==='sound'){
-    sound=!sound;button.innerHTML=icon(sound?'volume':'mute',16);button.setAttribute('aria-label',sound?'Mute sound':'Enable sound');button.title=sound?'Mute sound':'Enable sound';chime();
+    sound=!sound;const gameSound=$('#sound-button');gameSound.innerHTML=icon(sound?'volume':'mute',16);gameSound.setAttribute('aria-label',sound?'Mute sound':'Enable sound');gameSound.title=sound?'Mute sound':'Enable sound';$('#menu-sound-button').setAttribute('aria-label',sound?'Mute sound':'Enable sound');renderMenu();chime();
   }else if(a==='close-modal')closeModal();
   else if(a==='save'){save(false);}
   else if(a==='export'){
@@ -288,7 +363,7 @@ document.addEventListener('click',event=>{
   }else if(a==='start-new'){
     const seedInput=$('#new-seed'),seed=Number(seedInput.value);
     if(!Number.isInteger(seed)||seed<0||seed>4294967295||seedInput.value===''){notify('Enter a whole campaign seed from 0 to 4294967295.',true);return;}
-    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor});lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();closeModal();save();render();notify('New operation ready. Review the province, issue orders, then begin.');
+    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor});hasCampaign=true;loadNotice='New operation ready. Issue orders, then begin.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();void runLoading('game');
   }else if(a==='decision'){
     const result=command({type:'event',choice:Number(button.dataset.choice)});if(result.ok){wasRunningBeforeModal=false;closeModal();}
   }
@@ -301,8 +376,7 @@ $('#import-save').addEventListener('change',async event=>{
   const file=event.target.files[0];if(!file)return;
   try{
     if(file.size>300000)throw new Error('This save file is too large.');
-    const imported=restore(await file.text());state=imported;lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;wasRunningBeforeModal=false;map.fit();closeModal();save();render();notify('Campaign imported. Time is paused.');
-    if(state.pendingEvent!==null)eventModal();else if(state.outcome)outcomeModal();
+    const imported=restore(await file.text());state=imported;hasCampaign=true;loadNotice='Campaign imported. Time is paused.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();await runLoading('game');
   }catch(error){notify(error.message==='This save file is too large.'?error.message:'Import failed. Choose a valid Cartel: Containment save file.',true);}
   event.target.value='';
 });
@@ -310,6 +384,8 @@ document.addEventListener('keydown',event=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName))return;
   if(event.key==='Escape'&&dispatchUnit!==null){dispatchUnit=null;render();return;}
   if(modal.open||event.ctrlKey||event.metaKey||event.altKey)return;
+  if(scene!=='game'){if(event.key.toLowerCase()==='h'&&scene==='menu')help();return;}
+  if(event.key==='Escape'){event.preventDefault();pauseMenu();return;}
   if(event.code==='Space'&&!['BUTTON','A'].includes(event.target.tagName)&&!event.target.closest('[data-district],[role="button"]')){
     event.preventDefault();if(state.pendingEvent!==null)eventModal();else command({type:'pause'},{quiet:true});
   }else if(['1','2','3'].includes(event.key))command({type:'speed',speed:Number(event.key)},{quiet:true});
@@ -320,7 +396,7 @@ window.addEventListener('beforeunload',()=>save());
 let lastTime=performance.now(),accumulator=0;
 setInterval(()=>{
   const now=performance.now(),elapsed=Math.min(now-lastTime,250);lastTime=now;
-  if(state.paused||modal.open||state.outcome||state.pendingEvent!==null){accumulator=0;return;}
+  if(scene!=='game'||state.paused||modal.open||state.outcome||state.pendingEvent!==null){accumulator=0;return;}
   accumulator+=elapsed;const duration={1:1200,2:400,3:200}[state.speed];
   if(accumulator>=duration){
     accumulator-=duration;
@@ -330,5 +406,5 @@ setInterval(()=>{
   }
 },80);
 render();
-if(loadNotice)notify(loadNotice);
-if(state.pendingEvent!==null)eventModal();else if(state.outcome)outcomeModal();
+renderMenu();
+void runLoading('menu');
