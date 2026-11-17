@@ -2,9 +2,11 @@
 
 A playable, original JavaScript province strategy game about restoring civilian control and dismantling three fictional cartel networks. Inspired by the readability and competing priorities of province stabilization games, with its own map, rules, characters, interface and artwork.
 
-![Campaign interface using the approved cut-paper art direction](docs/art-direction-preview.jpg)
+![Illustrated Santa Esperanza province with selectable districts](docs/illustrated-province.jpg)
 
-Artwork: [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp) · [initiative screen](docs/art-direction-initiatives.jpg)
+Screens: [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
+
+Artwork: [province painting](assets/santa-esperanza-map.webp) · [district scenes](assets/district-scenes.webp) · [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp)
 
 ## Play locally
 
@@ -62,7 +64,7 @@ npm run build
 node tools/serve.mjs --dist
 ```
 
-`npm test` covers campaign rules, graph connectivity, resource guards, timed work, arrests, event decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
+`npm test` runs 23 checks covering artwork coverage, bounded asset loading, progress, image failures, stalled loads, campaign rules, graph connectivity, resource guards, timed work, arrests, event decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
 
 `npm run build` copies the static release into `dist/`. Deploy that directory to any static host, preserving its relative paths. Asset URLs also work when hosted below a subdirectory. The development server supports `PORT=8081 npm start` or `node tools/serve.mjs --port=8081`.
 

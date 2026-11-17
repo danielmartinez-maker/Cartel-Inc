@@ -2,7 +2,7 @@
 
 The active artwork follows the user-approved reference: angular cut-paper faces, warm ochre and burnt-sienna planes, deep petrol teal backgrounds, bold cream silhouettes and fine screenprint grain. The supplied reference was used as a style guide; it was not included as a game asset or modified.
 
-The built-in image generation tool produced both active atlases, then they were resized and encoded as WebP. Drafts remain in `assets/portraits.webp` and `assets/initiatives.webp`; the game uses the versioned `-print` assets below. The game makes no image generation or external asset requests.
+The built-in image generation tool produced the active atlases, province painting and menu panorama, then they were resized and encoded as WebP. Drafts remain in `assets/portraits.webp` and `assets/initiatives.webp`; the game uses the versioned `-print` assets below. The game makes no image generation or external asset requests.
 
 ## Character portraits
 
@@ -17,9 +17,7 @@ File: `assets/portraits-print.webp`, 1152 × 768, 3 columns × 2 rows. All six f
 | 1, 1 | Inés Valdés | La Marea leader |
 | 2, 1 | Tomás Roca | La Frontera leader |
 
-Generation prompt:
-
-> undefined
+The portraits were generated from the approved style reference as six separate fictional character busts, with consistent framing, angular planes and fine paper grain.
 
 ## Initiative emblems
 
@@ -54,6 +52,8 @@ No assets, logos, maps, characters, sounds or source code from Rebel Inc. were u
 
 
 ## Province artwork, front end and district scenery
+
+Verified live views: [illustrated province](illustrated-province.jpg), [main menu](main-menu.jpg), and [loading screen](loading-screen.jpg). These are unmodified screenshots of the running game.
 
 The v0.2 artwork expansion adds three generated assets. The province image was created with a geometry guide rendered from the existing map data, so the art follows the coastline and central river. The game clips it to the authoritative land outline and draws all 24 selectable district boundaries, status layers, labels and units above it. The image never defines hit testing or simulation geometry. Native terrain art remains the fallback if the painting cannot be loaded.
 
