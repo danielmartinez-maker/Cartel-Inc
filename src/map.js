@@ -188,8 +188,9 @@ export class ProvinceMap{
     this.updateOrders(this.motion?fraction:0);this.previewRoute(this.previewDestination);
   }
   renderWork(s){
+    const projectCounts={};
     const items=[...s.operations.map(o=>({item:o,key:`op-${o.district}`,district:o.district,type:o.type,radius:17})),
-      ...s.projects.map((p,i)=>({item:p,key:`project-${p.id}-${p.district}`,district:projectDistrict(p),type:'project',radius:24+(i%2)*4}))];
+      ...s.projects.map(p=>{const district=projectDistrict(p),slot=projectCounts[district]||0;projectCounts[district]=slot+1;return {item:p,key:`project-${p.id}-${p.district}`,district,type:'project',radius:24+slot*5};})];
     const keys=new Set(items.map(i=>i.key));
     for(const [key,view]of this.ringViews)if(!keys.has(key)){view.element.remove();this.ringViews.delete(key);}
     for(const item of items){
@@ -199,7 +200,7 @@ export class ProvinceMap{
         g.innerHTML=`<circle class="work-ring-base" r="${item.radius}"/><circle class="work-ring-fill" r="${item.radius}" pathLength="100" transform="rotate(-90)"/><g class="work-sweep"><path d="M0 0L0-15A15 15 0 0 1 15 0Z"/></g><circle class="work-spark" r="2.5" cy="-${item.radius}"/>`;
         this.svg.querySelector('#work-markers').append(g);view={element:g,ring:g.querySelector('.work-ring-fill')};this.ringViews.set(item.key,view);
       }
-      view.item=item.item;
+      view.item=item.item;view.element.querySelectorAll('.work-ring-base,.work-ring-fill').forEach(c=>c.setAttribute('r',item.radius));view.element.querySelector('.work-spark').setAttribute('cy',-item.radius);
     }
   }
   updateOrders(fraction){
@@ -209,14 +210,16 @@ export class ProvinceMap{
     for(const view of this.ringViews.values())view.ring.setAttribute('stroke-dasharray',`${(progressOf(view.item,fraction)*100).toFixed(2)} 100`);
   }
   addMilestone(event){
+    this.effects=this.effects.filter(effect=>{if(effect.district===event.district){effect.element.remove();return false;}return true;});
     const d=DISTRICTS[event.district],g=node('g',{class:`map-milestone ${event.kind}`,transform:`translate(${d.x} ${d.y})`});
     g.append(node('circle',{class:'milestone-wave',r:12}));
-    const label=node('g',{class:'milestone-label'});label.append(node('rect',{x:-83,y:-48,width:166,height:20,rx:2}));label.append(node('text',{x:0,y:-35,'text-anchor':'middle'},event.text));g.append(label);
-    this.svg.querySelector('#map-effects').append(g);this.effects.push({element:g,born:this.effectTime});
+    const width=Math.max(110,event.text.length*6.2+20);
+    const label=node('g',{class:'milestone-label'});label.append(node('rect',{x:-width/2,y:-48,width,height:20,rx:2}));label.append(node('text',{x:0,y:-35,'text-anchor':'middle'},event.text));g.append(label);
+    this.svg.querySelector('#map-effects').append(g);this.effects.push({element:g,born:this.effectTime,district:event.district});
     while(this.effects.length>12)this.effects.shift().element.remove();
   }
   frame(now,{visible,fraction=0}){
-    this.svg.dataset.active=String(visible);
+    if(this.svg.dataset.active!==String(visible))this.svg.dataset.active=String(visible);
     if(!visible||!this.motion||now-this.lastFrame<32)return;
     const delta=Math.min(100,now-(this.lastFrame||now))/1000;this.lastFrame=now;
     this.ambientTime+=delta;this.effectTime+=delta;

@@ -50,7 +50,7 @@ export function movementPlan(s,unitId,destination){
   const path=findRoute(u.district,destination);
   if(!path.length)return {...no('No connected route is available.'),path:[],days:0};
   const days=path.slice(1).reduce((v,id)=>v+Math.max(1,TERRAIN[DISTRICTS[id].terrain].travel-(district(s,id).completed.includes('roads')?1:0)),0);
-  return {ok:true,path,days,message:`ETA ${days} days`};
+  return {ok:true,path,days,message:`ETA ${days} ${days===1?'day':'days'}`};
 }
 export function operationForecast(s,id){
   const d=district(s,id);if(!d)return 0;
