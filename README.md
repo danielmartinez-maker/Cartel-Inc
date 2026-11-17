@@ -2,9 +2,9 @@
 
 A playable, original JavaScript province strategy game about restoring civilian control and dismantling three fictional cartel networks. Inspired by the readability and competing priorities of province stabilization games, with its own map, rules, characters, interface and artwork.
 
-![Illustrated Santa Esperanza province with selectable districts](docs/illustrated-province.jpg)
+![Living Santa Esperanza province and operational activity view](docs/living-province.jpg)
 
-Screens: [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
+Screens: [deployment preview](docs/deployment-preview.jpg) · [main menu](docs/main-menu.jpg) · [loading screen](docs/loading-screen.jpg) · [initiative desk](docs/art-direction-initiatives.jpg)
 
 Artwork: [province painting](assets/santa-esperanza-map.webp) · [district scenes](assets/district-scenes.webp) · [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp)
 

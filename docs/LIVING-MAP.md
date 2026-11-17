@@ -1,5 +1,7 @@
 # Living province, v0.3
 
+Verified live views: [province and Activity view](living-province.jpg) · [keyboard deployment preview](deployment-preview.jpg). These are unmodified browser screenshots.
+
 The generated province painting remains the foundation. SVG dots, silhouettes and progress rings add motion above it while keeping boundaries, labels and orders selectable. No external assets or runtime dependencies were added.
 
 ## What moves
@@ -25,3 +27,5 @@ One animation-frame loop drives the presentation clock and the existing daily si
 Map motion updates are bounded to roughly 30 updates per second and reuse existing SVG nodes. Hidden menus, dialogs and tabs suspend map effects. Scene lifetime is bounded: traffic and flocks have fixed populations, unit and work nodes are keyed, and no more than twelve transient notifications are retained. Presentation geometry and weather use no campaign randomness, so saves and operation outcomes remain deterministic.
 
 The automated suite verifies clock equivalence across all three speeds, pause and stall handling, distance-based path sampling, preview/order agreement, read-only presentation, activity ordering and truthful milestone labels. Existing campaign rules and legal-order balance runs continue to pass.
+
+Live browser checks verified saved-campaign continuation, moving ambience with paused mandate time, smooth unit transforms between daily ticks, fixed unit positions while paused, persistent motion preferences, keyboard route preview and dispatch, simultaneous construction and investigations, completed-service stamps, arrival/completion notifications, Activity ordering and map-layer switching. Night-watch and first-light labels were also observed as campaign days advanced. Browser-extension messages were excluded from game-console assessment.
