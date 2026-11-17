@@ -2,7 +2,9 @@
 
 A playable, original JavaScript province strategy game about restoring civilian control and dismantling three fictional cartel networks. Inspired by the readability and competing priorities of province stabilization games, with its own map, rules, characters, interface and artwork.
 
-![The six fictional campaign characters in the approved cut-paper style](assets/portraits-print.webp)
+![Campaign interface using the approved cut-paper art direction](docs/art-direction-preview.jpg)
+
+Artwork: [character portraits](assets/portraits-print.webp) · [initiative emblems](assets/initiatives-print.webp) · [initiative screen](docs/art-direction-initiatives.jpg)
 
 ## Play locally
 

@@ -36,6 +36,8 @@ Generation prompt:
 
 ## Interface and cartography
 
+Verified in-game views: [network dossiers](art-direction-preview.jpg) and [initiative funding](art-direction-initiatives.jpg). These are screenshots of the running campaign, rather than generated interface mockups.
+
 `art-direction.css` applies the reference palette to the command panels, initiative desk, portraits, dialogs, time controls and map framing. The province uses warm paper against teal water. Status colors and geometric unit markers remain distinct. Portraits are larger in the commander header and network dossiers so their faces remain legible.
 
 | Color | Use |
