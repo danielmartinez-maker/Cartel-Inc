@@ -26,6 +26,9 @@ JavaScript modules require a web server. Opening `index.html` directly through `
 
 - A generated, illustrated province painting with 24 precisely interactive districts, eight terrain types, roads, a river, population dots, unit tokens and map layers for control, support and intelligence. Each district also has a terrain-specific scenery panel.
 - A main-menu panorama, saved-campaign summary, governor and mandate setup, pause menu and an illustrated loading screen. Loading progress follows actual image loads; failed artwork can be retried or skipped so the campaign remains playable.
+- A living province: civilian traffic responds to local threat, fishing boats follow coastal routes, birds and cloud shadows cross the terrain, and changing light brings town lights and occasional passing rain. Native dot and icon assets keep the map readable.
+- Smooth unit travel, animated route lines, investigation scans, construction progress rings, delivered-service stamps and map notifications for arrivals, completed work and changes in local control.
+- An Activity view combines projects, investigations, training and deployment in completion order, with threatened districts, mandate progress and weekly funding dates. During deployment, point to or keyboard-focus a district to see its exact route and ETA.
 - Three governors: Elena Cruz (civilian delivery), Rafael Ibarra (security power), and Lucía Vega (evidence and integrity).
 - Three fictional cartel networks, each with its own leader, regional cells, funding and case evidence. Networks recruit and can expand into neighboring, unprotected districts.
 - Federal units, police and intelligence teams. Movement takes time along connected districts. Recruitment, containment, investigations, asset disruption and leader arrests have real costs and prerequisites.
@@ -54,6 +57,8 @@ Lose if public trust reaches zero or the two-year mandate expires. All people, d
 
 Space pauses or resumes during a campaign. Keys 1, 2 and 3 select 1×, 3× and 6× time. H opens the manual. Tab and Enter navigate controls and districts. Escape closes dialogs, cancels deployment or opens the pause menu. Decisions pause time until answered. Time never advances on the main menu or loading screen.
 
+**Map life** toggles ambient motion independently of the mandate. Civilian ambience can move while planning; unit travel and order progress stop when campaign time is paused. Changing light and weather are cosmetic. Reduced motion is respected, and the map preference is saved separately from campaign data. See [living-map behavior](docs/LIVING-MAP.md).
+
 ## Develop and verify
 
 ```sh
@@ -64,7 +69,7 @@ npm run build
 node tools/serve.mjs --dist
 ```
 
-`npm test` runs 23 checks covering artwork coverage, bounded asset loading, progress, image failures, stalled loads, campaign rules, graph connectivity, resource guards, timed work, arrests, event decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
+`npm test` runs 31 checks covering the animation clock, route previews, activity ordering, milestone accuracy, artwork coverage, bounded asset loading, image failures, campaign rules, graph connectivity, resource guards, timed work, arrests, decisions, deterministic saves, malformed imports and terminal states. It also plays complete campaigns through legal orders. The balance driver runs nine reproducible campaigns across difficulty levels without granting resources or directly changing the simulation.
 
 `npm run build` copies the static release into `dist/`. Deploy that directory to any static host, preserving its relative paths. Asset URLs also work when hosted below a subdirectory. The development server supports `PORT=8081 npm start` or `node tools/serve.mjs --port=8081`.
 
@@ -76,9 +81,11 @@ node tools/serve.mjs --dist
 | `src/data.js` | Campaign definitions, policies, fictional characters and decisions |
 | `src/geography.js` | Clipped district geometry, adjacency and route finding |
 | `src/map.js` | SVG cartography, units, map layers, selection, zoom and panning |
+| `src/world.js` | Presentation clock, motion sampling, civilian routes, weather, activity queue and milestones |
 | `src/app.js` | Command interface, dialogs, clock, autosave and keyboard controls |
 | `src/assets.js` | Artwork manifest, bounded preloading, real progress and load failure handling |
 | `screens.css` | Main menu, loading screen, district scenery and illustrated map overlays |
+| `living-map.css` | Ambient life, operational animation, map controls and the Activity view |
 | `assets/` | Generated image atlases and favicon |
 | `tools/` | Static server, production build, syntax checks and legal-order campaign driver |
 | `tests/` | Node-based regression and campaign tests |

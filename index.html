@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./art-direction.css">
   <link rel="stylesheet" href="./screens.css">
+  <link rel="stylesheet" href="./living-map.css">
 </head>
 <body>
   <section id="main-menu" class="main-menu" aria-labelledby="menu-title" hidden>
@@ -73,17 +74,19 @@
         <div class="map-area">
           <div class="map-heading"><div class="eyebrow">REGION 01 <span> / </span> COASTAL CORRIDOR</div><h1>Santa Esperanza</h1><p>24 districts. One province to reclaim.</p></div>
           <div class="layer-control"><label for="map-layer">MAP LAYER</label><select id="map-layer" aria-label="Map layer"><option value="control">Territorial control</option><option value="support">Public support</option><option value="intelligence">Intelligence coverage</option></select></div>
+          <div class="province-life-controls"><div class="weather-readout"><span class="weather-symbol" aria-hidden="true"></span><span><strong id="weather-label">Clear skies</strong><small id="light-label">Daylight</small></span></div><div class="life-buttons"><button data-action="map-motion" id="map-motion-button" aria-pressed="true">Map life on</button><button data-action="view" data-view="activity" id="activity-shortcut">Activity <span id="active-order-count">0</span></button></div></div>
           <div id="map-container" class="map-container"></div>
           <div class="map-key" id="map-key"><span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span></div>
           <div class="map-controls"><button data-action="zoom-in" class="map-control" aria-label="Zoom in" title="Zoom in"></button><button data-action="zoom-out" class="map-control" aria-label="Zoom out" title="Zoom out"></button><button data-action="zoom-fit" class="map-control" aria-label="Fit province" title="Fit province"></button></div>
           <button class="field-report" data-action="reports"><span class="field-report-head"><span class="live-dot"></span> FIELD REPORT <span id="report-day">DAY 001</span></span><span id="latest-report">Mandate received. Protect communities and build lasting control.</span><span class="report-read">View activity log <span aria-hidden="true">↗</span></span></button>
           <div id="dispatch-hint" class="dispatch-hint" hidden></div>
+          <div id="route-preview" class="route-preview" role="status" hidden></div>
         </div>
         <section class="initiative-desk" aria-label="Initiative categories"><div class="desk-heading"><span>INITIATIVE DESK</span><small>Lasting control starts beyond the front line.</small></div><div id="initiative-categories" class="initiative-categories"></div></section>
       </section>
       <aside class="command-panel" aria-label="Command center">
         <div class="commander" id="commander"></div>
-        <div class="panel-tabs" role="tablist" aria-label="Command panel"><button role="tab" data-action="view" data-view="district" aria-selected="true" class="active">District</button><button role="tab" data-action="view" data-view="initiatives" aria-selected="false">Initiatives</button><button role="tab" data-action="view" data-view="units" aria-selected="false">Forces</button><button role="tab" data-action="view" data-view="networks" aria-selected="false">Networks</button></div>
+        <div class="panel-tabs" role="tablist" aria-label="Command panel"><button role="tab" data-action="view" data-view="district" aria-selected="true" class="active">District</button><button role="tab" data-action="view" data-view="initiatives" aria-selected="false">Initiatives</button><button role="tab" data-action="view" data-view="units" aria-selected="false">Forces</button><button role="tab" data-action="view" data-view="networks" aria-selected="false">Networks</button><button role="tab" data-action="view" data-view="activity" aria-selected="false">Activity</button></div>
         <div class="panel-content" id="panel-content" role="tabpanel"></div>
       </aside>
     </main>

@@ -3,9 +3,14 @@ import {createGame,act,tick,projectCost,stableDistricts,totalThreat,unitsHere,un
 import {ProvinceMap} from './map.js';
 import {icon,portrait,badge,escapeHTML as esc} from './icons.js';
 import {ART,TERRAIN_ART,preloadAssets} from './assets.js';
+import {CampaignClock,activeOrders,progressOf,atmosphere} from './world.js';
 
 const $=selector=>document.querySelector(selector);
 const SAVE_KEY='cartel-containment:v1';
+const MOTION_KEY='cartel-containment:map-motion',clock=new CampaignClock();
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+let mapMotion=!reducedMotion.matches,customMotion=false;
+try{const saved=localStorage.getItem(MOTION_KEY);if(['on','off'].includes(saved)){mapMotion=saved==='on'&&!reducedMotion.matches;customMotion=true;}}catch{}
 let state=createGame(),loadNotice='',storageAvailable=true,hasCampaign=false;
 try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);hasCampaign=true;loadNotice='Campaign restored. Time is paused.';}}
 catch{loadNotice='The saved campaign could not be read. A new campaign is ready.';}
@@ -50,7 +55,12 @@ function selectDistrict(id){
 const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
   focusedUnit=id;pane='units';dispatchUnit=null;render();
   setTimeout(()=>document.querySelector(`[data-roster="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
+},(plan,destination)=>{
+  const preview=$('#route-preview');preview.hidden=!plan||dispatchUnit===null;
+  if(plan){const unit=state.units.find(u=>u.id===dispatchUnit);preview.innerHTML=`<strong>${esc(unit?.name||'Unit')} → ${DISTRICTS[destination].name}</strong>${plan.ok?`${plan.days} days · ${plan.path.length-1} district crossings`:'Unavailable'}<small>${plan.ok?'Select this district to dispatch.':esc(plan.message)}</small>`;}
 });
+map.setMotion(mapMotion);
+reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches||!customMotion){mapMotion=!reducedMotion.matches;map.setMotion(mapMotion);render();}});
 $('#brand-mark').innerHTML=badge(0);
 $('#menu-insignia').innerHTML=badge(0);
 $('#campaign-menu-button').innerHTML=icon('home',16);
@@ -203,11 +213,24 @@ function networksPanel(){
     `<div class="notice"><strong>Gather evidence in the network’s districts.</strong>Each completed investigation adds case evidence. Special prosecutors, independent audits and witness protection strengthen your cases.</div>`;
 }
 
+function activityPanel(){
+  const orders=activeOrders(state),hotspots=state.districts.filter(d=>d.threat>=20).sort((a,b)=>b.threat-a.threat),stable=stableDistricts(state);
+  return heading('PROVINCIAL WATCH','A living province','Follow active orders, protect vulnerable communities, and hold the ground you reclaim.')+
+    `<div class="activity-summary"><div><strong>${orders.length}</strong><small>Active orders</small></div><div><strong>${hotspots.length}</strong><small>Hotspots</small></div><div><strong>${stable}</strong><small>Stabilized</small></div></div>
+    <div class="notice"><strong>Mandate progress</strong>${bar(`${stable} / 18 districts stabilized`,Math.min(100,stable/18*100))}${bar(`${state.networks.filter(n=>n.dismantled).length} / 3 networks dismantled`,state.networks.filter(n=>n.dismantled).length/3*100)}${state.holdDays?`<p>Both objectives secured for ${state.holdDays} / 14 days.</p>`:''}</div>
+    <div class="section-label">ACTIVE ORDERS <span>Next to finish first</span></div>
+    ${orders.length?orders.map(o=>`<button class="order-card ${o.kind}" data-action="select" data-district="${o.district}"><span class="order-card-head"><strong>${o.label}</strong><em>${o.remaining}d</em></span><small>${DISTRICTS[o.district].name}</small><div class="status-track"><i style="width:${progressOf(o)*100}%"></i></div></button>`).join(''):'<p class="activity-empty">No orders in progress. Select a district to investigate, fund services, or deploy a ready unit.</p>'}
+    <div class="section-label">DISTRICTS TO WATCH <span>Highest threat</span></div>
+    ${hotspots.length?hotspots.slice(0,5).map(d=>`<button class="watch-card" data-action="select" data-district="${d.id}">${icon('pin',14)}<span><strong>${DISTRICTS[d.id].name}</strong><small>${Math.floor(d.intel)}% intelligence · ${Math.floor(d.support)}% support</small></span><em>${Math.floor(d.threat)}%</em></button>`).join(''):'<p class="activity-empty">No district has an entrenched cell. Keep services and institutions strong.</p>'}
+    <div class="activity-deadline"><span>Budget in ${7-state.day%7}d</span><span>${Math.max(0,730-state.day)}d in mandate</span></div>
+    <div class="section-label">LATEST FROM THE FIELD</div>${state.log.slice(0,4).map(l=>`<div class="activity-logline"><small>DAY ${String(l.day+1).padStart(3,'0')}</small>${esc(l.text)}</div>`).join('')}`;
+}
+
 function renderPanel(){
   const panel=$('#panel-content'),scroll=panel.scrollTop;
   const active=document.activeElement;
   const activeData=panel.contains(active)&&active?.dataset.action?{...active.dataset}:null;
-  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel}[pane])();
+  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel,activity:activityPanel}[pane])();
   panel.scrollTop=scroll;
   if(activeData){
     const replacement=[...panel.querySelectorAll('[data-action]')].find(e=>Object.entries(activeData).every(([k,v])=>e.dataset[k]===v));
@@ -243,7 +266,12 @@ function render(){
   const latest=state.log[0];if(latest){$('#latest-report').textContent=latest.text;$('#report-day').textContent=`DAY ${String(latest.day+1).padStart(3,'0')}`;}
   const hint=$('#dispatch-hint');hint.hidden=dispatchUnit===null;
   if(dispatchUnit!==null){const unit=state.units.find(u=>u.id===dispatchUnit);hint.innerHTML=`Choose a destination on the map for <strong>${esc(unit?.name||'your unit')}</strong>.<button data-action="cancel-dispatch">Cancel</button>`;}
-  map.render(state,selected,layer);renderPanel();
+  const weather=atmosphere(state.seed,state.day);
+  $('#weather-label').textContent=weather.label;$('#light-label').textContent=weather.light;
+  $('.province-life-controls').dataset.weather=weather.rain?'rain':'clear';
+  const motion=$('#map-motion-button');motion.textContent=mapMotion?'Map life on':'Map life off';motion.setAttribute('aria-pressed',String(mapMotion));motion.title=reducedMotion.matches?'Reduced motion is enabled on your device.':'Toggle ambient movement without changing campaign time.';
+  $('#active-order-count').textContent=activeOrders(state).length;
+  map.render(state,selected,layer,{fraction:clock.fraction,dispatchUnit});renderPanel();
 }
 
 function openModal(title,kicker,body,{resume=false,locked=false}={}){
@@ -273,6 +301,7 @@ function help(){
   openModal('Field manual','COMMAND REFERENCE',`<p>Click a district to inspect its needs and issue orders. Projects and operations only progress while the simulation is running. You can issue orders while paused.</p>
     <h3>Contain, rebuild, hold</h3><ul><li>Security operations require a ready federal or police unit and at least 40% local intelligence. Their forecast depends on intelligence, unit power, local threat and corruption.</li><li>Investigations take four days and improve local intelligence and evidence against the regional network.</li><li>Uncaptured leaders recruit into existing cells and can spread to neighboring, unprotected districts every three weeks.</li><li>Arresting a leader stops recruitment permanently. Security units and police stations suppress the remaining cells.</li><li>Civilian projects are blocked when local threat is 35% or higher. Water, clinics, schools and jobs count as local services.</li><li>A district stabilizes after support reaches 60%, threat stays below 8%, and a service is delivered or security reaches 30%. Stability needs time to reach 75%.</li><li>New spending increases inflation slightly. Anti-corruption policies protect the mandate; weekly funding supports your campaign.</li></ul>
     <h3>Time and saves</h3><p>Decisions and dialogs pause the simulation. Autosave runs after orders and every five days. Reopening a save always pauses time. Export saves from the campaign menu for backups.</p>
+    <h3>The living province</h3><p>Civilian traffic thins out in threatened districts. Service stamps show delivered services or a permanent police station. Progress rings show investigations and construction; moving unit tokens follow their routes. Open Activity to find active orders and threatened communities. While deploying, point to a district or focus it with Tab to preview the route and travel time.</p><p>Clouds, boats, birds, rain and changing light are atmosphere only. They never change costs, travel times or operation outcomes. Ambient life can continue while the mandate is paused; units and orders wait for you. Turn Map life off for a still map. Your device’s reduced-motion setting is respected.</p>
     <h3>Keyboard</h3><div class="keyboard-grid"><kbd>Space</kbd><span>Pause / resume</span><kbd>1 / 2 / 3</kbd><span>Normal / 3× / 6× speed</span><kbd>H</kbd><span>Open this manual</span><kbd>Escape</kbd><span>Close a dialog, cancel deployment, or open the pause menu</span><kbd>Tab / Enter</kbd><span>Navigate controls and select map districts</span></div>`);
 }
 function reports(){
@@ -320,6 +349,12 @@ document.addEventListener('click',event=>{
   else if(a==='finish-loading'){if(scene==='loading')finishLoading();}
   else if(a==='pause-menu')pauseMenu();
   else if(a==='credits')credits();
+  else if(a==='map-motion'){
+    mapMotion=reducedMotion.matches?false:!mapMotion;customMotion=true;
+    try{localStorage.setItem(MOTION_KEY,mapMotion?'on':'off');}catch{}
+    map.setMotion(mapMotion);render();
+    if(reducedMotion.matches)notify('Map movement stays off while your device uses reduced motion.');
+  }
   else if(a==='resume-game'){
     wasRunningBeforeModal=false;closeModal();if(!state.outcome&&!state.pendingEvent&&state.paused)command({type:'pause'},{quiet:true});
   }else if(a==='view'){
@@ -363,7 +398,7 @@ document.addEventListener('click',event=>{
   }else if(a==='start-new'){
     const seedInput=$('#new-seed'),seed=Number(seedInput.value);
     if(!Number.isInteger(seed)||seed<0||seed>4294967295||seedInput.value===''){notify('Enter a whole campaign seed from 0 to 4294967295.',true);return;}
-    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor});hasCampaign=true;loadNotice='New operation ready. Issue orders, then begin.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();void runLoading('game');
+    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor});clock.reset();hasCampaign=true;loadNotice='New operation ready. Issue orders, then begin.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();void runLoading('game');
   }else if(a==='decision'){
     const result=command({type:'event',choice:Number(button.dataset.choice)});if(result.ok){wasRunningBeforeModal=false;closeModal();}
   }
@@ -376,7 +411,7 @@ $('#import-save').addEventListener('change',async event=>{
   const file=event.target.files[0];if(!file)return;
   try{
     if(file.size>300000)throw new Error('This save file is too large.');
-    const imported=restore(await file.text());state=imported;hasCampaign=true;loadNotice='Campaign imported. Time is paused.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();await runLoading('game');
+    const imported=restore(await file.text());state=imported;clock.reset();hasCampaign=true;loadNotice='Campaign imported. Time is paused.';lastOutcome=null;selected=HQ;pane='district';dispatchUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();await runLoading('game');
   }catch(error){notify(error.message==='This save file is too large.'?error.message:'Import failed. Choose a valid Cartel: Containment save file.',true);}
   event.target.value='';
 });
@@ -393,18 +428,20 @@ document.addEventListener('keydown',event=>{
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden){state.paused=true;save();render();}});
 window.addEventListener('beforeunload',()=>save());
-let lastTime=performance.now(),accumulator=0;
-setInterval(()=>{
-  const now=performance.now(),elapsed=Math.min(now-lastTime,250);lastTime=now;
-  if(scene!=='game'||state.paused||modal.open||state.outcome||state.pendingEvent!==null){accumulator=0;return;}
-  accumulator+=elapsed;const duration={1:1200,2:400,3:200}[state.speed];
-  if(accumulator>=duration){
-    accumulator-=duration;
+let lastTime=performance.now();
+function frame(now){
+  const elapsed=now-lastTime;lastTime=now;
+  const running=scene==='game'&&!document.hidden&&!state.paused&&!modal.open&&!state.outcome&&state.pendingEvent===null;
+  const days=clock.step(elapsed,{running,speed:state.speed});
+  for(let i=0;i<days;i++){
     if(tick(state)){render();if(state.day%5===0||state.pendingEvent||state.outcome)save();}
-    if(state.pendingEvent!==null)eventModal();
-    else if(state.outcome&&state.outcome!==lastOutcome)outcomeModal();
+    if(state.pendingEvent!==null){clock.reset();eventModal();break;}
+    if(state.outcome&&state.outcome!==lastOutcome){clock.reset();outcomeModal();break;}
   }
-},80);
+  map.frame(now,{visible:scene==='game'&&!document.hidden&&!modal.open,fraction:clock.fraction});
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 render();
 renderMenu();
 void runLoading('menu');

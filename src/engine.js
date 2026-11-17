@@ -42,6 +42,16 @@ export const totalThreat=(s,network)=>s.districts.reduce((v,d)=>v+(network===und
 export const unitsHere=(s,id)=>s.units.filter(u=>u.district===id&&u.status==='ready');
 export function unitPower(s,u){return (UNIT_TYPES[u.type].power+(has(s,'training')&&u.type!=='intel'?8:0))*(s.governor==='ibarra'?1.2:1);}
 export function localPower(s,id){return unitsHere(s,id).reduce((v,u)=>v+unitPower(s,u),0);}
+export function movementPlan(s,unitId,destination){
+  const u=s.units.find(u=>u.id===unitId);
+  if(!u||!district(s,destination))return {...no('Choose a unit and a district.'),path:[],days:0};
+  if(u.status!=='ready')return {...no('This unit is already assigned.'),path:[],days:0};
+  if(u.district===destination)return {...no('This unit is already stationed here.'),path:[],days:0};
+  const path=findRoute(u.district,destination);
+  if(!path.length)return {...no('No connected route is available.'),path:[],days:0};
+  const days=path.slice(1).reduce((v,id)=>v+Math.max(1,TERRAIN[DISTRICTS[id].terrain].travel-(district(s,id).completed.includes('roads')?1:0)),0);
+  return {ok:true,path,days,message:`ETA ${days} days`};
+}
 export function operationForecast(s,id){
   const d=district(s,id);if(!d)return 0;
   return clamp(0.48+d.intel*0.004+localPower(s,id)*0.004-s.corruption*0.0015-d.threat*0.0015,0.35,0.98);
@@ -89,12 +99,8 @@ export function act(s,a){
     return ok(`${item.name} funded. Completion in ${days} days.`);
   }
   if(a.type==='move'){
-    const u=s.units.find(u=>u.id===a.unit),d=district(s,a.district);
-    if(!u||!d)return no('Choose a unit and a district.');
-    if(u.status!=='ready')return no('This unit is already assigned.');
-    if(u.district===a.district)return no('This unit is already stationed here.');
-    const path=findRoute(u.district,a.district);if(!path.length)return no('No connected route is available.');
-    const days=path.slice(1).reduce((v,id)=>v+Math.max(1,TERRAIN[DISTRICTS[id].terrain].travel-(district(s,id).completed.includes('roads')?1:0)),0);
+    const plan=movementPlan(s,a.unit,a.district);if(!plan.ok)return no(plan.message);
+    const u=s.units.find(u=>u.id===a.unit),{path,days}=plan;
     u.path=path;u.remaining=days;u.total=days;u.status='moving';
     report(s,`${u.name} is en route to ${DISTRICTS[a.district].name}. ETA ${days} days.`);
     return ok(`${u.name} dispatched. ETA ${days} days.`);
