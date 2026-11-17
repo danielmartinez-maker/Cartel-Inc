@@ -1,230 +1,72 @@
-import {DISTRICTS,TERRAIN,LANDS,NETWORKS,REGIONS,MAP,TRANSPORT_LINKS} from './data.js';
-import {CELLS,polygonPath} from './geography.js';
+import {DISTRICTS,TERRAIN,LANDS,NETWORKS,REGIONS,MAP,TRANSPORT_LINKS,NEIGHBORHOODS} from './data.js';
+import {CELLS,NEIGHBORS,REGION_DISTRICTS,NEIGHBORHOOD_CELLS,polygonPath} from './geography.js';
 import {ART} from './assets.js';
 import {movementPlan,dominantNetwork} from './engine.js';
+import {INFRASTRUCTURE,INFRA_BY_REGION,INFRA_TYPES,assetState} from './infrastructure.js';
+import {icon,escapeHTML as esc} from './icons.js';
 import {ConfrontationLayer} from './confrontation.js';
-import {CIVILIAN_ROUTES,SEA_ROUTES,roadIsActive,samplePolyline,unitPose,progressOf,atmosphere,projectDistrict,campaignSnapshot,campaignMilestones} from './world.js';
-
+import {activeOrders,roadIsActive,samplePolyline,unitPose,progressOf,atmosphere,campaignSnapshot,campaignMilestones} from './world.js';
 const ns='http://www.w3.org/2000/svg';
-const node=(tag,attrs={},content='')=>{const n=document.createElementNS(ns,tag);for(const [key,value]of Object.entries(attrs))n.setAttribute(key,value);n.innerHTML=content;return n;};
-const hash=(a,b)=>{const n=Math.sin(a*127.1+b*311.7)*43758.5453;return n-Math.floor(n);};
+const node=(tag,attrs={},content='')=>{const e=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,v);e.innerHTML=content;return e;};
+const points=path=>path.map(id=>[DISTRICTS[id].x,DISTRICTS[id].y]);
+const centroid=r=>[r.x+600,r.y+400];
 export class ProvinceMap{
-  constructor(element,onSelect,onUnit,onPreview=()=>{}){
-    this.element=element;this.onSelect=onSelect;this.onUnit=onUnit;this.layer='control';this.zoom=1;this.center=[MAP.width/2,MAP.height/2];
-    this.onPreview=onPreview;this.motion=true;this.ambientTime=0;this.effectTime=0;this.lastFrame=0;
-    this.unitViews=new Map();this.ringViews=new Map();this.effects=[];this.dispatchUnit=null;this.previewDestination=null;
-    element.innerHTML=`<svg id="province-map" viewBox="0 0 ${MAP.width} ${MAP.height}" role="group" aria-label="Five-province mandate. Select one of 120 districts for information and orders.">
-      <defs>
-        <pattern id="sea-grid" width="90" height="90" patternUnits="userSpaceOnUse"><path d="M90 0H0V90" fill="none" stroke="#a5b89a" stroke-opacity=".08" stroke-width="1"/></pattern>
-        <pattern id="contested" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="9" stroke="#9b5944" stroke-width="1" opacity=".18"/></pattern>
-        <clipPath id="land-clip"><path d="${LANDS.map(polygonPath).join(' ')}"/></clipPath>
-        <mask id="sea-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${MAP.width}" height="${MAP.height}"><rect width="100%" height="100%" fill="white"/><path d="${LANDS.map(polygonPath).join(' ')}" fill="black"/></mask>
-        ${CELLS.map((p,i)=>`<clipPath id="clip-${i}"><path d="${polygonPath(p)}"/></clipPath>`).join('')}
-      </defs>
-      <rect class="ocean" x="-2000" y="-2000" width="7300" height="5900" fill="#0b3632"/>
-      <rect width="${MAP.width}" height="${MAP.height}" fill="url(#sea-grid)"/>
-      <g class="sea-life" mask="url(#sea-mask)" pointer-events="none" aria-hidden="true"><g id="harbor-boats">${SEA_ROUTES.map((_,i)=>`<g class="harbor-boat" data-boat="${i}"><path class="boat-wake" d="M-22-4L-10-2M-25 4L-10 2"/><path class="boat-hull" d="M-8-3H7L10 0 7 3H-8Z"/><path class="boat-sail" d="M-2-1L-2-9 5-1Z"/></g>`).join('')}</g></g>
-      <g class="transport-corridors" pointer-events="none">${TRANSPORT_LINKS.map(({a,b,days})=>`<path d="M${DISTRICTS[a].x} ${DISTRICTS[a].y}L${DISTRICTS[b].x} ${DISTRICTS[b].y}"><title>Transport corridor · ${days} days</title></path>`).join('')}</g>
-      <path d="${LANDS.map(polygonPath).join(' ')}" fill="#dfc497" stroke="#eacb90" stroke-width="5"/>
-      <image class="province-art" href="${ART.province}" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" clip-path="url(#land-clip)" pointer-events="none"/>
-      <g id="districts"></g><g id="terrain" pointer-events="none"></g>
-      <g class="civilian-traffic" clip-path="url(#land-clip)" pointer-events="none" aria-hidden="true">${CIVILIAN_ROUTES.map((r,i)=>`<g data-traffic="${i}"><path class="civilian-link" d="M${r.points.map(p=>p.join(',')).join('L')}"/><g class="civilian-vehicle"><path class="vehicle-trail" d="M-10 0H-3"/><rect x="-3" y="-1.5" width="6" height="3" rx="1"/></g></g>`).join('')}</g>
-      <g class="province-atmosphere" pointer-events="none" aria-hidden="true"><rect class="world-shade" width="${MAP.width}" height="${MAP.height}" clip-path="url(#land-clip)"/>
-        <g class="clouds" clip-path="url(#land-clip)">${Array.from({length:10},(_,i)=>`<g class="cloud-bank" data-cloud="${i}"><path d="M-100 0Q-110-13-78-15Q-65-36-26-22Q-5-46 32-25Q62-36 73-15Q112-17 108 0Z"/><path d="M-75 5Q-30 14 84 5"/></g>`).join('')}</g>
-        <g class="rain-streaks" clip-path="url(#land-clip)">${Array.from({length:90},(_,i)=>`<path class="rain-streak" d="M${170+(i*137)%2900} ${110+(i*167)%1650}l-4 13" style="animation-delay:-${i*.13}s"/>`).join('')}</g>
-        <g class="bird-flocks">${REGIONS.map((_,i)=>`<g class="bird-flock" data-flock="${i}">${[[-9,2],[0,0],[10,5]].map(([x,y])=>`<path class="bird-wing" transform="translate(${x} ${y})" d="M-4 0Q-2-3 0 0Q2-3 4 0"/>`).join('')}</g>`).join('')}</g>
-      </g>
-      <g id="service-markers" pointer-events="none"></g><g id="work-markers" pointer-events="none"></g><g id="settlements" pointer-events="none"></g>
-      <g class="town-lights" pointer-events="none" aria-hidden="true">${DISTRICTS.filter(d=>['urban','capital','port'].includes(d.terrain)).map(d=>`<g transform="translate(${d.x} ${d.y})">${[[12,-12],[20,-7],[-15,-9],[-10,8]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g>`).join('')}</g>
-      <g class="region-labels" pointer-events="none">${REGIONS.map(r=>`<text x="${r.x+600}" y="${r.y+765}" text-anchor="middle">${r.name.toUpperCase()}<tspan x="${r.x+600}" dy="27">24 DISTRICTS / ${r.subtitle.toUpperCase()}</tspan></text>`).join('')}</g>
-      <g id="unit-paths" pointer-events="none"></g><path id="route-preview-line" pointer-events="none" hidden/><g id="units"></g><g id="map-effects" pointer-events="none" aria-hidden="true"></g>
-    </svg>`;
-    this.svg=element.querySelector('svg');
-    this.confrontations=new ConfrontationLayer(this.svg);
-    this.svg.querySelector('.province-art').addEventListener('load',()=>this.svg.classList.add('map-art-ready'));
-    this.svg.querySelector('.province-art').addEventListener('error',()=>this.svg.classList.remove('map-art-ready'));
-    const groups=this.svg.querySelector('#districts');
-    this.cells=DISTRICTS.map(d=>{
-      const g=node('g',{'data-district':d.id,role:'button',tabindex:0,'aria-label':d.name,class:'district'});
-      g.append(node('path',{d:polygonPath(CELLS[d.id]),class:'district-fill',fill:TERRAIN[d.terrain].fill}));
-      g.append(node('path',{d:polygonPath(CELLS[d.id]),class:'threat-fill',fill:'url(#contested)',opacity:0}));
-      g.append(node('path',{d:polygonPath(CELLS[d.id]),class:'district-border',fill:'none'}));
-      g.addEventListener('click',()=>{if(!this.wasDragged)onSelect(d.id);});
-      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelect(d.id);}});
-      g.addEventListener('pointerenter',()=>this.previewRoute(d.id));
-      g.addEventListener('focus',()=>this.previewRoute(d.id));
-      g.addEventListener('pointerleave',()=>this.previewRoute(null));
-      g.addEventListener('blur',()=>this.previewRoute(null));
-      groups.append(g);return g;
-    });
-    this.traffic=[...this.svg.querySelectorAll('[data-traffic]')].map((group,i)=>({group,vehicle:group.querySelector('.civilian-vehicle'),route:CIVILIAN_ROUTES[i]}));
-    this.boats=[...this.svg.querySelectorAll('[data-boat]')];this.clouds=[...this.svg.querySelectorAll('[data-cloud]')];this.flocks=[...this.svg.querySelectorAll('[data-flock]')];
-    for(const d of DISTRICTS){
-      const g=node('g',{'clip-path':`url(#clip-${d.id})`});
-      for(let i=0;i<(d.terrain==='mountain'?20:d.terrain==='forest'?18:8);i++){
-        const x=d.x-90+hash(d.id,i)*180,y=d.y-90+hash(i,d.id+32)*180;
-        if(Math.hypot(x-d.x,y-d.y)<40)continue;
-        if(d.terrain==='mountain')g.append(node('path',{d:`M${x-9} ${y+6}l9-16 9 16m-13-7l4 2 3-4`,class:'terrain-mountain'}));
-        else if(d.terrain==='forest')g.append(node('path',{d:`M${x} ${y+6}v-5m-5 0l5-9 5 9Z`,class:'terrain-tree'}));
-        else if(d.terrain==='rural')g.append(node('path',{d:`M${x-8} ${y}l12-4m-10 8l12-4m-10 8l12-4`,class:'terrain-field'}));
-      }
-      this.svg.querySelector('#terrain').append(g);
-    }
-    this.markers=DISTRICTS.map(d=>{
-      const g=node('g',{transform:`translate(${d.x} ${d.y})`,class:'settlement'});
-      const capital=d.id===9;
-      g.innerHTML=`<circle class="district-aura" r="${capital?26:22}"/><circle class="district-hub" r="${capital?10:6}"/>${capital?'<path d="M-4 0l3 3 5-6" class="hq-mark"/>':''}<text class="district-name" text-anchor="middle" y="${capital?32:26}">${d.name.toUpperCase()}</text><g class="population-dots" transform="translate(-16 37)">${Array.from({length:6},(_,i)=>`<circle cx="${i*6.5}" r="1.6"/>`).join('')}</g><g class="enemy-dots" transform="translate(-12 -17)"></g><g class="op-indicator" transform="translate(26 -5)"></g>`;
-      this.svg.querySelector('#settlements').append(g);return g;
-    });
-    let drag=null;
-    this.svg.addEventListener('pointerdown',e=>{this.wasDragged=false;if(e.button===0){drag={x:e.clientX,y:e.clientY,center:[...this.center]};}});
-    this.svg.addEventListener('pointermove',e=>{
-      if(!drag||this.zoom===1)return;
-      const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-      if(Math.hypot(dx,dy)<5)return;this.wasDragged=true;
-      const ratio=MAP.width/this.svg.getBoundingClientRect().width/this.zoom;
-      this.center=[Math.max(0,Math.min(MAP.width,drag.center[0]-dx*ratio)),Math.max(0,Math.min(MAP.height,drag.center[1]-dy*ratio))];this.setView();
-    });
-    window.addEventListener('pointerup',()=>{drag=null;});this.setView();
+ constructor(element,onSelect,onUnit,onPreview=()=>{}){
+  this.element=element;this.onSelect=onSelect;this.onUnit=onUnit;this.onPreview=onPreview;this.zoom=1;this.center=[MAP.width/2,MAP.height/2];this.motion=true;this.unitViews=new Map();this.ringViews=new Map();this.effects=[];this.cells=new Map();this.markers=new Map();this.assets=new Map();this.activeRegion=null;this.builtRegion=null;this.ambientTime=0;this.effectTime=0;this.lastFrame=0;this.selected=9;this.selectedNeighborhood=0;this.previewDestination=null;this.dispatchUnit=null;
+  element.innerHTML=`<svg id="province-map" viewBox="0 0 ${MAP.width} ${MAP.height}" role="group" aria-label="Fifty connected provinces, 1,200 districts and 3,600 neighborhoods. Select a province to inspect its districts.">
+   <defs><clipPath id="country-clip"><path d="${LANDS.map(polygonPath).join(' ')}"/></clipPath><g id="regional-clips"></g><pattern id="country-grid" width="200" height="200" patternUnits="userSpaceOnUse"><path d="M200 0H0V200" fill="none" stroke="#adb499" stroke-opacity=".07" stroke-width="2"/></pattern></defs>
+   <rect x="-5000" y="-5000" width="20000" height="18000" fill="#0b3632"/><rect width="${MAP.width}" height="${MAP.height}" fill="url(#country-grid)"/>
+   <path d="${LANDS.map(polygonPath).join(' ')}" fill="#ddc18d"/>
+   <image class="province-art national-art" href="${ART.province}" width="${MAP.width}" height="${MAP.height}" preserveAspectRatio="none" clip-path="url(#country-clip)" pointer-events="none"/>
+   <g id="national-roads" pointer-events="none">${TRANSPORT_LINKS.map(l=>{const a=REGIONS[l.regions[0]],b=REGIONS[l.regions[1]];return `<path data-corridor="${l.id}" d="M${centroid(a).join(',')}L${centroid(b).join(',')}"/>`;}).join('')}</g>
+   <g id="provinces"></g><g id="regional-roads" pointer-events="none"></g><g id="districts"></g><g id="settlements" pointer-events="none"></g><g id="neighborhood-map"></g><g id="infrastructure-links" pointer-events="none"></g><g id="infrastructure-markers"></g><g id="civilian-traffic" pointer-events="none"></g>
+   <g class="province-atmosphere" pointer-events="none" aria-hidden="true"><rect class="world-shade" width="${MAP.width}" height="${MAP.height}" clip-path="url(#country-clip)"/><g class="clouds" clip-path="url(#country-clip)">${Array.from({length:10},(_,i)=>`<g class="cloud-bank" data-cloud="${i}"><path d="M-100 0Q-110-13-78-15Q-65-36-26-22Q-5-46 32-25Q62-36 73-15Q112-17 108 0Z"/></g>`).join('')}</g><g class="bird-flocks">${[0,1,2].map(i=>`<g class="bird-flock" data-flock="${i}"><path class="bird-wing" d="M-5 0Q-2-4 0 0Q2-4 5 0M9 6Q12 2 15 6Q17 2 20 6"/></g>`).join('')}</g><g class="rain-streaks">${Array.from({length:35},(_,i)=>`<path class="rain-streak" d="M${i*33} ${i*77%700}l-5 12"/>`).join('')}</g></g>
+   <g class="town-lights" id="town-lights" pointer-events="none"></g><g id="work-markers" pointer-events="none"></g><g id="unit-paths" pointer-events="none"></g><path id="route-preview-line" pointer-events="none" hidden/><g id="units"></g><g id="map-effects" pointer-events="none"></g>
+  </svg>`;
+  this.svg=element.querySelector('svg');this.countryViews=REGIONS.map(r=>{
+   const g=node('g',{'data-province':r.id,role:'button',tabindex:0,class:'province-shape','aria-label':`${r.name}. 24 districts and 72 neighborhoods. Select to inspect.`});
+   const [x,y]=centroid(r);g.innerHTML=`<path class="province-fill" d="${polygonPath(r.polygon)}"/><path class="province-border" d="${polygonPath(r.polygon)}"/><text class="province-name" text-anchor="middle" x="${x}" y="${y-12}">${esc(r.name.toUpperCase())}</text><text class="province-situation" text-anchor="middle" x="${x}" y="${y+65}"></text><circle class="province-status-dot" cx="${x}" cy="${y-95}" r="18"/>`;
+   const select=()=>{if(this.wasDragged)return;this.focusRegion(r.id);if(this.onProvince)this.onProvince(r.id);else this.onSelect(r.hub);};g.addEventListener('click',select);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}});this.svg.querySelector('#provinces').append(g);return g;
+  });
+  this.svg.querySelector('.province-art').addEventListener('load',()=>this.svg.classList.add('map-art-ready'));
+  this.confrontations=new ConfrontationLayer(this.svg);this.clouds=[...this.svg.querySelectorAll('[data-cloud]')];this.flocks=[...this.svg.querySelectorAll('[data-flock]')];
+  let drag=null;this.svg.addEventListener('pointerdown',e=>{this.wasDragged=false;if(e.button===0)drag={x:e.clientX,y:e.clientY,center:[...this.center]};});
+  this.svg.addEventListener('pointermove',e=>{if(!drag||this.zoom===1)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)<5)return;this.wasDragged=true;const ratio=MAP.width/this.svg.getBoundingClientRect().width/this.zoom;this.center=[Math.max(0,Math.min(MAP.width,drag.center[0]-dx*ratio)),Math.max(0,Math.min(MAP.height,drag.center[1]-dy*ratio))];this.setView();});window.addEventListener('pointerup',()=>{drag=null;});
+  this.svg.addEventListener('wheel',e=>{e.preventDefault();this.setZoom(e.deltaY<0?this.zoom*.12:-this.zoom*.12);},{passive:false});this.setView();
+ }
+ setView(){const w=MAP.width/this.zoom,h=MAP.height/this.zoom;this.targetView=[this.center[0]-w/2,this.center[1]-h/2,w,h];if(!this.actualView||!this.motion||this.svg.dataset.active!=='true'){this.actualView=[...this.targetView];this.svg.setAttribute('viewBox',this.actualView.join(' '));}this.svg.classList.toggle('country-view',this.zoom<4);this.svg.classList.toggle('district-view',this.zoom>=16);const region=this.zoom<4?null:REGIONS.reduce((a,b)=>Math.hypot(a.x+600-this.center[0],a.y+400-this.center[1])<Math.hypot(b.x+600-this.center[0],b.y+400-this.center[1])?a:b).id;this.activeRegion=region;this.onView?.(region);if(region!==null&&region!==this.builtRegion)this.buildRegion(region);if(this.currentState)this.render(this.currentState,this.selected,this.layer,{fraction:this.fraction,dispatchUnit:this.dispatchUnit});}
+ setZoom(delta){this.zoom=Math.max(1,Math.min(36,this.zoom+delta));if(this.zoom===1)this.center=[MAP.width/2,MAP.height/2];this.setView();return this.zoom;}
+ fit(){this.zoom=1;this.center=[MAP.width/2,MAP.height/2];this.setView();}
+ focusRegion(id){const r=REGIONS[id];if(!r)return;this.zoom=7.5;this.center=centroid(r);this.setView();}
+ focusDistrict(id,index=0){const d=DISTRICTS[id];if(!d)return;this.selected=id;this.selectedNeighborhood=index;this.zoom=28;this.center=[d.x,d.y+4];this.setView();}
+ setMotion(enabled){this.motion=enabled;this.svg.dataset.motion=String(enabled);this.confrontations.setMotion(enabled);if(!enabled&&this.targetView){this.actualView=[...this.targetView];this.svg.setAttribute('viewBox',this.actualView.join(' '));}if(!enabled){this.effects.forEach(e=>e.element.remove());this.effects=[];}}
+ buildRegion(id){this.builtRegion=id;this.cells.clear();this.markers.clear();this.assets.clear();for(const key of ['districts','settlements','regional-roads','infrastructure-markers','infrastructure-links','civilian-traffic','town-lights','neighborhood-map'])this.svg.querySelector('#'+key).replaceChildren();
+  this.svg.querySelector('#regional-clips').innerHTML=REGION_DISTRICTS[id].map(d=>`<clipPath id="clip-${d.id}"><path d="${polygonPath(CELLS[d.id])}"/></clipPath>`).join('');
+  for(const d of REGION_DISTRICTS[id]){const g=node('g',{class:'district','data-district':d.id,role:'button',tabindex:0});g.innerHTML=`<path class="district-fill" d="${polygonPath(CELLS[d.id])}"/><path class="district-border" d="${polygonPath(CELLS[d.id])}" fill="none"/>`;const choose=()=>{if(!this.wasDragged)this.onSelect(d.id);};g.addEventListener('click',choose);g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}});g.addEventListener('pointerenter',()=>this.previewRoute(d.id));g.addEventListener('pointerleave',()=>this.previewRoute(null));g.addEventListener('focus',()=>this.previewRoute(d.id));this.svg.querySelector('#districts').append(g);this.cells.set(d.id,g);
+   const m=node('g',{class:'settlement',transform:`translate(${d.x} ${d.y})`});m.innerHTML=`<circle class="district-aura" r="22"/><circle class="district-hub" r="6"/><text class="district-name" text-anchor="middle" y="25">${esc(d.localName.toUpperCase())}</text><g class="enemy-dots" transform="translate(-12 -17)"></g>`;this.svg.querySelector('#settlements').append(m);this.markers.set(d.id,m);
+   if(['capital','urban','port'].includes(d.terrain))this.svg.querySelector('#town-lights').append(node('g',{transform:`translate(${d.x} ${d.y})`},'<circle cx="11" cy="-8" r="2"/><circle cx="17" cy="-3" r="2"/>'));
   }
-  setView(){
-    const w=MAP.width/this.zoom,h=MAP.height/this.zoom;
-    this.svg.classList.toggle('country-view',this.zoom<2.2);
-    const region=this.zoom<2.2?null:REGIONS.reduce((a,b)=>Math.hypot(a.x+600-this.center[0],a.y+400-this.center[1])<Math.hypot(b.x+600-this.center[0],b.y+400-this.center[1])?a:b).id;
-    this.onView?.(region);
-    this.svg.setAttribute('viewBox',`${this.center[0]-w/2} ${this.center[1]-h/2} ${w} ${h}`);
-  }
-  setZoom(delta){this.zoom=Math.max(1,Math.min(5,this.zoom+delta));if(this.zoom===1)this.center=[MAP.width/2,MAP.height/2];this.setView();return this.zoom;}
-  fit(){this.zoom=1;this.center=[MAP.width/2,MAP.height/2];this.setView();}
-  focusRegion(id){const r=REGIONS[id];if(!r)return;this.zoom=2.65;this.center=[r.x+600,r.y+400];this.setView();}
-  setMotion(enabled){this.motion=enabled;this.svg.dataset.motion=String(enabled);this.confrontations.setMotion(enabled);if(!enabled){this.effects.forEach(e=>e.element.remove());this.effects=[];}}
-  previewRoute(destination){
-    this.previewDestination=destination;const line=this.svg.querySelector('#route-preview-line');
-    const plan=this.dispatchUnit!==null&&destination!==null&&this.currentState?movementPlan(this.currentState,this.dispatchUnit,destination):null;
-    line.hidden=!plan?.ok;line.setAttribute('visibility',plan?.ok?'visible':'hidden');
-    if(plan?.ok)line.setAttribute('d','M'+plan.path.map(id=>`${DISTRICTS[id].x},${DISTRICTS[id].y}`).join('L'));
-    this.onPreview(plan,destination);
-  }
-  render(s,selected,layer='control',{fraction=0,dispatchUnit=null}={}){
-    this.layer=layer;
-    this.svg.dataset.layer=layer;
-    if(this.currentState!==s){this.previous=null;this.effects.forEach(e=>e.element.remove());this.effects=[];}
-    const snapshot=campaignSnapshot(s);
-    const resolvedRaids=new Set((this.previous?.operations||[]).filter(o=>o.type==='raid'&&!snapshot.operations.some(n=>n.district===o.district)).map(o=>o.district));
-    if(this.motion)for(const event of campaignMilestones(this.previous,snapshot))if(!resolvedRaids.has(event.district))this.addMilestone(event);
-    this.previous=snapshot;this.currentState=s;this.dispatchUnit=dispatchUnit;
-    this.svg.classList.toggle('dispatching',dispatchUnit!==null);
-    this.svg.dataset.running=String(!s.paused&&!s.outcome&&s.pendingEvent===null);
-    const weather=atmosphere(s.seed,s.day);this.svg.dataset.night=String(weather.night);this.svg.dataset.rain=String(weather.rain);
-    this.svg.querySelector('.world-shade').style.opacity=weather.shade;
-    for(const traffic of this.traffic){traffic.active=roadIsActive(s,traffic.route);traffic.group.setAttribute('visibility',traffic.active?'visible':'hidden');}
-    for(const d of s.districts){
-      const g=this.cells[d.id],def=DISTRICTS[d.id],stable=d.stability>=75&&d.support>=60&&d.threat<8;
-      let color=TERRAIN[def.terrain].fill;
-      if(layer==='support')color=`hsl(${39+d.support*1.08} 30% ${79-d.support*0.22}%)`;
-      if(layer==='intelligence')color=`hsl(${148+d.intel*0.36} ${20+d.intel*0.17}% ${81-d.intel*0.33}%)`;
-      if(layer==='control'&&stable)color='#8daf93';
-      if(layer==='control'&&d.threat>=25)color='#c9976d';
-      g.classList.toggle('selected',d.id===selected);g.classList.toggle('hostile',d.threat>=25);
-      g.classList.toggle('stabilized',stable);
-      g.setAttribute('aria-pressed',d.id===selected?'true':'false');
-      g.setAttribute('aria-label',`${def.name}. ${stable?'Stabilized':d.threat>=25?'Cartel presence':'Unsecured'}. Support ${Math.floor(d.support)} percent. Intelligence ${Math.floor(d.intel)} percent.`);
-      if(dispatchUnit!==null){const plan=movementPlan(s,dispatchUnit,d.id);g.setAttribute('aria-label',`${def.name}. ${plan.message}`);}
-      g.querySelector('.district-fill').setAttribute('fill',color);
-      g.querySelector('.threat-fill').setAttribute('opacity',d.threat>=25?0.7:0);
-      const m=this.markers[d.id];m.classList.toggle('selected',d.id===selected);
-      m.querySelector('.district-aura').setAttribute('class',`district-aura ${d.id===selected?'active':stable?'stable':''}`);
-      m.querySelector('.district-hub').setAttribute('fill',d.id===9?'#134d3c':d.threat>=25?'#a35230':stable?'#326f4c':'#fff0c5');
-      m.querySelector('.population-dots').setAttribute('fill',stable?'#246147':d.threat>=25?'#9d4d2c':'#405a40');
-      m.querySelector('.enemy-dots').innerHTML=d.threat>=12?Array.from({length:Math.min(5,Math.ceil(d.threat/12))},(_,i)=>`<circle cx="${i*6.5}" r="2.8" fill="${NETWORKS[dominantNetwork(d)].color}" stroke="#f0d8ba" stroke-width=".6"/>`).join(''):'';
-      const dots=m.querySelector('.enemy-dots');dots.classList.toggle('active-cell',d.threat>=25);
-    }
-    const services=s.districts.map(d=>`${d.id}:${d.services}:${d.completed.join(',')}`).join('|');
-    if(services!==this.serviceSignature){
-      this.serviceSignature=services;
-      this.svg.querySelector('#service-markers').innerHTML=s.districts.filter(d=>d.services||d.completed.includes('station')).map(d=>{
-        const def=DISTRICTS[d.id],station=d.completed.includes('station');
-        return `<g class="service-stamp" transform="translate(${def.x-22} ${def.y-10})"><title>${def.name}: ${d.services} civilian services${station?', police station':''}</title><circle r="7"/><path d="${station?'M-3-4H3V0L0 4-3 0Z':'M-3 0L-1 2 4-3'}"/></g>`;
-      }).join('');
-    }
-    this.renderWork(s);
-    const routes=this.svg.querySelector('#unit-paths'),units=this.svg.querySelector('#units');
-    const visible=new Set();
-    const counts={};
-    for(const u of s.units){
-      if(u.status==='training')continue;
-      visible.add(u.id);let view=this.unitViews.get(u.id);
-      if(!view){
-        const g=node('g',{role:'button',tabindex:0,'data-unit':u.id});
-        const symbol=u.type==='intel'?'<circle r="3" fill="none" stroke="#f3e9cd"/><path d="M3 3l3 3" stroke="#f3e9cd"/>':u.type==='federal'?'<path d="M-4-3h8v4l-4 4-4-4Z" fill="none" stroke="#f3e9cd" stroke-width="1.2"/>':'<circle r="3" fill="#f3e9cd"/>';
-        g.innerHTML=`<circle r="14" class="unit-beacon"/><circle r="10" class="unit-shadow"/><circle r="8.5" class="unit-body"/>${symbol}<text class="unit-map-label" y="-18" text-anchor="middle"></text>`;
-        g.querySelector('.unit-map-label').textContent=u.name;
-        g.addEventListener('click',e=>{e.stopPropagation();this.onUnit(u.id);});
-        g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.onUnit(u.id);}});
-        const route=node('path',{class:'unit-route'});routes.append(route);units.append(g);view={element:g,route};this.unitViews.set(u.id,view);
-      }
-      view.unit=u;view.slot=counts[u.district]||0;if(u.status!=='moving')counts[u.district]=view.slot+1;
-      view.element.setAttribute('class',`map-unit ${u.type} ${u.status}`);
-      view.element.setAttribute('aria-label',`${u.name}, ${u.type} unit, ${u.status}`);
-      view.route.setAttribute('visibility',u.status==='moving'?'visible':'hidden');
-      if(u.status==='moving')view.route.setAttribute('d','M'+u.path.map(id=>`${DISTRICTS[id].x},${DISTRICTS[id].y}`).join('L'));
-    }
-    for(const [id,view]of this.unitViews)if(!visible.has(id)){view.element.remove();view.route.remove();this.unitViews.delete(id);}
-    this.confrontations.sync(s,this.unitViews);
-    const engagedDistricts=this.confrontations.districts,engagedUnits=this.confrontations.units;
-    this.markers.forEach((marker,id)=>marker.classList.toggle('engaged',engagedDistricts.has(id)));
-    for(const [id,view]of this.unitViews)view.element.classList.toggle('engaged',engagedUnits.has(id));
-    for(const view of this.ringViews.values())view.element.classList.toggle('has-confrontation',view.item.type==='raid'&&engagedDistricts.has(view.item.district));
-    this.updateOrders(this.motion?fraction:0);this.previewRoute(this.previewDestination);
-  }
-  renderWork(s){
-    const projectCounts={};
-    const items=[...s.operations.map(o=>({item:o,key:`op-${o.district}`,district:o.district,type:o.type,radius:17})),
-      ...s.projects.map(p=>{const district=projectDistrict(p),slot=projectCounts[district]||0;projectCounts[district]=slot+1;return {item:p,key:`project-${p.id}-${p.district}`,district,type:'project',radius:24+slot*5};})];
-    const keys=new Set(items.map(i=>i.key));
-    for(const [key,view]of this.ringViews)if(!keys.has(key)){view.element.remove();this.ringViews.delete(key);}
-    for(const item of items){
-      let view=this.ringViews.get(item.key);
-      if(!view){
-        const def=DISTRICTS[item.district],g=node('g',{class:`work-marker work-${item.type}`,transform:`translate(${def.x} ${def.y})`});
-        g.innerHTML=`<circle class="work-ring-base" r="${item.radius}"/><circle class="work-ring-fill" r="${item.radius}" pathLength="100" transform="rotate(-90)"/><g class="work-sweep"><path d="M0 0L0-15A15 15 0 0 1 15 0Z"/></g><circle class="work-spark" r="2.5" cy="-${item.radius}"/>`;
-        this.svg.querySelector('#work-markers').append(g);view={element:g,ring:g.querySelector('.work-ring-fill')};this.ringViews.set(item.key,view);
-      }
-      view.item=item.item;view.element.querySelectorAll('.work-ring-base,.work-ring-fill').forEach(c=>c.setAttribute('r',item.radius));view.element.querySelector('.work-spark').setAttribute('cy',-item.radius);
-    }
-  }
-  updateOrders(fraction){
-    for(const view of this.unitViews.values()){
-      const pose=unitPose(view.unit,fraction,view.slot);view.element.setAttribute('transform',`translate(${pose.x.toFixed(2)} ${pose.y.toFixed(2)})`);
-    }
-    for(const view of this.ringViews.values())view.ring.setAttribute('stroke-dasharray',`${(progressOf(view.item,fraction)*100).toFixed(2)} 100`);
-  }
-  addMilestone(event){
-    this.effects=this.effects.filter(effect=>{if(effect.district===event.district){effect.element.remove();return false;}return true;});
-    const d=DISTRICTS[event.district],g=node('g',{class:`map-milestone ${event.kind}`,transform:`translate(${d.x} ${d.y})`});
-    g.append(node('circle',{class:'milestone-wave',r:12}));
-    const width=Math.max(110,event.text.length*6.2+20);
-    const label=node('g',{class:'milestone-label'});label.append(node('rect',{x:-width/2,y:-48,width,height:20,rx:2}));label.append(node('text',{x:0,y:-35,'text-anchor':'middle'},event.text));g.append(label);
-    this.svg.querySelector('#map-effects').append(g);this.effects.push({element:g,born:this.effectTime,district:event.district});
-    while(this.effects.length>12)this.effects.shift().element.remove();
-  }
-  frame(now,{visible,fraction=0}){
-    if(this.svg.dataset.active!==String(visible))this.svg.dataset.active=String(visible);
-    if(!visible)this.confrontations.suspend();
-    if(!visible||!this.motion||now-this.lastFrame<32)return;
-    const delta=Math.min(100,now-(this.lastFrame||now))/1000;this.lastFrame=now;
-    this.ambientTime+=delta;this.effectTime+=delta;
-    const time=this.ambientTime;
-    for(const {vehicle,route,active}of this.traffic)if(active){
-      const t=(time/(15+route.a%7)+route.phase)%1,pose=samplePolyline(route.points,t);
-      vehicle.setAttribute('transform',`translate(${pose.x.toFixed(1)} ${pose.y.toFixed(1)}) rotate(${pose.angle.toFixed(1)})`);
-      vehicle.style.opacity=Math.min(1,t*12,(1-t)*12);
-    }
-    this.boats.forEach((boat,i)=>{const t=(time/(48+i*9)+i*.29)%1,p=samplePolyline(SEA_ROUTES[i],t);boat.setAttribute('transform',`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.angle.toFixed(1)})`);boat.style.opacity=Math.min(.9,t*10,(1-t)*10);});
-    this.clouds.forEach((cloud,i)=>{const r=REGIONS[Math.floor(i/2)];cloud.setAttribute('transform',`translate(${r.x+100+((time*(4+i%2)+i*330)%1000)} ${r.y+180+(i%2)*300}) scale(1.4 .8)`);});
-    this.flocks.forEach((flock,i)=>{const r=REGIONS[i];flock.setAttribute('transform',`translate(${r.x+170+((time*(7+i)+i*295)%850)} ${r.y+175+Math.sin(time*.22+i)*35})`);});
-    this.updateOrders(fraction);
-    this.confrontations.frame(delta,{visible,running:this.svg.dataset.running==='true'});
-    this.effects=this.effects.filter(effect=>{if(this.effectTime-effect.born>4){effect.element.remove();return false;}return true;});
-  }
+  const roads=REGION_DISTRICTS[id].flatMap(d=>NEIGHBORS[d.id].filter(b=>b>d.id&&DISTRICTS[b].region===id).map(b=>({a:d.id,b,points:points([d.id,b]),phase:((d.id*17+b*31)%97)/97})));this.traffic=roads.filter((r,i)=>i%2===0).map((route,i)=>{const line=node('path',{class:'local-road',d:'M'+route.points.map(p=>p.join(',')).join('L')});this.svg.querySelector('#regional-roads').append(line);const g=node('g',{class:'civilian-vehicle'},'<path class="vehicle-trail" d="M-10 0H-3"/><rect x="-3" y="-1.5" width="6" height="3" rx="1"/>');this.svg.querySelector('#civilian-traffic').append(g);return {vehicle:g,route,active:true};});
+  for(const def of INFRA_BY_REGION[id]){const g=node('g',{class:'infra-marker','data-infrastructure':def.id,role:'button',tabindex:0,transform:`translate(${def.x} ${def.y})`,'aria-label':`${def.name}. Inspect infrastructure.`});g.innerHTML=`<circle class="infra-halo" r="17"/><rect class="infra-plinth" x="-12" y="-12" width="24" height="24" rx="3"/>${icon(INFRA_TYPES[def.type].icon,17).replace('<svg ','<svg x="-8.5" y="-8.5" ')}<circle class="infra-alert" cx="11" cy="-11" r="3.5"/><title>${esc(def.name)}</title>`;const choose=()=>{if(!this.wasDragged)this.onInfrastructure?.(def.id);};g.addEventListener('click',e=>{e.stopPropagation();choose();});g.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();choose();}});this.svg.querySelector('#infrastructure-markers').append(g);this.assets.set(def.id,g);}
+  const facilities=INFRA_BY_REGION[id],power=facilities.find(a=>a.type==='power');if(power)for(const target of facilities.filter(a=>['water','hospital','telecom','depot'].includes(a.type)))this.svg.querySelector('#infrastructure-links').append(node('path',{class:`utility-link utility-${target.type}`,d:`M${power.x} ${power.y}Q${(power.x+target.x)/2} ${Math.min(power.y,target.y)-25} ${target.x} ${target.y}`,'data-utility':target.type}));
+ }
+ previewRoute(destination){this.previewDestination=destination;const line=this.svg.querySelector('#route-preview-line'),plan=this.dispatchUnit!==null&&destination!==null&&this.currentState?movementPlan(this.currentState,this.dispatchUnit,destination):null;line.hidden=!plan?.ok;line.setAttribute('visibility',plan?.ok?'visible':'hidden');if(plan?.ok)line.setAttribute('d','M'+points(plan.path).map(p=>p.join(',')).join('L'));this.onPreview(plan,destination);}
+ render(s,selected,layer='control',{fraction=0,dispatchUnit=null}={}){
+  this.layer=layer;this.selected=selected;this.fraction=fraction;this.dispatchUnit=dispatchUnit;this.svg.dataset.layer=layer;this.svg.dataset.running=String(!s.paused&&!s.outcome&&s.pendingEvent===null);
+  if(this.currentState!==s){this.previous=null;this.effects.forEach(e=>e.element.remove());this.effects=[];}
+  const snapshot=campaignSnapshot(s);if(this.motion)for(const event of campaignMilestones(this.previous,snapshot).slice(0,8))this.addMilestone(event);this.previous=snapshot;this.currentState=s;
+  const weather=atmosphere(s.seed,s.day);this.svg.dataset.night=String(weather.night);this.svg.dataset.rain=String(weather.rain);this.svg.querySelector('.world-shade').style.opacity=weather.shade;
+  for(const r of REGIONS){const ds=s.districts.slice(r.id*24,r.id*24+24),stable=ds.filter(d=>d.stability>=75&&d.support>=60&&d.threat<8).length,hot=ds.filter(d=>d.threat>=25).length,g=this.countryViews[r.id];g.classList.toggle('province-active',r.id===this.activeRegion);g.querySelector('.province-fill').setAttribute('fill',layer==='infrastructure'?`hsl(${r.id*3+120} 25% 50%)`:hot>5?'#b85c36':stable>17?'#4a8665':'#d2bd7d');g.querySelector('.province-fill').style.opacity=layer==='infrastructure'?Math.max(.05,(100-s.regions[r.id].services.average)/150):hot>5?.16:.04;g.querySelector('.province-situation').textContent=layer==='infrastructure'?`${Math.round(s.regions[r.id].services.average)}% SERVICES`:`${stable}/24 STABLE · ${hot} HOTSPOTS`;g.querySelector('.province-status-dot').setAttribute('fill',hot>5?'#b95d37':stable>17?'#8fb38c':'#f1dba2');}
+  for(const path of this.svg.querySelectorAll('[data-corridor]')){const a=assetState(s,path.dataset.corridor);path.classList.toggle('corridor-damaged',a.condition<35);path.classList.toggle('corridor-closed',a.condition<15);}
+  for(const [id,g]of this.cells){const d=s.districts[id],stable=d.stability>=75&&d.support>=60&&d.threat<8;g.classList.toggle('selected',id===selected);g.classList.toggle('hostile',d.threat>=25);g.setAttribute('aria-label',`${DISTRICTS[id].name}. ${stable?'Stabilized':d.threat>=25?'Cartel presence':'Unsecured'}. ${Math.floor(d.support)}% support. ${Math.floor(d.intel)}% intelligence.`);g.setAttribute('aria-pressed',String(id===selected));g.querySelector('.district-fill').setAttribute('fill',layer==='support'?`hsl(${35+d.support} 30% 60%)`:layer==='intelligence'?`hsl(170 30% ${85-d.intel*.4}%)`:d.threat>=25?'#bb7548':stable?'#80a686':TERRAIN[DISTRICTS[id].terrain].fill);const m=this.markers.get(id);m.classList.toggle('selected',id===selected);m.querySelector('.district-hub').setAttribute('fill',d.threat>=25?'#b55c35':stable?'#326c4e':'#fff0c5');m.querySelector('.enemy-dots').innerHTML=Array.from({length:d.threat>=8?Math.min(5,Math.ceil(d.threat/15)):0},(_,i)=>`<circle cx="${i*6.5}" r="2.8" fill="${NETWORKS[dominantNetwork(d)].color}" stroke="#eed8ac" stroke-width=".6"/>`).join('');}
+  for(const [id,g]of this.assets){const a=assetState(s,id);g.classList.toggle('infra-damaged',a.condition<40);g.classList.toggle('infra-infiltrated',a.infiltration>45);g.classList.toggle('infra-outage',a.downtime>0||a.condition<20);g.setAttribute('aria-label',`${INFRASTRUCTURE.find(d=>d.id===id).name}. Condition ${Math.floor(a.condition)}%, infiltration ${Math.floor(a.infiltration)}%. Inspect infrastructure.`);}
+  if(this.activeRegion!==null){const r=s.regions[this.activeRegion];this.svg.querySelector('#infrastructure-links').dataset.powered=String(r.services.power>30);for(const t of this.traffic)t.active=roadIsActive(s,t.route)&&r.services.commerce>20;}
+  this.renderNeighborhoods(s,selected);this.renderOrders(s);this.renderUnits(s);this.confrontations.sync(s,this.unitViews);this.previewRoute(this.previewDestination);this.updateOrders(fraction);
+ }
+ renderNeighborhoods(s,id){const group=this.svg.querySelector('#neighborhood-map');if(this.zoom<16){group.replaceChildren();return;}const signature=`${id}:${this.selectedNeighborhood}:${s.day}:${this.layer}`;if(signature===this.neighborhoodSignature)return;this.neighborhoodSignature=signature;group.innerHTML='';const d=s.districts[id];for(const n of NEIGHBORHOODS[id]){const state=d.neighborhoods[n.index],g=node('g',{class:`neighborhood-zone ${n.index===this.selectedNeighborhood?'selected':''}`,'data-neighborhood':n.index,role:'button',tabindex:0,'aria-label':`${n.name}. Support ${Math.floor(state.support)}%, access ${Math.floor(state.access)}%.`});g.innerHTML=`<path d="${polygonPath(NEIGHBORHOOD_CELLS[id][n.index])}" fill="${state.grievance>55?'#bc7957':state.support>60?'#719c7c':'#d4c38e'}"/><text x="${n.x}" y="${n.y}" text-anchor="middle">${esc(n.name.toUpperCase())}</text><text class="neighborhood-stat" x="${n.x}" y="${n.y+8}" text-anchor="middle">${Math.floor(state.access)}% ACCESS / ${Math.floor(state.grievance)}% GRIEVANCE</text>`;const choose=()=>{if(!this.wasDragged){this.selectedNeighborhood=n.index;this.onNeighborhood?.(id,n.index);}};g.addEventListener('click',choose);g.addEventListener('keydown',e=>{if(e.key==='Enter')choose();});group.append(g);}}
+ renderOrders(s){const orders=activeOrders(s).filter(o=>o.kind!=='unit'),keys=new Set(orders.map(o=>o.key));for(const [key,view]of this.ringViews)if(!keys.has(key)){view.element.remove();this.ringViews.delete(key);}for(const item of orders){let view=this.ringViews.get(item.key);if(!view){const d=DISTRICTS[item.district],g=node('g',{class:`work-marker work-${item.type||'project'}`,transform:`translate(${d.x} ${d.y})`},'<circle class="work-ring-base" r="20"/><circle class="work-ring-fill" r="20" pathLength="100" transform="rotate(-90)"/>');this.svg.querySelector('#work-markers').append(g);view={element:g,ring:g.querySelector('.work-ring-fill')};this.ringViews.set(item.key,view);}view.item=item;}}
+ renderUnits(s){const counts={},visible=new Set();for(const u of s.units){if(u.status==='training')continue;visible.add(u.id);let view=this.unitViews.get(u.id);if(!view){const g=node('g',{class:'map-unit',role:'button',tabindex:0,'data-unit':u.id},`<circle r="13" class="unit-beacon"/><circle r="10" class="unit-shadow"/><circle r="8" class="unit-body"/><path d="${u.type==='intel'?'M-3 0H3M0-3V3':'M-3 0L0 3 4-3'}" stroke="#f4e5bd" fill="none"/><text class="unit-map-label" y="-18" text-anchor="middle">${esc(u.name)}</text>`);g.addEventListener('click',e=>{e.stopPropagation();this.onUnit(u.id);});g.addEventListener('keydown',e=>{if(e.key==='Enter')this.onUnit(u.id);});const route=node('path',{class:'unit-route'});this.svg.querySelector('#units').append(g);this.svg.querySelector('#unit-paths').append(route);view={element:g,route};this.unitViews.set(u.id,view);}view.unit=u;view.slot=counts[u.district]||0;if(u.status!=='moving')counts[u.district]=view.slot+1;view.element.setAttribute('class',`map-unit ${u.type} ${u.status}`);view.element.setAttribute('aria-label',`${u.name}, ${u.type} unit, ${u.status}`);view.route.setAttribute('visibility',u.status==='moving'?'visible':'hidden');if(u.status==='moving')view.route.setAttribute('d','M'+points(u.path).map(p=>p.join(',')).join('L'));}for(const [id,view]of this.unitViews)if(!visible.has(id)){view.element.remove();view.route.remove();this.unitViews.delete(id);}}
+ updateOrders(fraction){for(const view of this.unitViews.values()){const p=unitPose(view.unit,fraction,view.slot);view.element.setAttribute('transform',`translate(${p.x.toFixed(2)} ${p.y.toFixed(2)})`);}for(const view of this.ringViews.values())view.ring.setAttribute('stroke-dasharray',`${progressOf(view.item,fraction)*100} 100`);}
+ addMilestone(event){if(this.activeRegion===null||DISTRICTS[event.district].region!==this.activeRegion)return;const d=DISTRICTS[event.district],g=node('g',{class:`map-milestone ${event.kind}`,transform:`translate(${d.x} ${d.y})`},`<circle class="milestone-wave" r="12"/><g class="milestone-label"><rect x="-85" y="-48" width="170" height="21"/><text x="0" y="-34" text-anchor="middle">${esc(event.text)}</text></g>`);this.svg.querySelector('#map-effects').append(g);this.effects.push({element:g,born:this.effectTime});while(this.effects.length>12)this.effects.shift().element.remove();}
+ frame(now,{visible,fraction=0}){this.svg.dataset.active=String(visible);if(!visible)this.confrontations.suspend();if(!visible||!this.motion||now-this.lastFrame<32)return;const delta=Math.min(100,now-(this.lastFrame||now))/1000;this.lastFrame=now;if(this.targetView){this.actualView=this.actualView.map((v,i)=>v+(this.targetView[i]-v)*Math.min(1,delta*11));this.svg.setAttribute('viewBox',this.actualView.map(v=>v.toFixed(2)).join(' '));}this.ambientTime+=delta;this.effectTime+=delta;const t=this.ambientTime,r=this.activeRegion===null?REGIONS[0]:REGIONS[this.activeRegion];for(const {vehicle,route,active}of this.traffic||[]){vehicle.style.display=active?'':'none';if(active){const p=samplePolyline(route.points,(t/(14+route.a%9)+route.phase)%1);vehicle.setAttribute('transform',`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.angle.toFixed(1)})`);}}this.clouds.forEach((g,i)=>{const region=this.activeRegion===null?REGIONS[(i*5)%50]:r;g.setAttribute('transform',`translate(${region.x+((t*9+i*250)%1200)} ${region.y+100+i%3*220}) scale(${this.activeRegion===null?2.5:1.2} .8)`);});this.flocks.forEach((g,i)=>g.setAttribute('transform',`translate(${r.x+150+((t*16+i*320)%900)} ${r.y+200+i*125+Math.sin(t*.3)*20})`));this.svg.querySelector('.rain-streaks').setAttribute('transform',`translate(${r.x} ${r.y})`);this.updateOrders(fraction);this.confrontations.frame(delta,{visible,running:this.svg.dataset.running==='true'});this.effects=this.effects.filter(e=>{if(this.effectTime-e.born>4){e.element.remove();return false;}return true;});}
 }

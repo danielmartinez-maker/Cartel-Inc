@@ -67,10 +67,10 @@ export class ConfrontationLayer{
     g.innerHTML=`<ellipse class="encounter-ground" cx="3" cy="-8" rx="57" ry="33"/>
       <path class="encounter-pressure-base" d="M-48 7Q-54-46 5-45Q65-43 65 11"/>
       <path class="encounter-pressure" d="M-48 7Q-54-46 5-45Q65-43 65 11" pathLength="100"/>
-      <g class="encounter-members">${formation.map(()=>'<g class="cartel-member"><circle class="member-shadow" r="4.4"/><circle r="3.1"/><path d="M-2 0H2"/></g>').join('')}</g>
+      <g class="encounter-cover"><path d="M-44-10l11-4 3 5-11 4Z M-23-34l10-1 2 5-11 2Z M22 7l12-2 1 5-12 2Z"/></g><g class="encounter-smoke"><circle r="4"/><circle r="3"/><circle r="5"/></g><g class="encounter-members">${formation.map(()=>'<g class="cartel-member"><circle class="member-shadow" r="4.4"/><circle r="3.1"/><path d="M-2 0H2"/></g>').join('')}</g>
       <g class="encounter-security">${[0,1,2].map(()=>'<g class="security-member"><circle r="3.2"/><path d="M-1.5 0L0 1.5 2-1"/></g>').join('')}</g>
-      <g class="exchange exchange-security"><path class="encounter-tracer"/><circle class="encounter-muzzle" r="3"/><g class="encounter-contact"><circle r="4"/><path d="M-6-2L-3-1M3-4L5-6M3 3L6 5"/></g></g>
-      <g class="exchange exchange-cartel"><path class="encounter-tracer"/><circle class="encounter-muzzle" r="3"/><g class="encounter-contact"><circle r="4"/><path d="M-6-2L-3-1M3-4L5-6M3 3L6 5"/></g></g>
+      <g class="exchange exchange-security"><path class="encounter-tracer"/><path class="encounter-muzzle" d="M0-5L1-1 5 0 1 1 0 5-1 1-5 0-1-1Z"/><g class="encounter-contact"><circle r="4"/><path d="M-6-2L-3-1M3-4L5-6M3 3L6 5"/></g></g>
+      <g class="exchange exchange-cartel"><path class="encounter-tracer"/><path class="encounter-muzzle" d="M0-5L1-1 5 0 1 1 0 5-1 1-5 0-1-1Z"/><g class="encounter-contact"><circle r="4"/><path d="M-6-2L-3-1M3-4L5-6M3 3L6 5"/></g></g>
       <text class="encounter-caption" x="5" y="-51" text-anchor="middle">CONFRONTATION</text><text class="encounter-unit-name" x="44" y="23" text-anchor="middle"></text>`;
     this.layer.append(g);
     return {element:g,model,timeline:new EncounterTimeline(),friendly:{x:29,y:-2},enemies:[...g.querySelectorAll('.cartel-member')],allies:[...g.querySelectorAll('.security-member')],exchanges:[...g.querySelectorAll('.exchange')].map(e=>({element:e,tracer:e.querySelector('.encounter-tracer'),muzzle:e.querySelector('.encounter-muzzle'),contact:e.querySelector('.encounter-contact')}))};
@@ -87,11 +87,12 @@ export class ConfrontationLayer{
   }
   paint(){
     for(const view of this.views.values()){
-      const time=view.timeline.seconds,wave=this.motion?Math.sin(time*3):0,origin=view.friendly;
-      view.enemies.forEach((e,i)=>{const [x,y]=formation[i];setPose(e,x+wave*(i%2?1.4:-1.4),y+wave*.7);});
-      view.allies.forEach((e,i)=>setPose(e,origin.x-9+i*6+wave*.7,origin.y-9+(i%2)*15));
+      const time=view.timeline.seconds,wave=this.motion?Math.sin(time*3):0,origin=view.friendly,phase=Math.floor(time/1.8),reposition=this.motion?Math.sin(time*.9)*3:0;
+      const smoke=view.element.querySelectorAll('.encounter-smoke circle');smoke.forEach((e,i)=>{const drift=(time*.35+i*.31)%1;setPose(e,-22+i*19+drift*8,-15-drift*23);e.setAttribute('r',3+drift*7);e.style.opacity=this.motion?Math.sin(drift*Math.PI)*.16:0;});
+      view.enemies.forEach((e,i)=>{const [x,y]=formation[i];setPose(e,x+wave*(i%2?1.4:-1.4)+reposition*(i%2?1:-1),y+wave*.7);});
+      view.allies.forEach((e,i)=>setPose(e,origin.x-9+i*6+wave*.7-reposition*.4,origin.y-9+(i%2)*15+Math.sin(time*1.4+i)*1.1));
       exchangeFrame(time).forEach((sample,i)=>{
-        const v=view.exchanges[i],source=i?{x:-25,y:-22}:origin,target=i?origin:{x:-25,y:-22};
+        const v=view.exchanges[i],lane=phase%3,source=i?{x:formation[lane][0],y:formation[lane][1]}:{x:origin.x-8+lane*5,y:origin.y-8+lane*5},target=i?{x:origin.x-5,y:origin.y+lane*3}:{x:formation[(lane+1)%5][0],y:formation[(lane+1)%5][1]};
         const point=t=>[source.x+(target.x-source.x)*t,source.y+(target.y-source.y)*t];
         const a=point(Math.max(0,sample.travel-.18)),b=point(sample.travel);
         v.tracer.setAttribute('d',`M${a.join(',')}L${b.join(',')}`);v.tracer.style.opacity=this.motion&&sample.visible ? .85 : 0;

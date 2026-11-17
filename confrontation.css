@@ -34,3 +34,4 @@
 #province-map[data-motion="false"] :is(.encounter-tracer,.encounter-muzzle,.encounter-contact) { display: none; }
 #province-map:not([data-layer="control"]) .encounter-ground { fill-opacity: .07; }
 @media (prefers-reduced-motion: reduce) { .encounter-tracer,.encounter-muzzle,.encounter-contact { display: none; } }
+.encounter-cover path{fill:#d7bb814d;stroke:#9c85595c;stroke-width:.7}.encounter-smoke circle{fill:#d9cba9;stroke:none;pointer-events:none}.encounter-muzzle{fill:#f8d187;stroke:#ffe8b3;stroke-width:.5}.district-view .confrontation .encounter-caption{font-size:6px}.country-view .confrontation{opacity:.65}.country-view .encounter-caption,.country-view .encounter-unit-name{display:none}

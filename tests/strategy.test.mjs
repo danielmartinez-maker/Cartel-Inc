@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createGame,act,tick,restore,serialize,unitPower,supplyScore,recruitmentBase,memberRequirements,leaderOf,totalThreat,budgetForecast} from '../src/engine.js';
-import {LAND,LANDS,DISTRICTS,REGIONS,NETWORKS,MAX_UNITS,HQ} from '../src/data.js';
+import {LAND,LANDS,DISTRICTS,REGIONS,NETWORKS,MAX_UNITS,HQ,NEIGHBORHOODS,PROVINCE_NEIGHBORS,MEMBERS_PER_CARTEL,VERSION} from '../src/data.js';
 import {NEIGHBORS,findRoute} from '../src/geography.js';
 import {ARCHETYPES,TRAITS,createMembers,capabilities,alterCell,dominantNetwork} from '../src/cartels.js';
 import {planCartel,stepCartels} from '../src/cartel-ai.js';
@@ -12,21 +12,20 @@ const area=p=>Math.abs(p.reduce((v,[x,y],i)=>{const [a,b]=p[(i+1)%p.length];retu
 function advance(s,n){for(let i=0;i<n;i++){if(s.pendingEvent)act(s,{type:'event',choice:1});tick(s,{force:true});}}
 function expose(s,nid=0){const m=leaderOf(s,nid);s.completed.push('prosecutors');s.networks[nid].evidence=80;s.units[0].district=m.location;s.districts[m.location].intel=85;alterCell(s.districts[m.location],nid,10-s.districts[m.location].cells[nid]);s.networks[nid].nextDecision=900;return m;}
 
-test('playable land is exactly five times the original, with 120 uniquely named districts',()=>{
-  assert.equal(DISTRICTS.length,120);assert.equal(LANDS.length,5);assert.equal(new Set(DISTRICTS.map(d=>d.name)).size,120);
-  assert.ok(Math.abs(LANDS.reduce((v,p)=>v+area(p),0)/area(LAND)-5)<1e-9);
-  for(const r of REGIONS){assert.equal(DISTRICTS.filter(d=>d.region===r.id).length,24);assert.equal(DISTRICTS[r.hub].region,r.id);assert.ok(findRoute(HQ,r.hub).length>0);}
-  assert.ok(CIVILIAN_ROUTES.every(r=>DISTRICTS[r.a].region===DISTRICTS[r.b].region));
+test('fifty adjoining provinces contain 1,200 unique districts and 3,600 neighborhoods on one land-connected graph',()=>{
+ assert.equal(DISTRICTS.length,1200);assert.equal(REGIONS.length,50);assert.equal(new Set(DISTRICTS.map(d=>d.name)).size,1200);assert.equal(NEIGHBORHOODS.flat().length,3600);
+ for(const r of REGIONS){assert.equal(DISTRICTS.filter(d=>d.region===r.id).length,24);assert.ok(findRoute(HQ,r.hub).length>0);for(const next of PROVINCE_NEIGHBORS[r.id]){const shared=r.polygon.filter(p=>REGIONS[next].polygon.some(q=>p[0]===q[0]&&p[1]===q[1]));assert.equal(shared.length,2);}}
+ assert.ok(CIVILIAN_ROUTES.every(r=>DISTRICTS[r.a].region===DISTRICTS[r.b].region));
 });
 test('weighted routing chooses a cheaper detour when terrain or transport makes a short path expensive',()=>{
   const start=HQ,end=0,bfs=findRoute(start,end),expensive=bfs[1];
   const cost=(a,b)=>b===expensive?100:1,path=findRoute(start,end,cost),sum=p=>p.slice(1).reduce((v,b,i)=>v+cost(p[i],b),0);
   assert.ok(sum(path)<sum(bfs));assert.ok(path.every((id,i)=>!i||NEIGHBORS[path[i-1]].includes(id)));
 });
-test('nine factions use six archetypes and have 45 reproducible, unique members with two distinct traits',()=>{
-  const s=createGame({seed:4});assert.equal(s.networks.length,9);assert.equal(Object.keys(ARCHETYPES).length,6);assert.equal(s.members.length,45);
-  assert.equal(new Set(s.members.map(m=>m.name)).size,45);assert.deepEqual(s.members,createMembers(4));assert.notDeepEqual(createMembers(4),createMembers(197));
-  for(const n of NETWORKS){assert.equal(s.members.filter(m=>m.network===n.id).length,5);assert.ok(ARCHETYPES[n.archetype]);}
+test('nine factions use six archetypes and have 117 reproducible, unique members with two distinct traits',()=>{
+  const s=createGame({seed:4});assert.equal(s.networks.length,9);assert.equal(Object.keys(ARCHETYPES).length,6);assert.equal(s.members.length,117);
+  assert.equal(new Set(s.members.map(m=>m.name)).size,117);assert.deepEqual(s.members,createGame({seed:4}).members);assert.notDeepEqual(createMembers(4),createMembers(197));
+  for(const n of NETWORKS){assert.equal(s.members.filter(m=>m.network===n.id).length,MEMBERS_PER_CARTEL);assert.ok(ARCHETYPES[n.archetype]);}
   for(const m of s.members){assert.equal(new Set(m.traits).size,2);assert.ok(m.traits.every(t=>TRAITS[t]));assert.ok(!(m.traits.includes('cautious')&&m.traits.includes('reckless')));}
 });
 test('individual traits and specialist losses change actual organizational capabilities',()=>{
@@ -88,7 +87,7 @@ test('supply, readiness and fatigue alter power; resupply restores the operating
   const s=createGame(),u=s.units[0],full=unitPower(s,u);u.supply=20;u.readiness=40;u.fatigue=70;assert.ok(unitPower(s,u)<full*.6);
   const supply=u.supply,fatigue=u.fatigue;assert.equal(act(s,{type:'resupply',unit:u.id}).ok,true);assert.equal(u.status,'operating');assert.equal(restore(serialize(s)).operations[0].type,'resupply');advance(s,3);assert.equal(u.status,'ready');assert.ok(u.supply>supply);assert.ok(u.fatigue<fatigue);
 });
-test('regional administration improves supply and opens a real recruitment base, with an 18-unit cap',()=>{
+test('regional administration improves supply and opens a real recruitment base, with the national roster cap',()=>{
   const s=createGame(),hub=REGIONS[1].hub,before=supplyScore(s,hub);s.money=1000;assert.equal(recruitmentBase(s,hub),false);assert.equal(act(s,{type:'recruit',unitType:'police',district:hub}).ok,false);
   assert.equal(act(s,{type:'project',id:'regional-administration',district:hub}).ok,true);advance(s,20);assert.equal(recruitmentBase(s,hub),true);assert.ok(supplyScore(s,hub)>before);assert.equal(act(s,{type:'recruit',unitType:'police',district:hub}).ok,true);assert.equal(s.units.at(-1).district,hub);
   while(s.units.length<MAX_UNITS){s.money=1000;assert.equal(act(s,{type:'recruit',unitType:'police'}).ok,true);}assert.equal(act(s,{type:'recruit',unitType:'police'}).ok,false);
@@ -97,13 +96,13 @@ test('prosperity increases the tax base while an expanded force consumes weekly 
   const s=createGame(),before=budgetForecast(s);for(const d of s.districts)d.prosperity=100;assert.ok(budgetForecast(s).income>before.income);s.money=1000;act(s,{type:'recruit',unitType:'police'});assert.ok(budgetForecast(s).upkeep>before.upkeep);
 });
 test('version-one migration preserves all original districts and in-flight orders while adding the wider world',()=>{
-  const text=readFileSync(new URL('./fixtures/v1-campaign.json',import.meta.url),'utf8'),old=JSON.parse(text).state,s=restore(text);assert.equal(s.version,2);assert.equal(s.districts.length,120);assert.equal(s.members.length,45);assert.equal(s.day,old.day);assert.equal(s.money,old.money);assert.equal(s.paused,true);
+  const text=readFileSync(new URL('./fixtures/v1-campaign.json',import.meta.url),'utf8'),old=JSON.parse(text).state,s=restore(text);assert.equal(s.version,VERSION);assert.equal(s.districts.length,1200);assert.equal(s.members.length,117);assert.equal(s.day,old.day);assert.equal(s.money,old.money);assert.equal(s.paused,true);
   for(const d of old.districts)for(const k of Object.keys(d))assert.deepEqual(s.districts[d.id][k],d[k]);
-  for(const u of old.units)for(const k of Object.keys(u))assert.deepEqual(s.units.find(n=>n.id===u.id)[k],u[k]);
+  for(const u of old.units)for(const k of Object.keys(u).filter(k=>u.status!=='moving'||!['path','total','remaining'].includes(k)))assert.deepEqual(s.units.find(n=>n.id===u.id)[k],u[k]);
   assert.equal(s.operations[0].remaining,old.operations[0].remaining);assert.equal(s.projects[0].remaining,old.projects[0].remaining);assert.equal(s.migration.from,1);advance(s,3);assert.equal(restore(serialize(s)).day,5);
 });
 test('new save fields reject broken member identities, cells, relations, projects and operations',()=>{
-  for(const damage of [s=>s.members[1].id=s.members[0].id,s=>s.members[0].network=8,s=>s.members[0].traits=['unknown','loyal'],s=>s.members[0].location=120,s=>s.districts[0].cells[0]=99,s=>s.networks[0].leaderId='missing',s=>s.units[0].supply=-1,s=>s.relations[0][1]=s.relations[1][0]+1,s=>s.regions[0].completed=['water'],s=>s.pacts=[{a:0,b:0,until:5}]]){const s=createGame();damage(s);assert.throws(()=>restore(serialize(s)));}
+  for(const damage of [s=>s.members[1].id=s.members[0].id,s=>s.members[0].network=8,s=>s.members[0].traits=['unknown','loyal'],s=>s.members[0].location=1200,s=>s.districts[0].cells[0]=99,s=>s.networks[0].leaderId='missing',s=>s.units[0].supply=-1,s=>s.relations[0][1]=s.relations[1][0]+1,s=>s.regions[0].completed=['water'],s=>s.pacts=[{a:0,b:0,until:5}]]){const s=createGame();damage(s);assert.throws(()=>restore(serialize(s)));}
 });
 
 

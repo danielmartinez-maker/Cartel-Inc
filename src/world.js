@@ -1,4 +1,6 @@
 import {DISTRICTS,HQ,INITIATIVES,REGIONS} from './data.js';
+import {INFRASTRUCTURE,INFRA_TASKS} from './infrastructure.js';
+import {NEIGHBORHOOD_TASKS} from './neighborhoods.js';
 import {NEIGHBORS} from './geography.js';
 
 // Presentation uses its own deterministic geometry, never the campaign PRNG.
@@ -52,6 +54,7 @@ export const projectDistrict=p=>INITIATIVES.find(i=>i.id===p.id)?.scope==='provi
 const operationNames={investigate:'Investigation',raid:'Containment',interdict:'Asset disruption',arrest:'Leader arrest',capture:'Member arrest',flip:'Witness negotiation',resupply:'Unit resupply'};
 export function activeOrders(s){
   const orders=[
+    ...(s.works||[]).map(w=>({...w,key:`works-${w.id}`,label:w.kind==='infrastructure'?INFRA_TASKS[w.task].name:NEIGHBORHOOD_TASKS[w.task].name,kind:w.kind})),
     ...s.operations.map(o=>({key:`operation-${o.district}`,district:o.district,label:operationNames[o.type],kind:'operation',...o})),
     ...s.projects.map(p=>({...p,key:`project-${p.id}-${p.district}`,district:projectDistrict(p),label:INITIATIVES.find(i=>i.id===p.id).name,kind:'project'})),
     ...s.units.filter(u=>['moving','training'].includes(u.status)).map(u=>({...u,key:`unit-${u.id}`,unit:u.id,district:u.status==='moving'?u.path.at(-1):HQ,label:`${u.name} · ${u.status==='moving'?'Deploying':'Training'}`,kind:'unit'})),
@@ -60,12 +63,13 @@ export function activeOrders(s){
 }
 export const isStable=d=>d.stability>=75&&d.support>=60&&d.threat<8;
 export function campaignSnapshot(s){
-  return {day:s.day,completed:[...s.completed],districts:s.districts.map(d=>({id:d.id,stable:isStable(d),threat:d.threat,completed:[...d.completed]})),
+  return {day:s.day,works:(s.works||[]).map(w=>({...w})),completed:[...s.completed],districts:s.districts.map(d=>({id:d.id,stable:isStable(d),threat:d.threat,completed:[...d.completed]})),
     units:s.units.map(u=>({id:u.id,name:u.name,status:u.status,district:u.district})),networks:s.networks.map(n=>({...n})),operations:s.operations.map(o=>({...o}))};
 }
 export function campaignMilestones(before,after){
   if(!before||after.day<=before.day)return [];
   const events=[];
+  for(const w of before.works||[])if(!(after.works||[]).some(current=>current.id===w.id))events.push({district:w.district,text:(w.kind==='infrastructure'?INFRA_TASKS[w.task].name:NEIGHBORHOOD_TASKS[w.task].name)+' complete',kind:'success'});
   for(const d of after.districts){
     const old=before.districts[d.id];
     for(const id of d.completed.filter(id=>!old.completed.includes(id)))events.push({district:d.id,text:INITIATIVES.find(i=>i.id===id).name+' delivered',kind:'success'});

@@ -1,5 +1,5 @@
 export const ART=Object.freeze({
-  province:'./assets/mandate-map.webp',
+  province:'./assets/connected-country.webp',
   menu:'./assets/menu-coast.webp',
   districts:'./assets/district-scenes.webp',
   portraits:'./assets/portraits-print.webp',
