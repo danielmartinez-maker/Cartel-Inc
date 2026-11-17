@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="An original province strategy game about reclaiming a fictional state from three competing cartel networks.">
+<meta name="theme-color" content="#17201b">
+<title>Sierra Command | Cartel Containment</title>
+<style>
+
+:root{color-scheme:dark;--ink:#e9e9dc;--muted:#a0a89e;--ground:#111916;--panel:#1a2420;--panel2:#202d26;--line:#344238;--green:#a2c39d;--sand:#e5cf99;--red:#df8c7d;--blue:#8bc3d0;--radius:5px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font-size:14px;line-height:1.45}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.42}button:focus-visible,input:focus-visible,select:focus-visible,[role=button]:focus-visible{outline:2px solid var(--sand);outline-offset:4px}button{color:inherit}svg{display:block}button svg{width:18px;height:18px;flex-shrink:0}.app{max-width:1800px;margin:auto}.masthead{height:82px;padding:18px 32px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:20px}.identity{display:flex;gap:14px;align-items:center}.emblem{display:grid;place-items:center;width:39px;height:43px;color:var(--sand);border:1px solid #7e805d;clip-path:polygon(0 0,100% 0,100% 80%,50% 100%,0 80%)}.emblem svg{width:25px}.wordmark{font-size:19px;letter-spacing:3px;font-weight:650;line-height:1.1}.submark{color:var(--muted);font-size:10px;letter-spacing:2px;margin-top:6px}.header-actions{display:flex;gap:8px;align-items:center}.small-button,.mode-button,.tab,.filter,.speed{background:transparent;border:1px solid var(--line);border-radius:3px;padding:8px 11px;display:inline-flex;gap:7px;align-items:center}.small-button:hover,.mode-button:hover,.tab:hover,.filter:hover,.speed:hover{background:var(--panel2)}.small-button{font-size:12px}.operation-label{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1px;color:var(--muted);margin-right:16px}.hud{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);padding:17px 32px;background:#17201b}.hud-item{display:flex;gap:15px;align-items:center;padding:0 25px;border-right:1px solid var(--line)}.hud-item:first-child{padding-left:0}.hud-item:last-child{border:0}.hud-icon{width:32px;height:32px;color:var(--green);display:grid;place-items:center}.hud-icon svg{width:25px;height:25px}.hud-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1.5px}.hud-value{font-size:25px;font-variant-numeric:tabular-nums;font-weight:500;line-height:1.2;margin:3px 0}.hud-detail{color:var(--muted);font-size:11px}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:680px}.map-column{min-width:0;border-right:1px solid var(--line)}.map-heading{padding:22px 26px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}.eyebrow{font:10px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.7px;color:var(--muted);text-transform:uppercase}.map-heading h1{font-size:20px;font-weight:500;margin:4px 0 0;letter-spacing:-.3px}.map-modes{display:flex;gap:4px}.mode-button{font-size:11px;padding:5px 9px;border-color:transparent}.mode-button.active{background:#324336;color:var(--sand);border-color:#56614b}.map-wrap{background:#283c3a;position:relative;overflow:hidden;margin:0 18px;border-radius:4px;border:1px solid #4e5b48}.map-wrap:after{position:absolute;inset:0;pointer-events:none;content:"";box-shadow:inset 0 0 90px #12262277}.map-svg{width:100%;height:auto;min-height:290px;max-height:650px}.map-svg .region{cursor:pointer}.map-svg .region .area{transition:fill .5s,stroke .15s}.map-svg .region:hover .area{filter:brightness(1.1);stroke:#fff1c8;stroke-width:3}.map-svg .region:focus-visible{outline:none}.map-svg .region:focus-visible .area{stroke:#fff1c8;stroke-width:5}.map-svg text{font-family:Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:none}.map-note{position:absolute;top:16px;left:17px;z-index:1;font:9px ui-monospace,monospace;letter-spacing:1.5px;color:#c7d3c3}.map-note b{display:block;font-weight:400;color:#f1e8cc;margin-top:4px}.map-objective{display:flex;gap:20px;padding:14px 27px 10px;align-items:center;justify-content:space-between}.objective-text{font-size:11px;color:var(--muted)}.objective-text strong{font-weight:500;color:var(--ink)}.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted)}.legend span{display:inline-flex;gap:5px;align-items:center}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0}.dot.secure{background:var(--green)}.dot.unit{background:var(--blue)}.dot.network{background:#c9a1d9}.feed{padding:8px 26px 20px}.feed-title{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:4px}.feed-title span{font-size:10px;letter-spacing:1.5px;color:var(--muted)}.feed-entry{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid #34423877;font-size:11px;color:#c5ccc3}.feed-entry time{font:10px ui-monospace,monospace;color:var(--muted);min-width:34px}.feed-entry .dot{width:4px;height:4px;position:relative;top:-1px}.feed-entry.good .dot{background:var(--green)}.feed-entry.warning .dot{background:var(--red)}.sidebar{background:var(--panel);min-width:0}.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);padding:12px 12px 0;gap:2px}.tab{border:0;border-radius:0;padding:10px 3px 13px;display:grid;justify-items:center;gap:5px;color:var(--muted);font-size:10px}.tab svg{width:17px;height:17px}.tab.active{color:var(--sand);border-bottom:2px solid var(--sand);background:transparent}.details{padding:22px 22px 26px;min-height:550px}.details h2{font-size:24px;letter-spacing:-.5px;line-height:1.1;font-weight:500;margin:7px 0 8px}.details h3{font-size:14px;font-weight:500;margin:0}.status-tag{display:inline-flex;gap:6px;align-items:center;color:var(--sand);font-size:10px;letter-spacing:.7px;text-transform:uppercase}.status-tag.secured{color:var(--green)}.place-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin:15px 0 11px}.meter{height:4px;background:#3b473d;overflow:hidden;border-radius:1px}.meter>i{height:100%;display:block;transition:width .45s;background:var(--green)}.stability-line{font-size:11px;display:flex;justify-content:space-between;margin-top:6px;color:var(--muted)}.local-metrics{margin:20px 0;display:grid;grid-template-columns:1fr 1fr;gap:13px 20px}.local-stat{font-size:11px}.local-stat>div{display:flex;justify-content:space-between;margin-bottom:5px}.local-stat span{color:var(--muted)}.local-stat b{font-weight:500;font-variant-numeric:tabular-nums}.local-stat .meter{height:3px}.section-title{font:10px ui-monospace,monospace;color:var(--muted);letter-spacing:1.5px;margin:22px 0 10px;text-transform:uppercase}.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.action-card{background:#233128;border:1px solid #3b4a3e;border-radius:3px;padding:12px 10px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:8px;position:relative;min-height:111px}.action-card:not(:disabled):hover{background:#2d3d30;border-color:#8f9c75}.action-card svg{color:var(--sand);width:20px;height:20px}.action-card b{font-size:11px;font-weight:500;line-height:1.2}.action-card small{font:10px ui-monospace,monospace;color:var(--muted)}.action-card:disabled{opacity:.5}.action-card .ready{position:absolute;top:10px;right:9px;font-size:9px;color:var(--green)}.unit-select{width:100%;background:#132019;border:1px solid #465343;border-radius:3px;padding:10px;color:var(--ink);font-size:12px;margin-bottom:7px}.primary-button{border:1px solid #c8ce9c;background:#c7d0a7;color:#1c2c21;border-radius:3px;padding:11px 15px;font-weight:600;font-size:12px;display:inline-flex;gap:9px;align-items:center;justify-content:center}.primary-button:not(:disabled):hover{background:#dbe0bc}.full{width:100%}.hint{font-size:10px;color:var(--muted);line-height:1.6;margin:8px 0 0}.project{padding:9px 0;border-bottom:1px solid var(--line)}.project-header{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;gap:8px}.project-header span{color:var(--muted);white-space:nowrap}.project .meter{height:3px}.team-card{padding:13px 12px;background:#202e25;border:1px solid #3d4c3d;border-radius:3px;margin-top:8px;display:flex;gap:12px;align-items:center;cursor:pointer;width:100%;text-align:left}.team-card.active{border-color:var(--sand)}.team-card svg{color:var(--blue);width:27px;height:27px}.team-card .team-name{font-size:12px;letter-spacing:1px}.team-card .team-place{font-size:10px;color:var(--muted);margin-top:3px}.team-card .team-status{font:9px ui-monospace,monospace;margin-left:auto;color:var(--green)}.faction-card{padding:15px 0;border-bottom:1px solid var(--line)}.faction-heading{display:flex;gap:10px;align-items:center;margin-bottom:11px}.faction-symbol{width:31px;height:31px;background:#ffffff08;display:grid;place-items:center}.faction-symbol svg{width:21px}.faction-card .leader{font-size:10px;color:var(--muted);margin-top:3px}.faction-card .small-button{width:100%;justify-content:center;margin-top:10px}.faction-metrics{display:grid;grid-template-columns:1fr 1fr;gap:15px}.filter-row{display:flex;gap:4px;margin:13px 0}.filter{font-size:10px;padding:6px 8px}.filter.active{background:#35452f;border-color:#667354;color:var(--sand)}.policy{padding:15px 0;border-bottom:1px solid var(--line)}.policy-top{display:flex;gap:10px;align-items:center}.policy-top svg{color:var(--sand);width:22px}.policy-top .policy-level{margin-left:auto;font:10px ui-monospace,monospace;color:var(--sand);white-space:nowrap}.policy p{color:var(--muted);font-size:11px;line-height:1.6;margin:9px 0}.policy .effect{color:#b8c9af;font-size:10px}.policy .small-button{justify-content:space-between;width:100%;margin-top:10px}.timeline{padding:16px 27px;display:flex;gap:18px;justify-content:space-between;align-items:center;border-top:1px solid var(--line);background:#17201b}.time-state{font:10px ui-monospace,monospace;letter-spacing:1px;min-width:180px}.time-state span{display:block;color:var(--muted);font-size:9px;margin-top:4px;letter-spacing:.6px}.time-controls{display:flex;gap:5px;align-items:center}.speed{padding:7px 9px;font:11px ui-monospace,monospace}.speed.active{border-color:#b9c78e;background:#3b4b32;color:#dbe4bc}.play-button{padding:8px 18px;min-width:115px;font-size:11px}.week-track{flex:1;max-width:240px}.week-track .meter{height:3px}.week-track span{display:block;color:var(--muted);font:9px ui-monospace,monospace;margin-top:5px}.footer{padding:12px 28px;display:flex;justify-content:space-between;color:#748377;font:9px ui-monospace,monospace;letter-spacing:.5px}.modal-backdrop{position:fixed;inset:0;z-index:10;background:#08110edb;backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:25px;overflow-y:auto}.modal-backdrop[hidden]{display:none}.modal{width:min(760px,100%);max-height:calc(100dvh - 50px);overflow-y:auto;border:1px solid #506047;background:#1c2921;box-shadow:0 30px 100px #0009;padding:32px;border-radius:5px}.modal.narrow{width:min(520px,100%)}.modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.modal h2{font-size:32px;font-weight:500;letter-spacing:-1px;line-height:1.1;margin:9px 0 14px}.modal-intro{font-size:13px;line-height:1.7;color:#b3c0b1;max-width:600px}.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:22px 0}.profile{background:#243328;border:1px solid #41533d;border-radius:3px;padding:15px 12px;text-align:left;display:flex;flex-direction:column;align-items:flex-start}.profile.active{border-color:#d1d69e;background:#30412e}.avatar{width:49px;height:49px;margin-bottom:13px;background:#415440;border-radius:50%;display:grid;place-items:center;overflow:hidden}.avatar svg{width:43px;height:43px;margin-top:6px}.profile b{font-size:12px;font-weight:500}.profile .person{font-size:10px;color:var(--sand);margin-top:4px}.profile small{color:var(--muted);font-size:10px;line-height:1.6;margin-top:9px}.setup-row{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:17px 0}.setup-row label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:11px}.setup-row select,.setup-row input{width:100%;background:#122018;color:var(--ink);border:1px solid #43553e;border-radius:3px;padding:10px}.modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:23px}.modal-actions .primary-button{padding:12px 23px}.mission-points{display:grid;grid-template-columns:1fr 1fr;gap:7px 20px;margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.mission-points strong{color:var(--ink);font-weight:500}.event-mark{width:43px;height:43px;border:1px solid #7f7551;background:#77634422;color:var(--sand);display:grid;place-items:center;margin-bottom:18px}.event-mark svg{width:23px}.event-choice{width:100%;padding:15px;margin-top:9px;border:1px solid #526147;background:#28392b;border-radius:3px;text-align:left}.event-choice:not(:disabled):hover{border-color:var(--sand);background:#34452f}.event-choice b{font-size:12px;font-weight:500;display:block}.event-choice span{font-size:11px;color:var(--muted);display:block;margin-top:5px}.modal ol{padding-left:20px;color:#bac7b7;font-size:13px;line-height:1.7}.modal li{margin:10px 0;padding-left:5px}.modal kbd{display:inline-block;border:1px solid #54634a;padding:1px 5px;border-radius:3px;font:10px ui-monospace,monospace;color:var(--sand)}.end-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}.end-stats span{font-size:10px;color:var(--muted);display:block}.end-stats b{font-size:25px;font-weight:500;display:block}.toast{position:fixed;bottom:23px;left:50%;transform:translateX(-50%);z-index:30;background:#dce0bd;color:#203223;border:1px solid #e9edcd;border-radius:4px;padding:12px 19px;font-size:12px;box-shadow:0 10px 35px #0005;max-width:calc(100% - 30px);text-align:center}.toast[hidden]{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}[hidden]{display:none!important}
+@media(min-width:1600px){.workspace{grid-template-columns:minmax(0,1fr) 390px}.details{padding:25px 28px}.map-svg{max-height:760px}.map-heading{padding:25px 32px 20px}.map-wrap{margin:0 25px}}
+@media(max-width:1100px){.masthead{padding:16px 20px}.hud{padding:16px 20px}.hud-item{padding:0 16px;gap:8px}.hud-icon{display:none}.workspace{grid-template-columns:minmax(0,1fr) 305px}.details{padding:20px 17px}.map-heading{padding:19px 19px 14px;align-items:flex-start;flex-direction:column;gap:10px}.map-wrap{margin:0 12px}.map-objective{padding:12px 20px;align-items:flex-start;gap:10px;flex-direction:column}.feed{padding:8px 20px 18px}.operation-label{display:none}.week-track{display:none}.map-svg{min-height:360px}}
+@media(max-width:760px){.masthead{height:auto;padding:15px 16px;gap:8px}.wordmark{font-size:15px;letter-spacing:2px}.submark{font-size:8px;letter-spacing:1.2px}.emblem{width:30px;height:35px}.identity{gap:9px}.header-actions{gap:4px}.small-button{padding:7px 8px}.header-actions .button-label{display:none}.header-actions button svg{width:16px}.hud{grid-template-columns:repeat(4,1fr);padding:13px 16px}.hud-item{padding:0 10px}.hud-label{font-size:8px;letter-spacing:.5px}.hud-value{font-size:21px}.hud-detail{font-size:8px}.workspace{display:flex;flex-direction:column}.map-column{border-right:0}.map-heading{flex-direction:row;align-items:center;padding:15px 16px 12px}.map-heading h1{font-size:17px}.map-modes{gap:0}.mode-button{font-size:10px;padding:5px 6px}.eyebrow{font-size:8px;letter-spacing:1.1px}.map-svg{min-height:0;max-height:none}.map-note{font-size:7px;top:10px;left:11px}.map-objective{padding:12px 16px;flex-direction:row;align-items:center;gap:7px}.objective-text{font-size:10px}.legend{font-size:9px;gap:8px}.feed{display:none}.sidebar{border-top:1px solid var(--line)}.tabs{padding:3px 12px 0}.tab{display:flex;align-items:center;justify-content:center;padding:12px 3px;font-size:11px;gap:6px}.details{min-height:0;padding:18px 20px 22px}.details h2{font-size:23px}.province-layout{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.province-title{grid-column:1/-1}.province-metrics{min-width:0}.province-actions{min-width:0}.action-card{min-height:95px}.timeline{padding:13px 15px;gap:10px;flex-wrap:wrap}.time-state{min-width:120px;font-size:9px}.time-controls{gap:3px}.play-button{min-width:86px;padding:9px}.speed{padding:7px}.next-week .button-label{display:none}.footer{font-size:8px;padding:10px 16px;gap:15px}.modal-backdrop{padding:12px}.modal{padding:23px;max-height:calc(100dvh - 24px)}.modal h2{font-size:28px}.profile-grid{gap:6px}.profile{padding:12px 9px}.profile b{font-size:11px}.profile small{font-size:9px}.avatar{width:39px;height:39px}.avatar svg{width:34px;height:34px}.mission-points{font-size:10px}}
+@media(max-width:440px){.hud-item{padding:0 7px}.hud-label{font-size:7px}.hud-detail{font-size:7px}.hud-value{font-size:19px}.map-heading{gap:6px}.map-heading h1{font-size:15px}.map-modes .mode-button{padding:4px;font-size:9px}.map-objective{align-items:flex-start;flex-direction:column}.legend{gap:12px}.province-layout{display:block}.profile-grid{grid-template-columns:1fr}.profile{display:grid;grid-template-columns:40px 1fr;gap:0 10px;padding:10px}.avatar{grid-row:1/4;margin:0}.profile small{grid-column:2;margin-top:5px}.profile .person{margin-top:2px}.setup-row{grid-template-columns:1fr 1fr;gap:9px}.modal h2{font-size:25px}.modal-intro{font-size:12px}.mission-points{grid-template-columns:1fr}.time-state{min-width:100%;display:flex;gap:8px}.time-state span{margin:0}.time-controls{width:100%;justify-content:space-between}.end-stats b{font-size:21px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+<header class="masthead">
+ <div class="identity"><div class="emblem" data-icon="emblem"></div><div><div class="wordmark">SIERRA COMMAND</div><div class="submark">CARTEL CONTAINMENT / STRATEGY</div></div></div>
+ <div class="header-actions"><span class="operation-label">OPERATION / RESTORE</span><button class="small-button" data-cmd="help" aria-label="Open field manual"><span data-icon="book"></span><span class="button-label">Field manual</span></button><button class="small-button" data-cmd="save" aria-label="Save campaign"><span data-icon="save"></span><span class="button-label">Save</span></button><button class="small-button" data-cmd="new" aria-label="New campaign"><span data-icon="restart"></span><span class="button-label">New</span></button></div>
+</header>
+<section class="hud" aria-label="Campaign resources">
+ <div class="hud-item"><div class="hud-icon" data-icon="funding"></div><div><div class="hud-label">Available funds</div><div class="hud-value" id="funds">$90</div><div class="hud-detail" id="income">Monthly funding</div></div></div>
+ <div class="hud-item"><div class="hud-icon" data-icon="people"></div><div><div class="hud-label">Public trust</div><div class="hud-value" id="mandate">78<span>%</span></div><div class="hud-detail">Your mandate to govern</div></div></div>
+ <div class="hud-item"><div class="hud-icon" data-icon="secure"></div><div><div class="hud-label">Civilian control</div><div class="hud-value" id="control">21%</div><div class="hud-detail" id="stable-count">5 of 24 provinces</div></div></div>
+ <div class="hud-item"><div class="hud-icon" data-icon="audit"></div><div><div class="hud-label">Corruption</div><div class="hud-value" id="corruption">45%</div><div class="hud-detail" id="inflation">Inflation 0%</div></div></div>
+</section>
+<main class="workspace">
+ <section class="map-column" aria-label="Province map and situation report">
+  <div class="map-heading"><div><div class="eyebrow">CAMPAIGN THEATER / 24 PROVINCES</div><h1>Sierra de la Luz</h1></div><div class="map-modes" role="group" aria-label="Map layer"><button class="mode-button active" data-layer="control" aria-pressed="true">Control</button><button class="mode-button" data-layer="threat" aria-pressed="false">Threat</button><button class="mode-button" data-layer="support" aria-pressed="false">Support</button></div></div>
+  <div class="map-wrap"><div class="map-note">SITUATION MAP<b id="map-state">WEEK 01 / AWAITING ORDERS</b></div><svg class="map-svg" id="campaign-map" viewBox="0 0 960 650" role="group" aria-label="Select a province to inspect or assign units"></svg></div>
+  <div class="map-objective"><div class="objective-text" id="objective"><strong>OBJECTIVE</strong> 5 / 20 provinces · 0 / 3 networks</div><div class="legend"><span><i class="dot secure"></i>Civilian control</span><span><i class="dot"></i>Cartel activity</span><span><i class="dot unit"></i>Security unit</span></div></div>
+  <div class="feed"><div class="feed-title"><span>SITUATION REPORT</span><span id="report-status">LIVE INTELLIGENCE</span></div><div id="feed"></div></div>
+ </section>
+ <aside class="sidebar" aria-label="Command center"><nav class="tabs" aria-label="Command view"><button class="tab active" data-tab="province" aria-pressed="true"><span data-icon="map"></span>Province</button><button class="tab" data-tab="units" aria-pressed="false"><span data-icon="shield"></span>Units</button><button class="tab" data-tab="networks" aria-pressed="false"><span data-icon="network"></span>Networks</button><button class="tab" data-tab="policies" aria-pressed="false"><span data-icon="civic"></span>Policies</button></nav><div id="details" class="details"></div></aside>
+</main>
+<div class="timeline">
+ <div class="time-state" id="time-state">CAMPAIGN PAUSED<span>SPACE to resume · N for next week</span></div>
+ <div class="week-track"><div class="meter"><i id="time-progress" style="width:0"></i></div><span id="week-label">WEEK 0 / 144 · MONTH 1</span></div>
+ <div class="time-controls"><button class="small-button next-week" data-cmd="step" id="step-button"><span data-icon="step"></span><span class="button-label">Next week</span></button><button class="speed active" data-speed="1" aria-label="Normal speed" aria-pressed="true">1×</button><button class="speed" data-speed="2" aria-label="Double speed" aria-pressed="false">2×</button><button class="speed" data-speed="4" aria-label="Quadruple speed" aria-pressed="false">4×</button><button class="primary-button play-button" id="play-button" data-cmd="play"><span data-icon="play"></span>Resume</button></div>
+</div>
+<footer class="footer"><span>FICTIONAL SCENARIO · ORIGINAL STRATEGY GAME</span><span id="save-state">LOCAL CAMPAIGN / AUTO-SAVE ENABLED</span></footer>
+</div>
+<div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></section></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="sr-only" id="announcer" aria-live="polite"></div>
+
+<noscript>This strategy game requires JavaScript. Enable JavaScript in your browser to play.</noscript>
+<script>
+var SierraEngine = (function () {
+"use strict";
+var VERSION = 1;
+var FACTIONS = [
+ {id:0,name:"La Corona",short:"CORONA",color:"#cf6758",symbol:"diamond",leader:"Arturo Salcedo",description:"An entrenched network exploiting weak local institutions."},
+ {id:1,name:"Los Cuervos",short:"CUERVOS",color:"#a787c1",symbol:"triangle",leader:"Inés Valera",description:"A fragmented organization expanding into contested districts."},
+ {id:2,name:"Costa Roja",short:"COSTA ROJA",color:"#d6a252",symbol:"square",leader:"Esteban Cruz",description:"A coastal network sustained by corruption and extortion."}
+];
+var NAMES = ["Bahía Clara","Puerto Norte","Valle Seco","San Marcos","El Roble","Las Cumbres","Costa Azul","Santa Rosa","Río Verde","La Esperanza","Monte Alto","Cerro Viejo","Punta Sal","Los Olivos","Capital / San Lucas","Nuevo Horizonte","San Miguel","Sierra Negra","Marisma","El Molino","La Reforma","Buenavista","Los Pinos","Frontera"];
+var PROFILES = [
+ {id:"administrator",name:"The Administrator",person:"Elena Ríos",role:"Civil administration",bonus:"+4 monthly funding. Community projects finish one week sooner.",icon:"civic"},
+ {id:"coordinator",name:"The Coordinator",person:"Mateo Serrano",role:"Public security",bonus:"Security units suppress 20% more local threat.",icon:"shield"},
+ {id:"prosecutor",name:"The Prosecutor",person:"Lucía Andrade",role:"Institutional reform",bonus:"Investigations earn 6 extra network intelligence. Audits are 25% stronger.",icon:"justice"}
+];
+var UPGRADES = [
+ {id:"health",name:"Essential services",category:"Civilian",icon:"medical",cost:17,description:"Clinics, clean water and reliable services build local support.",effect:"+0.16 support per week in every province."},
+ {id:"jobs",name:"Local employment",category:"Civilian",icon:"jobs",cost:20,description:"Give communities an alternative to coercion and extortion.",effect:"+3 monthly income; faster local development."},
+ {id:"training",name:"Professional training",category:"Security",icon:"shield",cost:20,description:"Build a disciplined force capable of holding recovered districts.",effect:"Stronger suppression; unlock an additional unit slot."},
+ {id:"intelligence",name:"Intelligence coordination",category:"Security",icon:"eye",cost:18,description:"Help investigators connect evidence across province boundaries.",effect:"Faster passive intelligence and stronger network investigations."},
+ {id:"justice",name:"Independent courts",category:"Governance",icon:"justice",cost:22,description:"Strengthen the institutions needed to dismantle an organization.",effect:"Level 1 enables leadership cases. Weakens networks over time."},
+ {id:"integrity",name:"Public integrity",category:"Governance",icon:"audit",cost:16,description:"Independent oversight protects public money and local officials.",effect:"Corruption declines each week; purchasing inflation cools faster."}
+];
+function clamp(v,a,b) { return Math.max(a,Math.min(b,v)); }
+function random(s) { var x=s.rng|0;x^=x<<13;x^=x>>>17;x^=x<<5;s.rng=x>>>0;return s.rng/4294967296; }
+function log(s,message,type) { s.log.unshift({week:s.week,message:message,type:type||"info"});s.log=s.log.slice(0,60); }
+function difficulty(s) { return {relaxed:0.82,standard:1,crisis:1.2}[s.difficulty]||1; }
+function unitsAt(s,id) { return s.teams.filter(function(t){return t.regionId===id&&t.eta===0;}); }
+function pending(s,kind,id) { return s.projects.some(function(p){return p.kind===kind && (kind==="upgrade"?p.key===id:p.regionId===id);}); }
+function price(s,base) { return Math.ceil(base*(1+s.inflation/180)); }
+function metric(s) {
+ var count=s.regions.length,stable=s.regions.filter(function(r){return r.stable;}).length;
+ return {stable:stable,total:count,percent:Math.round(stable/count*100),
+ threat:s.regions.reduce(function(a,r){return a+r.threat;},0)/count,
+ corruption:s.regions.reduce(function(a,r){return a+r.corruption;},0)/count,
+ support:s.regions.reduce(function(a,r){return a+r.support;},0)/count,
+ income:s.lastIncome||0,networks:s.factions.filter(function(f){return f.dismantled;}).length};
+}
+function forecast(s) {
+ var m=metric(s);
+ return Math.max(6,Math.round(30+m.stable*0.85+s.levels.jobs*3+(s.profile==="administrator"?4:0)-m.corruption/12-s.teams.length*2-s.inflation/12));
+}
+function create(options) {
+ options=options||{};
+ var seed=(Number(options.seed)||57314)>>>0;
+ var s={version:VERSION,seed:seed,rng:seed||1,week:0,budget:90,mandate:78,inflation:0,difficulty:options.difficulty||"standard",profile:options.profile||"administrator",status:"active",reason:"",lastIncome:0,nextTeam:3,selected:14,selectedTeam:1,log:[],projects:[],event:null,eventsSeen:[],nextEvent:7,levels:{health:0,jobs:0,training:0,intelligence:0,justice:0,integrity:0},factions:FACTIONS.map(function(f){return {id:f.id,power:95,intel:12,leaderCaptured:false,dismantled:false};}),teams:[{id:1,name:"ALPHA",regionId:14,destination:null,eta:0},{id:2,name:"BRAVO",regionId:8,destination:null,eta:0}],regions:[]};
+ for(var i=0;i<24;i++){
+  var col=i%6,row=Math.floor(i/6),near=Math.abs(col-2)+Math.abs(row-2);
+  var core=near<2,capital=i===14;
+  var faction=col<2?2:col>3?0:1;
+  var terrain=col>3?"Highlands":col===0?"Coast":capital||i===1||i===9?"Urban":"Rural";
+  s.regions.push({id:i,name:NAMES[i],col:col,row:row,faction:faction,terrain:terrain,population:capital?420:Math.round(35+random(s)*150),threat:capital?5:core?16:Math.round(39+random(s)*28),support:capital?65:core?55:Math.round(32+random(s)*14),development:capital?65:core?43:Math.round(16+random(s)*21),corruption:capital?24:Math.round(30+random(s)*27),intel:capital?65:core?40:Math.round(8+random(s)*15),services:0,progress:core?100:0,stable:core,wasStable:core,neighbors:[]});
+ }
+ s.regions.forEach(function(r){s.regions.forEach(function(n){if(Math.abs(r.col-n.col)+Math.abs(r.row-n.row)===1)r.neighbors.push(n.id);});});
+ s.lastIncome=forecast(s);
+ log(s,"Federal mandate received. San Lucas is your headquarters.","good");
+ log(s,"Select a province, assign units and start rebuilding local institutions.");
+ return s;
+}
+function result(ok,message){return {ok:ok,message:message};}
+function action(s,kind,id,extra) {
+ if(s.status!=="active")return result(false,"This campaign has ended.");
+ if(s.event)return result(false,"Resolve the current decision first.");
+ var r=s.regions[id],cost=0,duration=0,p={kind:kind,regionId:id,remaining:0,total:0};
+ if(kind==="move"){
+  var t=s.teams.find(function(t){return t.id===extra;});
+  if(!r||!t)return result(false,"Choose a security unit and a province.");
+  if(t.eta>0)return result(false,"This unit is already in transit.");
+  if(t.regionId===id)return result(false,"This unit is already stationed here.");
+  cost=price(s,2);if(s.budget<cost)return result(false,"Insufficient funds.");
+  var origin=s.regions[t.regionId],distance=Math.abs(origin.col-r.col)+Math.abs(origin.row-r.row);
+  t.eta=Math.max(1,Math.ceil(distance/2)+(r.terrain==="Highlands"?1:0));
+  t.destination=id;s.budget-=cost;s.inflation+=0.15;
+  log(s,t.name+" moving to "+r.name+". Arrival in "+t.eta+" weeks.");
+  return result(true,"Movement order issued.");
+ }
+ if(kind==="recruit"){
+  var cap=4+s.levels.training;
+  if(s.teams.length>=cap)return result(false,"Unit limit reached. Improve professional training.");
+  cost=price(s,19);if(s.budget<cost)return result(false,"Insufficient funds.");
+  var names=["CHARLIE","DELTA","ECHO","FOXTROT","GOLF"];
+  var team={id:s.nextTeam++,name:names[s.teams.length-2]||"UNIT "+s.nextTeam,regionId:14,destination:14,eta:3};
+  s.teams.push(team);s.budget-=cost;s.inflation+=0.6;
+  log(s,team.name+" training. Deployable at headquarters in three weeks.");
+  return result(true,"Recruitment authorized.");
+ }
+ if(kind==="upgrade"){
+  var u=UPGRADES.find(function(u){return u.id===extra;});
+  if(!u)return result(false,"Unknown initiative.");
+  if(s.levels[u.id]>=3)return result(false,"Maximum level reached.");
+  if(pending(s,"upgrade",u.id))return result(false,"This initiative is already in progress.");
+  cost=price(s,u.cost*(1+s.levels[u.id]*0.55));duration=4;p.key=u.id;p.label=u.name;
+ } else if(kind==="capture") {
+  var f=s.factions[extra];
+  if(!f||f.leaderCaptured||f.dismantled)return result(false,"This leadership case is closed.");
+  if(s.projects.some(function(p){return p.kind==="capture"&&p.key===extra;}))return result(false,"This case is already in progress.");
+  if(s.levels.justice<1)return result(false,"Independent courts level 1 required.");
+  if(f.intel<65)return result(false,"65 network intelligence required.");
+  if(f.power>65)return result(false,"Reduce network strength to 65 or below.");
+  cost=price(s,18);duration=3;p.key=extra;p.label=FACTIONS[extra].name+" leadership case";
+ } else {
+  if(!r)return result(false,"Select a province first.");
+  if(pending(s,kind,id))return result(false,"This project is already underway here.");
+  if(kind==="services"){
+   if(r.services>=3)return result(false,"All local community projects are complete.");
+   cost=price(s,11+r.services*4);duration=s.profile==="administrator"?3:4;p.label="Community investment";
+  } else if(kind==="intel"){
+   if(r.intel>=95&&s.factions[r.faction].intel>=95)return result(false,"Intelligence coverage is complete.");
+   cost=price(s,7);duration=2;p.label="Evidence gathering";
+  } else if(kind==="disrupt"){
+   if(unitsAt(s,id).length===0)return result(false,"Station a security unit in this province first.");
+   if(r.intel<35)return result(false,"35 local intelligence required.");
+   if(r.threat<5&&s.factions[r.faction].power<16)return result(false,"No significant network activity remains.");
+   cost=price(s,10);duration=2;p.label="Network disruption";
+  } else if(kind==="audit"){
+   if(r.corruption<8)return result(false,"Local corruption is already minimal.");
+   cost=price(s,9);duration=3;p.label="Independent audit";
+  } else return result(false,"Unknown order.");
+ }
+ if(s.budget<cost)return result(false,"Insufficient funds. Funding arrives every four weeks.");
+ s.budget-=cost;s.inflation+=0.65;p.remaining=duration;p.total=duration;p.cost=cost;
+ s.projects.push(p);
+ log(s,p.label+" authorized"+(r&&kind!=="upgrade"&&kind!=="capture"?" in "+r.name:"")+".");
+ return result(true,"Order authorized.");
+}
+function complete(s,p) {
+ var r=s.regions[p.regionId],f=r?s.factions[r.faction]:null;
+ if(p.kind==="services"){r.development=clamp(r.development+25,0,100);r.support=clamp(r.support+14,0,100);r.services++;s.mandate+=0.8;}
+ if(p.kind==="intel"){r.intel=clamp(r.intel+40+s.levels.intelligence*5,0,100);f.intel=clamp(f.intel+13+s.levels.intelligence*3+(s.profile==="prosecutor"?6:0),0,100);}
+ if(p.kind==="audit"){r.corruption=clamp(r.corruption-(s.profile==="prosecutor"?30:24),0,100);r.support=clamp(r.support+7,0,100);s.mandate+=1;}
+ if(p.kind==="disrupt"){
+  if(unitsAt(s,r.id).length===0){s.budget+=Math.floor(p.cost*0.5);log(s,"Operation cancelled in "+r.name+": no unit present. Half the budget returned.","warning");return;}
+  var reduction=28+s.levels.training*4;
+  r.threat=clamp(r.threat-reduction,0,100);f.power=clamp(f.power-11,0,100);f.intel=clamp(f.intel+5,0,100);r.intel=clamp(r.intel-8,0,100);s.mandate+=0.7;
+ }
+ if(p.kind==="upgrade"){s.levels[p.key]++;s.mandate+=1.3;}
+ if(p.kind==="capture"){
+  f=s.factions[p.key];f.leaderCaptured=true;f.power=clamp(f.power-30,0,100);
+  s.regions.filter(function(r){return r.faction===f.id;}).forEach(function(r){r.threat=clamp(r.threat-8,0,100);});
+  s.mandate+=4;
+  log(s,FACTIONS[f.id].name+" leadership case completed. The organization can still recover while its network survives.","good");
+  return;
+ }
+ log(s,p.label+" completed"+(r&&p.kind!=="upgrade"?" in "+r.name:"")+".","good");
+}
+var EVENTS=[
+ {id:"mayor",title:"A mayor asks for protection",text:"Santa Rosa's council has refused an extortion demand. The mayor requests emergency support while local services remain open.",choices:[{label:"Fund emergency support",detail:"$10 · Trust +5 · Regional threat falls",cost:10,trust:5,threat:-9},{label:"Use the existing allocation",detail:"No cost · Trust −3",cost:0,trust:-3}]},
+ {id:"oversight",title:"An uncomfortable report",text:"An independent monitor has identified misconduct in a provincial office. Publishing the findings will delay current programs but protect confidence in the investigation.",choices:[{label:"Publish and investigate",detail:"$7 · Trust +4 · Corruption falls",cost:7,trust:4,corruption:-6},{label:"Order an internal review",detail:"No cost · Trust −2 · Corruption +3",cost:0,trust:-2,corruption:3}]},
+ {id:"grant",title:"A conditional federal grant",text:"Federal officials offer extra funding in exchange for an accelerated public program. Local administrators warn that rapid spending will raise prices.",choices:[{label:"Accept the grant",detail:"+$19 · Inflation +5",cost:-19,trust:0,inflation:5},{label:"Keep the current pace",detail:"Trust +2 · Inflation −2",cost:0,trust:2,inflation:-2}]},
+ {id:"witness",title:"A witness comes forward",text:"A former bookkeeper offers evidence connecting officials to a cartel network. A credible witness protection program needs immediate funding.",choices:[{label:"Fund witness protection",detail:"$9 · Network intelligence +15 · Trust +2",cost:9,trust:2,intel:15},{label:"Refer the case to local offices",detail:"No cost · Trust −2",cost:0,trust:-2}]},
+ {id:"flood",title:"Floods interrupt public services",text:"Heavy rain has cut power and isolated communities along the coast. An emergency repair package can keep clinics and schools operating.",choices:[{label:"Authorize emergency repairs",detail:"$11 · Trust +5 · Development +5",cost:11,trust:5,development:5},{label:"Wait for regular maintenance",detail:"Trust −4 · Development −3",cost:0,trust:-4,development:-3}]},
+ {id:"business",title:"Local businesses organize",text:"Shopkeepers propose a cooperative to reopen shuttered markets. They are asking for seed funding and a public commitment to support their neighborhoods.",choices:[{label:"Back the cooperative",detail:"$8 · Development +6 · Trust +3",cost:8,trust:3,development:6},{label:"Endorse without funding",detail:"No cost · Trust +1",cost:0,trust:1}]},
+ {id:"rumor",title:"A rumor reaches the capital",text:"A false claim about the campaign is spreading. Local journalists ask for access to public spending records and independent interviews.",choices:[{label:"Open the records",detail:"$4 · Trust +5 · Corruption −2",cost:4,trust:5,corruption:-2},{label:"Issue an official statement",detail:"No cost · Trust −1",cost:0,trust:-1}]},
+ {id:"courts",title:"Courts face a growing backlog",text:"Prosecutors have more credible cases than the current court system can process. Temporary staff can keep proceedings moving.",choices:[{label:"Fund temporary court staff",detail:"$8 · Network strength −6 · Trust +2",cost:8,trust:2,power:-6},{label:"Prioritize existing cases",detail:"No cost · Network strength +2",cost:0,trust:0,power:2}]}
+];
+function choose(s,index) {
+ if(!s.event||s.status!=="active")return result(false,"No pending decision.");
+ var e=EVENTS.find(function(e){return e.id===s.event.id;}),c=e&&e.choices[index];
+ if(!c)return result(false,"Choose a response.");
+ if(s.budget<c.cost)return result(false,"Insufficient funds for this response.");
+ s.budget-=c.cost;s.mandate=clamp(s.mandate+(c.trust||0),0,100);s.inflation=clamp(s.inflation+(c.inflation||0),0,80);
+ var targets=s.regions.filter(function(r){return !r.stable;});
+ targets.forEach(function(r){r.threat=clamp(r.threat+(c.threat||0),0,100);r.corruption=clamp(r.corruption+(c.corruption||0),0,100);r.development=clamp(r.development+(c.development||0),0,100);});
+ s.factions.forEach(function(f){if(!f.dismantled){f.intel=clamp(f.intel+(c.intel||0),0,100);f.power=clamp(f.power+(c.power||0),0,100);}});
+ log(s,e.title+": "+c.label+".",c.trust<0?"warning":"good");s.eventsSeen.push(e.id);s.event=null;s.nextEvent=s.week+7+Math.floor(random(s)*5);
+ check(s);return result(true,"Decision recorded.");
+}
+function check(s) {
+ var m=metric(s);
+ if(s.mandate<=0){s.status="lost";s.reason="Public confidence collapsed. Your mandate has been withdrawn.";}
+ else if(m.stable>=20&&m.networks===3){s.status="won";s.reason="The three cartel networks are dismantled and at least 20 provinces have lasting civilian control.";}
+ else if(s.week>=144){s.status="lost";s.reason="Your three-year mandate ended before lasting control was secured.";}
+}
+function tick(s) {
+ if(s.status!=="active"||s.event)return s;
+ check(s);if(s.status!=="active")return s;
+ s.week++;
+ s.teams.forEach(function(t){if(t.eta>0){t.eta--;if(t.eta===0){t.regionId=t.destination;t.destination=null;log(s,t.name+" arrived in "+s.regions[t.regionId].name+".","good");}}});
+ var finished=[],remaining=[];
+ s.projects.forEach(function(p){p.remaining--;if(p.remaining<=0)finished.push(p);else remaining.push(p);});
+ s.projects=remaining;finished.forEach(function(p){complete(s,p);});
+ var before=s.regions.map(function(r){return r.threat;});
+ s.regions.forEach(function(r){
+  var f=s.factions[r.faction],units=unitsAt(s,r.id).length;
+  var pressure=r.neighbors.reduce(function(a,i){return a+(before[i]>60?0.22:0);},0);
+  var suppression=units*(3.8+s.levels.training*0.65)*(s.profile==="coordinator"?1.2:1)*(r.terrain==="Highlands"?0.83:1);
+  var growth=(1.0+r.corruption*0.009+f.power*0.003+pressure)*difficulty(s)-suppression-r.development*0.015-s.levels.jobs*0.16-(r.stable?2.3:0)-(f.leaderCaptured?0.65:0);
+  if(f.dismantled)growth=Math.min(growth,-2.5);
+  r.threat=clamp(r.threat+growth,0,f.dismantled?45:100);
+  r.corruption=clamp(r.corruption+0.055-s.levels.integrity*0.17-(r.stable?0.07:0),0,100);
+  r.development=clamp(r.development+s.levels.jobs*0.13-(r.threat>72?0.25:0),0,100);
+  r.support=clamp(r.support+0.16+r.development*0.004+s.levels.health*0.16+s.levels.jobs*0.08+units*0.18-r.threat*0.0065-r.corruption*0.002,0,100);
+  r.intel=clamp(r.intel+units*(1.5+s.levels.intelligence*0.5)+s.levels.intelligence*0.14,0,100);
+  if(r.threat<24&&r.support>=52&&r.corruption<50&&r.development>=34)r.progress=clamp(r.progress+6+r.development/25+s.levels.justice,0,100);
+  else if(r.threat>36||r.support<40)r.progress=clamp(r.progress-8,0,100);
+  var old=r.stable;
+  if(r.progress>=100)r.stable=true;
+  else if(r.progress<65)r.stable=false;
+  if(!old&&r.stable){s.mandate+=1.4;log(s,r.name+" has reached lasting civilian control.","good");}
+  if(old&&!r.stable){s.mandate-=2;log(s,"Control is slipping in "+r.name+".","warning");}
+ });
+ s.factions.forEach(function(f){
+  if(f.dismantled)return;
+  var group=s.regions.filter(function(r){return r.faction===f.id;}),avg=group.reduce(function(a,r){return a+r.threat;},0)/group.length;
+  var secure=group.filter(function(r){return r.stable;}).length;
+  f.intel=clamp(f.intel+s.levels.intelligence*0.25+group.reduce(function(a,r){return a+unitsAt(s,r.id).length;},0)*0.2,0,100);
+  f.power=clamp(f.power+(avg-40)*0.025-secure*0.05-(f.leaderCaptured?0.85:0)-s.levels.justice*0.12-s.levels.integrity*0.08,0,100);
+  if(f.leaderCaptured&&f.power<=15&&s.levels.justice>=1){
+   f.dismantled=true;f.power=0;s.mandate+=5;
+   group.forEach(function(r){r.threat=clamp(r.threat-18,0,100);r.support=clamp(r.support+6,0,100);});
+   log(s,FACTIONS[f.id].name+" dismantled. Its remaining local influence is receding.","good");
+  }
+ });
+ var m=metric(s),violent=s.regions.filter(function(r){return r.threat>72;}).length;
+ s.mandate=clamp(s.mandate-0.16-violent*0.045+m.stable*0.028+m.support*0.0008-(s.inflation>30?0.12:0),0,100);
+ if(s.week%4===0){
+  s.lastIncome=forecast(s);s.budget+=s.lastIncome;s.inflation=clamp(s.inflation-2-s.levels.integrity*0.5,0,80);
+  log(s,"Monthly funding received: $"+s.lastIncome+" after unit upkeep.","good");
+ }
+ if(violent>0&&s.week%5===0)log(s,"Intimidation is disrupting daily life in "+violent+" high-threat provinces.","warning");
+ check(s);
+ if(s.status==="active"&&s.week>=s.nextEvent){
+  var available=EVENTS.filter(function(e){return s.eventsSeen.slice(-4).indexOf(e.id)===-1;});
+  s.event={id:available[Math.floor(random(s)*available.length)].id};
+ }
+ return s;
+}
+function validate(raw) {
+ if(!raw||raw.version!==VERSION||!Array.isArray(raw.regions)||raw.regions.length!==24||!Array.isArray(raw.teams)||raw.teams.length<2||raw.teams.length>7||!Array.isArray(raw.factions)||raw.factions.length!==3||!Array.isArray(raw.projects)||!Array.isArray(raw.log)||!Array.isArray(raw.eventsSeen)||!raw.levels)return false;
+ if(!["active","won","lost"].includes(raw.status)||!["relaxed","standard","crisis"].includes(raw.difficulty)||!PROFILES.some(function(p){return p.id===raw.profile;}))return false;
+ var numbers=["week","budget","mandate","inflation","rng","seed","nextEvent","nextTeam","selected","selectedTeam"];
+ if(!numbers.every(function(k){return typeof raw[k]==="number"&&Number.isFinite(raw[k]);}))return false;
+ if(raw.week<0||raw.week>144||raw.budget<0||raw.mandate<0||raw.mandate>100||raw.selected<0||raw.selected>23||!Number.isInteger(raw.selected))return false;
+ if(!UPGRADES.every(function(u){return Number.isInteger(raw.levels[u.id])&&raw.levels[u.id]>=0&&raw.levels[u.id]<=3;}))return false;
+ if(!raw.regions.every(function(r,i){return r.id===i&&r.col===i%6&&r.row===Math.floor(i/6)&&Number.isFinite(r.population)&&r.population>0&&["Highlands","Coast","Urban","Rural"].includes(r.terrain)&&r.faction>=0&&r.faction<3&&Number.isInteger(r.faction)&&Array.isArray(r.neighbors)&&r.neighbors.every(function(n){return Number.isInteger(n)&&n>=0&&n<24;})&&["threat","support","development","corruption","intel","progress"].every(function(k){return typeof r[k]==="number"&&Number.isFinite(r[k])&&r[k]>=0&&r[k]<=100;})&&typeof r.stable==="boolean"&&typeof r.name==="string"&&Number.isInteger(r.services)&&r.services>=0&&r.services<=3; }))return false;
+ if(!raw.teams.every(function(t){return Number.isInteger(t.id)&&typeof t.name==="string"&&Number.isInteger(t.regionId)&&t.regionId>=0&&t.regionId<24&&Number.isInteger(t.eta)&&t.eta>=0&&t.eta<=10&&(t.eta===0?t.destination===null:Number.isInteger(t.destination)&&t.destination>=0&&t.destination<24);}))return false;
+ if(!raw.factions.every(function(f,i){return f.id===i&&Number.isFinite(f.power)&&f.power>=0&&f.power<=100&&Number.isFinite(f.intel)&&f.intel>=0&&f.intel<=100&&typeof f.leaderCaptured==="boolean"&&typeof f.dismantled==="boolean";}))return false;
+ if(!raw.log.every(function(l){return l&&Number.isInteger(l.week)&&l.week>=0&&typeof l.message==="string"&&["info","good","warning"].includes(l.type);}))return false;
+ if(raw.event&&!EVENTS.some(function(e){return e.id===raw.event.id;}))return false;
+ if(!raw.projects.every(function(p){return ["services","intel","disrupt","audit","upgrade","capture"].includes(p.kind)&&Number.isInteger(p.remaining)&&p.remaining>0&&p.remaining<=4&&Number.isInteger(p.total)&&p.total>0&&typeof p.label==="string"&&Number.isFinite(p.cost)&&p.cost>=0&&(p.kind==="upgrade"?UPGRADES.some(function(u){return u.id===p.key;}):p.kind==="capture"?Number.isInteger(p.key)&&p.key>=0&&p.key<3:Number.isInteger(p.regionId)&&p.regionId>=0&&p.regionId<24);}))return false;
+ return true;
+}
+return {VERSION:VERSION,FACTIONS:FACTIONS,PROFILES:PROFILES,UPGRADES:UPGRADES,EVENTS:EVENTS,create:create,action:action,tick:tick,choose:choose,metric:metric,forecast:forecast,price:price,unitsAt:unitsAt,pending:pending,validate:validate};
+})();
+(function () {
+"use strict";
+const E = SierraEngine;
+const $ = id => document.getElementById(id);
+const KEY = "sierra-command-campaign-v1";
+let s = E.create({seed:57314}), started = false, running = false, speed = 1, timer = null;
+let activeTab = "province", layer = "control", policyCategory = "Civilian", profileChoice = "administrator";
+let modalClosable = false, modalKind = "", endShown = false, toastTimer = null, previousFocus = null;
+const paths = {
+ emblem:'<path d="M12 2 3 6v7l9 9 9-9V6Z"/><path d="m6 13 6-6 6 6M8 17l4-4 4 4"/>',
+ shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6Z"/><path d="m8 12 3 3 5-6"/>',
+ funding:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 9h18M7 3h11M16 13h5"/><circle cx="16" cy="13" r=".5"/>',
+ people:'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v2"/>',
+ secure:'<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',
+ audit:'<rect x="6" y="4" width="12" height="17" rx="1"/><path d="M9 2h6v4H9zm0 8h6m-6 4h3m1 4 2 2 5-5"/>',
+ map:'<path d="m3 5 6-2 6 3 6-2v16l-6 2-6-3-6 2Zm6-2v16m6-13v16"/>',
+ network:'<circle cx="12" cy="5" r="3"/><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="m10 8-4 7m8-7 4 7M8 18h8"/>',
+ civic:'<path d="m3 8 9-5 9 5Zm0 13h18M5 11v7m5-7v7m4-7v7m5-7v7"/>',
+ book:'<path d="M12 5C8 2 5 3 2 4v15c3-1 6-2 10 1 4-3 7-2 10-1V4c-3-1-6-2-10 1Zm0 0v15"/>',
+ save:'<path d="M4 3h13l4 4v14H3V3Zm3 0v7h10V3M7 21v-7h10v7"/>',
+ restart:'<path d="M3 10a9 9 0 1 1 1 9M3 3v7h7"/>',
+ medical:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z"/>',
+ jobs:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 12h18m-11-1v4h4v-4"/>',
+ eye:'<path d="M2 12S6 5 12 5s10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+ justice:'<path d="M12 3v18M6 21h12M4 7h16M6 7l-4 8h8Zm12 0-4 8h8Z"/>',
+ play:'<path d="m8 4 12 8-12 8Z"/>',
+ pause:'<path d="M8 4v16M16 4v16"/>',
+ step:'<path d="m4 5 11 7-11 7ZM20 5v14"/>',
+ arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>',
+ close:'<path d="m5 5 14 14M19 5 5 19"/>',
+ warning:'<path d="m12 3 10 18H2ZM12 9v5m0 3v1"/>',
+ download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+ diamond:'<path d="m12 2 10 10-10 10L2 12Z"/><path d="M8 12h8m-4-4v8"/>',
+ triangle:'<path d="M12 3 22 21H2Z"/><path d="m8 16 4-7 4 7"/>',
+ square:'<rect x="3" y="3" width="18" height="18"/><path d="m6 16 6-8 6 8"/>'
+};
+function icon(name) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths.shield)+'</svg>'; }
+function esc(value) { return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function rounded(n) { return Math.round(n); }
+function cash(n) { return "$"+rounded(n); }
+function meter(value,color) { return '<div class="meter"><i style="width:'+Math.max(0,Math.min(100,value))+'%;background:'+(color||"var(--green)")+'"></i></div>'; }
+function fillIcons(root) { root.querySelectorAll("[data-icon]").forEach(el=>{el.innerHTML=icon(el.dataset.icon);}); }
+function announce(message) { $("announcer").textContent=message; }
+function toast(message) { $("toast").textContent=message;$("toast").hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{$("toast").hidden=true;},3500);announce(message); }
+function readSave() {
+ try { const raw=localStorage.getItem(KEY);if(!raw)return null;const parsed=JSON.parse(raw);return E.validate(parsed)?parsed:null; } catch(err){return null;}
+}
+function save(showMessage) {
+ if(!started)return false;
+ try {localStorage.setItem(KEY,JSON.stringify(s));$("save-state").textContent="CAMPAIGN SAVED / WEEK "+s.week;if(showMessage)toast("Campaign saved in this browser.");return true;}
+ catch(err){$("save-state").textContent="AUTO-SAVE UNAVAILABLE / EXPORT FROM FIELD MANUAL";if(showMessage)toast("Browser storage is unavailable. Export your campaign from the field manual.");return false;}
+}
+function exportSave(){
+ const blob=new Blob([JSON.stringify(s,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="sierra-command-week-"+s.week+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function openModal(html,kind,closable,narrow) {
+ if(!modalKind)previousFocus=document.activeElement;
+ modalKind=kind;modalClosable=closable;$("modal").className="modal"+(narrow?" narrow":"");$("modal").innerHTML=html;$("modal-backdrop").hidden=false;fillIcons($("modal"));
+ setTimeout(()=>{const first=$("modal").querySelector("button:not(:disabled), select, input");if(first)first.focus();},0);
+}
+function closeModal() {
+ if(!modalClosable)return;
+ $("modal-backdrop").hidden=true;modalKind="";if(previousFocus&&previousFocus.isConnected)previousFocus.focus();else $("play-button").focus();
+}
+function forceClose(){modalClosable=true;closeModal();}
+function avatar(index){
+ const hair=index===1?'<path d="M10 13c0-9 22-9 22 0v3H10Z" fill="#26392d"/>':index===2?'<path d="M9 17C5 2 32 0 34 15l-3 20H11Z" fill="#26392d"/>':'<path d="M9 15C6 2 33 1 34 15l-4 15H12Z" fill="#324831"/>';
+ return '<svg viewBox="0 0 44 44" aria-hidden="true">'+hair+'<ellipse cx="22" cy="19" rx="9" ry="11" fill="#c6bc91"/><path d="M4 46c0-20 36-20 36 0" fill="'+(index===1?"#7b9679":index===2?"#a6a884":"#718a72")+'"/><path d="m17 30 5 7 5-7" fill="#ddd4b3"/><path d="M17 18h1m8 0h1m-8 8h6" stroke="#4b5945" stroke-linecap="round"/>'+(index===2?'<path d="M12 15h20v7H12ZM20 18h4" stroke="#465841" fill="none"/>':'')+'</svg>';
+}
+function briefing() {
+ setRunning(false);
+ const stored=readSave();
+ const cards=E.PROFILES.map((p,i)=>'<button class="profile '+(p.id===profileChoice?"active":"")+'" data-profile="'+p.id+'" aria-pressed="'+(p.id===profileChoice)+'"><span class="avatar">'+avatar(i)+'</span><b>'+p.name+'</b><span class="person">'+p.person+' / '+p.role+'</span><small>'+p.bonus+'</small></button>').join("");
+ const close=started?'<button class="small-button" data-cmd="close" aria-label="Close briefing">'+icon("close")+'</button>':"";
+ openModal('<div class="modal-top"><div class="eyebrow">CAMPAIGN BRIEFING / SIERRA DE LA LUZ</div>'+close+'</div><h2 id="modal-title">Restore control.<br>Rebuild the state.</h2><p class="modal-intro">Three cartel networks are fighting over a fictional state. You command the government response. Reclaim provinces with security units, investigate the organizations and give communities a reason to trust public institutions.</p><div class="profile-grid">'+cards+'</div><div class="setup-row"><label>Campaign difficulty<select id="difficulty"><option value="relaxed">Measured / relaxed</option><option value="standard" selected>Uncertain / standard</option><option value="crisis">Crisis / demanding</option></select></label><label>Campaign seed<input id="seed" inputmode="numeric" type="number" min="1" max="4294967295" value="57314"></label></div><div class="mission-points"><span><strong>Secure 20 of 24 provinces.</strong> Hold territory with public support.</span><span><strong>Dismantle all three networks.</strong> Arrests alone will not finish the job.</span><span><strong>Keep public trust above zero.</strong> Your mandate lasts 144 weeks.</span><span><strong>Play at your pace.</strong> Pause, advance one week or run the clock.</span></div><div class="modal-actions"><button class="primary-button" data-cmd="begin">'+icon("arrow")+'Begin '+(started?"new ":"")+'campaign</button>'+(stored?'<button class="small-button" data-cmd="continue">Continue saved / week '+stored.week+'</button>':"")+'</div><p class="hint">The campaign starts paused. Progress saves in this browser; you can export a backup from the field manual.</p>',"briefing",started,false);
+}
+function fieldManual(){
+ setRunning(false);
+ openModal('<div class="modal-top"><span class="eyebrow">FIELD MANUAL / READINESS NOTES</span><button class="small-button" data-cmd="close" aria-label="Close manual">'+icon("close")+'</button></div><h2 id="modal-title">Holding a province</h2><ol><li>Select a province on the map. Choose a unit, then select <strong>Deploy to province</strong>. Units suppress threat while stationed there; movement takes time.</li><li>Use <strong>Evidence gathering</strong> to reach 35 local intelligence. A stationed unit can then disrupt the local cartel network. Keep that unit in place until the operation finishes.</li><li>Fund <strong>Community investment</strong> to improve development and support. An <strong>Independent audit</strong> reduces local corruption. Policies affect the whole state.</li><li>A province begins stabilizing below <strong>24 threat</strong>, with at least <strong>52 support</strong>, <strong>34 development</strong>, and less than <strong>50 corruption</strong>. Fill its control meter to secure it.</li><li>In <strong>Networks</strong>, build 65 network intelligence, lower strength to 65 and fund Independent courts level 1 to open a leadership case. Continue weakening the organization until strength falls to 15.</li><li>Win with <strong>20 stable provinces and all three networks dismantled</strong>. Lose if trust reaches zero or your 144-week mandate expires. Funding arrives every four weeks, after unit upkeep.</li></ol><p class="hint">Spending raises inflation, which increases future costs. Oversight helps cool prices. Upgrading professional training also raises the unit limit. Map dots show activity estimates; blue circular markers are your units.</p><p class="hint"><kbd>SPACE</kbd> pause / resume &nbsp; <kbd>N</kbd> advance one week &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> change speed &nbsp; <kbd>ESC</kbd> close panels</p><div class="modal-actions"><button class="small-button" data-cmd="export" '+(!started?"disabled":"")+'>'+icon("download")+'Export campaign</button><label class="small-button" style="cursor:pointer">Import campaign<input id="import-save" type="file" accept=".json,application/json" class="sr-only"></label></div>',"help",true,false);
+}
+function showEvent(){
+ setRunning(false);
+ const event=E.EVENTS.find(e=>e.id===s.event.id);
+ openModal('<div class="eyebrow">EXECUTIVE DECISION / WEEK '+s.week+'</div><div class="event-mark">'+icon("warning")+'</div><h2 id="modal-title">'+esc(event.title)+'</h2><p class="modal-intro">'+esc(event.text)+'</p>'+event.choices.map((c,i)=>'<button class="event-choice" data-choice="'+i+'" '+(s.budget<c.cost?"disabled":"")+'><b>'+esc(c.label)+'</b><span>'+esc(c.detail)+'</span></button>').join("")+'<p class="hint">Campaign time is paused. Available funds: '+cash(s.budget)+'.</p>',"event",false,true);
+}
+function showEnding(){
+ if(endShown)return;
+ endShown=true;setRunning(false);
+ const m=E.metric(s);
+ openModal('<div class="eyebrow">CAMPAIGN DEBRIEF / WEEK '+s.week+'</div><h2 id="modal-title">'+(s.status==="won"?"A state on its feet.":"Your mandate has ended.")+'</h2><p class="modal-intro">'+esc(s.reason)+'</p><div class="end-stats"><div><span>Stable provinces</span><b>'+m.stable+' / 24</b></div><div><span>Networks dismantled</span><b>'+m.networks+' / 3</b></div><div><span>Public trust</span><b>'+rounded(s.mandate)+'%</b></div></div><p class="hint">Campaign seed '+s.seed+' · '+esc(s.difficulty)+' · '+esc(E.PROFILES.find(p=>p.id===s.profile).person)+'</p><div class="modal-actions"><button class="primary-button" data-cmd="new">'+icon("restart")+'New campaign</button><button class="small-button" data-cmd="close">Review the map</button><button class="small-button" data-cmd="export">Export campaign</button></div>',"ending",true,true);
+}
+function setRunning(value){
+ running=Boolean(value&&started&&s.status==="active"&&!s.event);
+ clearInterval(timer);timer=null;
+ if(running)timer=setInterval(advance,3500/speed);
+ renderClock();
+}
+function advance(){
+ if(!started||s.status!=="active"||s.event||modalKind)return;
+ E.tick(s);save(false);render();
+ if(s.event)showEvent();
+ if(s.status!=="active")showEnding();
+}
+function take(kind,id,extra){
+ const res=E.action(s,kind,id,extra);
+ if(!res.ok){toast(res.message);return;}
+ save(false);render();announce(res.message);
+}
+function localStat(label,value,color){
+ return '<div class="local-stat"><div><span>'+label+'</span><b>'+rounded(value)+'%</b></div>'+meter(value,color)+'</div>';
+}
+function projectList(projects){
+ return projects.map(p=>'<div class="project"><div class="project-header">'+esc(p.label)+'<span>'+p.remaining+' wk</span></div>'+meter((p.total-p.remaining)/p.total*100,"var(--sand)")+'</div>').join("");
+}
+function actionButton(kind,label,ico,base,reason){
+ const r=s.regions[s.selected],busy=E.pending(s,kind,r.id);
+ let cost=E.price(s,base),disabled=Boolean(reason)||busy||s.budget<cost||s.status!=="active";
+ const explanation=busy?"Already in progress.":reason||((s.budget<cost)?"Insufficient funds.":label);
+ return '<button class="action-card" data-order="'+kind+'" '+(disabled?"disabled":"")+' title="'+esc(explanation)+'" aria-label="'+esc(label+". "+cash(cost)+". "+explanation)+'">'+icon(ico)+(busy?'<span class="ready">ACTIVE</span>':"")+'<b>'+label+'</b><small>'+cash(cost)+' / '+(kind==="services"?(s.profile==="administrator"?3:4):kind==="audit"?3:2)+' WK</small></button>';
+}
+function renderProvince(){
+ const r=s.regions[s.selected],f=E.FACTIONS[r.faction],units=E.unitsAt(s,r.id);
+ const options=s.teams.map(t=>'<option value="'+t.id+'" '+(s.selectedTeam===t.id?"selected":"")+'>'+esc(t.name)+' / '+(t.eta?"in transit":esc(s.regions[t.regionId].name))+'</option>').join("");
+ const team=s.teams.find(t=>t.id===s.selectedTeam)||s.teams[0];
+ const canMove=team.eta===0&&team.regionId!==r.id&&s.budget>=E.price(s,2)&&s.status==="active";
+ const disruptReason=units.length===0?"A stationed unit is required.":r.intel<35?"35 local intelligence is required.":"";
+ const projects=s.projects.filter(p=>p.regionId===r.id&&p.kind!=="upgrade"&&p.kind!=="capture");
+ return '<div class="province-layout"><div class="province-title"><div class="eyebrow">PROVINCE '+String(r.id+1).padStart(2,"0")+' / '+esc(r.terrain)+'</div><h2>'+esc(r.name.replace("Capital / ",""))+'</h2><div class="status-tag '+(r.stable?"secured":"")+'"><i class="dot '+(r.stable?"secure":"")+'"></i>'+(r.stable?"Civilian control":r.progress>0?"Stabilizing":"Contested province")+'</div><div class="place-meta"><span>POP. '+r.population+',000</span><span style="color:'+f.color+'">'+f.short+' INFLUENCE</span></div>'+meter(r.progress)+'<div class="stability-line"><span>Lasting control</span><span>'+rounded(r.progress)+'%</span></div></div><div class="province-metrics"><div class="local-metrics">'+localStat("Threat",r.threat,"var(--red)")+localStat("Public support",r.support,"var(--green)")+localStat("Corruption",r.corruption,"var(--sand)")+localStat("Intelligence",r.intel,"var(--blue)")+'</div><div class="hint">Development '+rounded(r.development)+'% · Community projects '+r.services+' / 3<br>Stationed: '+(units.length?units.map(t=>esc(t.name)).join(", "):"no security unit")+'</div><div class="section-title">Unit assignment</div><select class="unit-select" id="unit-select" aria-label="Choose security unit">'+options+'</select><button class="primary-button full" data-cmd="move" '+(canMove?"":"disabled")+'>'+icon("arrow")+(team.eta?"Unit in transit · "+team.eta+" wk":team.regionId===r.id?"Unit stationed here":"Deploy to province · "+cash(E.price(s,2)))+'</button><p class="hint">Units hold down threat while present. Moving a unit leaves its current province exposed.</p></div><div class="province-actions"><div class="section-title">Province orders</div><div class="action-grid">'+actionButton("services","Community investment","medical",11+r.services*4,r.services>=3?"All community projects are complete.":"")+actionButton("intel","Evidence gathering","eye",7,r.intel>=95&&s.factions[r.faction].intel>=95?"Intelligence coverage is complete.":"")+actionButton("disrupt","Disrupt network","network",10,disruptReason)+actionButton("audit","Independent audit","audit",9,r.corruption<8?"Corruption is already minimal.":"")+'</div>'+(projects.length?'<div class="section-title">Orders in progress</div>'+projectList(projects):'<p class="hint">Security lowers immediate threat. Services, support and clean institutions make control last.</p>')+'</div></div>';
+}
+function renderUnits(){
+ const cap=4+s.levels.training,cost=E.price(s,19);
+ return '<div class="eyebrow">TASK FORCE / '+s.teams.length+' OF '+cap+' UNITS</div><h2>Hold the ground</h2><p class="hint">Choose a unit, select its destination on the map, then issue the deployment order below.</p>'+s.teams.map(t=>'<button class="team-card '+(s.selectedTeam===t.id?"active":"")+'" data-team="'+t.id+'" aria-pressed="'+(s.selectedTeam===t.id)+'">'+icon("shield")+'<div><div class="team-name">'+esc(t.name)+'</div><div class="team-place">'+(t.eta?"To "+esc(s.regions[t.destination].name):esc(s.regions[t.regionId].name))+'</div></div><span class="team-status">'+(t.eta?t.eta+" WK":"ON STATION")+'</span></button>').join("")+'<div class="section-title">Selected destination</div><h3>'+esc(s.regions[s.selected].name)+'</h3><button class="primary-button full" data-cmd="move" style="margin-top:10px" '+(s.status==="active"?"":"disabled")+'>'+icon("arrow")+'Deploy selected unit · '+cash(E.price(s,2))+'</button><div class="section-title">Reinforcements</div><button class="small-button full" data-cmd="recruit" '+(s.teams.length>=cap||s.budget<cost||s.status!=="active"?"disabled":"")+'>'+icon("people")+'Recruit unit · '+cash(cost)+'</button><p class="hint">New units train for three weeks. Each unit costs $2 in monthly upkeep. Professional training increases the unit limit.</p>';
+}
+function renderNetworks(){
+ return '<div class="eyebrow">ORGANIZED CRIME / NETWORK OVERVIEW</div><h2>Break the networks</h2><p class="hint">Build an intelligence case, weaken each organization and sustain the institutions that prevent its return.</p>'+s.factions.map(f=>{
+  const def=E.FACTIONS[f.id],busy=s.projects.find(p=>p.kind==="capture"&&p.key===f.id);
+  const ready=s.levels.justice>=1&&f.intel>=65&&f.power<=65&&!f.leaderCaptured&&!busy&&s.budget>=E.price(s,18)&&s.status==="active";
+  const requirement=s.levels.justice<1?"Requires Independent courts level 1.":f.intel<65?"Requires 65 network intelligence.":f.power>65?"Lower strength to 65 or below.":"Ready for a leadership case.";
+  return '<article class="faction-card"><div class="faction-heading"><div class="faction-symbol" style="color:'+def.color+'">'+icon(def.symbol)+'</div><div><h3>'+def.name+'</h3><div class="leader">'+esc(def.leader)+' / '+(f.dismantled?"network dismantled":f.leaderCaptured?"in custody":"case open")+'</div></div></div><div class="faction-metrics">'+localStat("Strength",f.power,def.color)+localStat("Case intelligence",f.intel,"var(--blue)")+'</div>'+(f.dismantled?'<div class="status-tag secured" style="margin-top:12px">'+icon("secure")+'Network dismantled</div>':f.leaderCaptured?'<p class="hint">Leadership is in custody. Reduce strength to 15 to dismantle the organization.</p>':busy?projectList([busy]):'<button class="small-button" data-capture="'+f.id+'" '+(ready?"":"disabled")+'>'+icon("justice")+'Leadership case · '+cash(E.price(s,18))+'</button><p class="hint">'+requirement+'</p>')+'</article>';
+ }).join("");
+}
+function renderPolicies(){
+ const global=s.projects.filter(p=>p.kind==="upgrade");
+ return '<div class="eyebrow">STATE PROGRAMS / LONG-TERM CAPACITY</div><h2>Build institutions</h2><div class="filter-row" role="group" aria-label="Policy category">'+["Civilian","Security","Governance"].map(c=>'<button class="filter '+(policyCategory===c?"active":"")+'" data-category="'+c+'" aria-pressed="'+(policyCategory===c)+'">'+c+'</button>').join("")+'</div>'+E.UPGRADES.filter(u=>u.category===policyCategory).map(u=>{
+  const level=s.levels[u.id],busy=s.projects.find(p=>p.kind==="upgrade"&&p.key===u.id),cost=E.price(s,u.cost*(1+level*0.55));
+  return '<article class="policy"><div class="policy-top">'+icon(u.icon)+'<h3>'+u.name+'</h3><span class="policy-level">LVL '+level+' / 3</span></div><p>'+u.description+'</p><div class="effect">'+u.effect+'</div>'+(busy?projectList([busy]):'<button class="small-button" data-upgrade="'+u.id+'" '+(level>=3||s.budget<cost||s.status!=="active"?"disabled":"")+'><span>'+(level>=3?"Fully implemented":"Fund level "+(level+1))+'</span><span>'+(level>=3?"COMPLETE":cash(cost)+" / 4 WK")+'</span></button>')+'</article>';
+ }).join("")+'<p class="hint">Effects stack with each level. Funding many programs at once raises inflation and future purchase costs.</p>'+(global.length?'<div class="section-title">All state programs in progress</div>'+projectList(global):"");
+}
+function mix(a,b,t){return "#"+[0,1,2].map(i=>{const x=parseInt(a.slice(1+i*2,3+i*2),16),y=parseInt(b.slice(1+i*2,3+i*2),16);return Math.round(x+(y-x)*Math.max(0,Math.min(1,t))).toString(16).padStart(2,"0");}).join("");}
+const points=[],geometry=[];
+for(let y=0;y<=4;y++){
+ points[y]=[];
+ for(let x=0;x<=6;x++){
+  let px=155+x*112+Math.sin(x*1.7+y*.8)*18;
+  if(x===0)px=[175,126,105,146,188][y];
+  if(x===6)px=[836,884,865,894,831][y];
+  let py=91+y*119+Math.sin(x*1.35+y*2)*16;
+  if(y===0)py+=Math.cos(x*1.2)*12;
+  points[y][x]={x:px,y:py};
+ }
+}
+for(let i=0;i<24;i++){
+ const x=i%6,y=Math.floor(i/6),p=[points[y][x],points[y][x+1],points[y+1][x+1],points[y+1][x]];
+ geometry.push({path:"M"+p.map(v=>v.x.toFixed(1)+","+v.y.toFixed(1)).join("L")+"Z",cx:p.reduce((a,v)=>a+v.x,0)/4,cy:p.reduce((a,v)=>a+v.y,0)/4});
+}
+function renderMap(){
+ const land=geometry.map(g=>'<path d="'+g.path+'"/>').join("");
+ let html='<defs><pattern id="sea-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" stroke="#adc7bb" stroke-width=".6" fill="none" opacity=".09"/></pattern><pattern id="land-texture" width="13" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r=".5" fill="#474a38" opacity=".14"/><circle cx="10" cy="9" r=".4" fill="#474a38" opacity=".1"/></pattern><clipPath id="land-clip">'+land+'</clipPath><filter id="land-shadow"><feDropShadow dx="-5" dy="6" stdDeviation="4" flood-color="#102d29" flood-opacity=".5"/></filter></defs><rect width="960" height="650" fill="#2e4845"/><rect width="960" height="650" fill="url(#sea-grid)"/><g fill="none" stroke="#92ada0" opacity=".12"><path d="M100 20C60 120 90 170 62 250S50 420 95 570M82 15C42 120 72 170 44 250S32 420 77 570M62 10C22 120 52 170 24 250S12 420 57 570" stroke-width="1.2"/></g><text x="69" y="380" transform="rotate(-90 69 380)" font-size="11" letter-spacing="5" fill="#b2c7b6" opacity=".5">PACIFIC COAST</text><g fill="#c4b692" filter="url(#land-shadow)">'+land+'</g>';
+ html+='<g>';
+ s.regions.forEach(r=>{
+  const g=geometry[r.id];let color;
+  if(layer==="threat")color=mix("#c4cfab","#cd8c78",r.threat/100);
+  else if(layer==="support")color=mix("#d8b699","#91b89b",r.support/100);
+  else color=r.stable?"#9eb59b":r.threat>70?"#cba58d":r.progress>0?"#bac0a0":r.terrain==="Highlands"?"#bcb396":r.terrain==="Urban"?"#c7bfa0":"#d0c5a5";
+  html+='<path d="'+g.path+'" fill="'+color+'" stroke="#ebe2c5" stroke-width="1.5"/>';
+ });
+ html+='</g><g clip-path="url(#land-clip)" pointer-events="none"><rect x="80" y="55" width="850" height="560" fill="url(#land-texture)"/>';
+ const routes=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17],[18,19,20,21,22,23],[1,7,13,19],[3,9,15,21],[4,10,16,22]];
+ routes.forEach(route=>{
+  const d=route.map((i,j)=>(j?"L":"M")+geometry[i].cx+","+geometry[i].cy).join(" ");
+  html+='<path d="'+d+'" fill="none" stroke="#ece0bb" stroke-width="5" opacity=".7"/><path d="'+d+'" fill="none" stroke="#8d886d" stroke-width=".8" stroke-dasharray="4 3" opacity=".65"/>';
+ });
+ html+='<path d="M650 38C600 115 745 158 684 228S757 339 694 437 760 510 691 650M671 31C621 115 766 158 705 228S778 339 715 437 781 510 712 650M693 25C643 115 788 158 727 228S800 339 737 437 803 510 734 650" fill="none" stroke="#726e52" stroke-width="1" opacity=".16"/><path d="M360 78C290 158 459 171 407 250S510 376 456 433 518 568 490 624" fill="none" stroke="#c3d6c0" stroke-width="4"/><path d="M360 78C290 158 459 171 407 250S510 376 456 433 518 568 490 624" fill="none" stroke="#70968a" stroke-width="1.2"/>';
+ s.regions.forEach(r=>{
+  const g=geometry[r.id];
+  if(r.terrain==="Highlands"){
+   for(let k=0;k<5;k++){const x=g.cx-36+k*16,y=g.cy-36+Math.sin(k*2+r.id)*8;html+='<path d="m'+x+','+y+' 7,-10 7,10m-7,-10 2,7" fill="none" stroke="#69694f" stroke-width="1.1" opacity=".45"/>';}
+  }else if(r.terrain==="Rural"){
+   for(let k=0;k<8;k++){const x=g.cx-34+(k%4)*14,y=g.cy-35+Math.floor(k/4)*12;html+='<path d="m'+x+','+y+' 3,-5 3,5m-3,-2v5" stroke="#6b7952" stroke-width=".9" fill="none" opacity=".4"/>';}
+  }
+ });
+ html+='</g>';
+ s.regions.forEach(r=>{
+  const g=geometry[r.id],selected=r.id===s.selected,def=E.FACTIONS[r.faction];
+  html+='<g class="region" data-region="'+r.id+'" role="button" tabindex="0" aria-label="'+esc(r.name)+': '+rounded(r.threat)+' threat, '+(r.stable?"stable":"contested")+'"><title>'+esc(r.name)+' · Threat '+rounded(r.threat)+'% · Support '+rounded(r.support)+'%</title><path class="area" d="'+g.path+'" fill="transparent" stroke="'+(selected?"#fff0b7":"transparent")+'" stroke-width="'+(selected?3.5:1)+'"/>';
+  const urban=r.terrain==="Urban"||r.id===14;
+  if(urban){for(let k=0;k<8;k++){const x=g.cx-13+(k%3)*10,y=g.cy-12+Math.floor(k/3)*9;html+='<rect x="'+x+'" y="'+y+'" width="5" height="5" fill="#59624d" opacity=".65"/>';}}
+  else html+='<circle cx="'+g.cx+'" cy="'+g.cy+'" r="3" fill="#5a624b"/>';
+  const count=r.threat>12?Math.max(1,Math.ceil(r.threat/22)):0;
+  for(let k=0;k<count;k++)html+='<circle cx="'+(g.cx-((count-1)*4)+k*8)+'" cy="'+(g.cy+11)+'" r="2.5" fill="'+def.color+'" stroke="#5a4738" stroke-width=".45"/>';
+  if(r.stable)html+='<path d="m'+(g.cx+19)+','+(g.cy-14)+' 3,3 6,-7" stroke="#305b42" stroke-width="2.2" fill="none"/>';
+  const name=r.id===14?"SAN LUCAS":r.name.toUpperCase();
+  html+='<text class="map-label" x="'+g.cx+'" y="'+(g.cy+32)+'" text-anchor="middle" fill="#354235" font-size="'+(r.id===14?11.5:10.5)+'" font-weight="'+(r.id===14?650:500)+'" letter-spacing=".4">'+esc(name)+'</text>';
+  if(r.id===14)html+='<text x="'+g.cx+'" y="'+(g.cy+44)+'" text-anchor="middle" fill="#576146" font-size="7.5" letter-spacing="2">HEADQUARTERS</text>';
+  html+='</g>';
+ });
+ s.teams.forEach(t=>{
+  if(t.eta&&t.destination!==null){
+   const a=geometry[t.regionId],b=geometry[t.destination];
+   html+='<path d="M'+a.cx+','+a.cy+'L'+b.cx+','+b.cy+'" stroke="#2b7890" stroke-width="2" stroke-dasharray="5 5" opacity=".8" pointer-events="none"/><circle cx="'+(a.cx+(b.cx-a.cx)/(t.eta+1))+'" cy="'+(a.cy+(b.cy-a.cy)/(t.eta+1))+'" r="5" fill="#98d5dc" stroke="#2b7890" stroke-width="2" pointer-events="none"/>';
+  }
+ });
+ s.regions.forEach(r=>{
+  const teams=E.unitsAt(s,r.id),g=geometry[r.id];
+  teams.forEach((t,i)=>{
+   const x=g.cx-18+i*25,y=g.cy-18;
+   html+='<g pointer-events="none"><circle cx="'+x+'" cy="'+y+'" r="10.5" fill="#224c56" stroke="'+(t.id===s.selectedTeam?"#e7e7af":"#a5d0cf")+'" stroke-width="1.7"/><circle cx="'+(x-3)+'" cy="'+(y-3)+'" r="1.6" fill="#bce3df"/><circle cx="'+(x+3)+'" cy="'+(y-3)+'" r="1.6" fill="#bce3df"/><circle cx="'+(x-3)+'" cy="'+(y+3)+'" r="1.6" fill="#bce3df"/><circle cx="'+(x+3)+'" cy="'+(y+3)+'" r="1.6" fill="#bce3df"/></g>';
+  });
+ });
+ html+='<g transform="translate(865 585)" fill="none" stroke="#c9d0b4" stroke-width="1"><path d="M0-20V13M-12 0h24m-12-20-5 12h10Z"/><text x="0" y="-27" text-anchor="middle" fill="#c9d0b4" stroke="none" font-size="10">N</text></g><g stroke="#b8c2a5" stroke-width="2"><path d="M115 606h100m-100-4v8m50-8v8m50-8v8"/></g><text x="115" y="625" fill="#b8c2a5" font-size="9" letter-spacing="1.2">SIERRA THEATER / SCHEMATIC</text>';
+ $("campaign-map").innerHTML=html;
+}
+function renderClock(){
+ const ended=s.status!=="active";
+ $("play-button").innerHTML=icon(running?"pause":"play")+(running?"Pause":"Resume");
+ $("play-button").disabled=!started||ended||Boolean(s.event);
+ $("step-button").disabled=!started||ended||running||Boolean(s.event);
+ $("time-state").innerHTML=(ended?"CAMPAIGN COMPLETE":running?"CAMPAIGN RUNNING / "+speed+"×":"CAMPAIGN PAUSED")+'<span>WEEK '+s.week+' / 144 · MONTH '+Math.min(36,Math.floor(s.week/4)+1)+' · '+(running?"SPACE to pause":"N to advance one week")+'</span>';
+ $("week-label").textContent="WEEK "+s.week+" / 144 · MONTH "+Math.min(36,Math.floor(s.week/4)+1);
+ $("time-progress").style.width=s.week/144*100+"%";
+ $("map-state").textContent="WEEK "+String(s.week).padStart(2,"0")+" / "+(running?"OPERATIONS ACTIVE":"AWAITING ORDERS");
+ document.querySelectorAll("[data-speed]").forEach(b=>{const on=Number(b.dataset.speed)===speed;b.classList.toggle("active",on);b.setAttribute("aria-pressed",String(on));});
+}
+function render(){
+ const m=E.metric(s);
+ $("funds").textContent=cash(s.budget);$("income").textContent="+"+cash(E.forecast(s))+" in "+(4-s.week%4)+" wk / net";
+ $("mandate").textContent=rounded(s.mandate)+"%";$("mandate").style.color=s.mandate<30?"var(--red)":"var(--ink)";
+ $("control").textContent=m.percent+"%";$("stable-count").textContent=m.stable+" of 24 provinces";
+ $("corruption").textContent=rounded(m.corruption)+"%";$("inflation").textContent="Spending inflation "+rounded(s.inflation)+"%";
+ $("objective").innerHTML='<strong>OBJECTIVE</strong> '+m.stable+' / 20 provinces · '+m.networks+' / 3 networks';
+ $("details").innerHTML=activeTab==="province"?renderProvince():activeTab==="units"?renderUnits():activeTab==="networks"?renderNetworks():renderPolicies();
+ document.querySelectorAll("[data-tab]").forEach(b=>{const on=b.dataset.tab===activeTab;b.classList.toggle("active",on);b.setAttribute("aria-pressed",String(on));});
+ document.querySelectorAll("[data-layer]").forEach(b=>{const on=b.dataset.layer===layer;b.classList.toggle("active",on);b.setAttribute("aria-pressed",String(on));});
+ $("feed").innerHTML=s.log.slice(0,3).map(l=>'<div class="feed-entry '+(l.type==="good"?"good":l.type==="warning"?"warning":"")+'"><time>W'+String(l.week).padStart(2,"0")+'</time><i class="dot"></i><span>'+esc(l.message)+'</span></div>').join("");
+ renderMap();renderClock();
+}
+function selectProvince(id){if(!Number.isInteger(id)||id<0||id>23)return;s.selected=id;if(activeTab!=="units")activeTab="province";render();save(false);}
+document.addEventListener("click",function(event){
+ const b=event.target.closest("button,[data-region]");
+ if(!b||b.disabled)return;
+ if(b.dataset.region!==undefined){selectProvince(Number(b.dataset.region));return;}
+ if(b.dataset.tab){activeTab=b.dataset.tab;render();return;}
+ if(b.dataset.layer){layer=b.dataset.layer;render();return;}
+ if(b.dataset.category){policyCategory=b.dataset.category;render();return;}
+ if(b.dataset.team){s.selectedTeam=Number(b.dataset.team);render();save(false);return;}
+ if(b.dataset.profile){const diff=$("difficulty").value,seed=$("seed").value;profileChoice=b.dataset.profile;briefing();$("difficulty").value=diff;$("seed").value=seed;return;}
+ if(b.dataset.speed){speed=Number(b.dataset.speed);setRunning(running);return;}
+ if(b.dataset.order){take(b.dataset.order,s.selected);return;}
+ if(b.dataset.upgrade){take("upgrade",s.selected,b.dataset.upgrade);return;}
+ if(b.dataset.capture!==undefined){take("capture",s.selected,Number(b.dataset.capture));return;}
+ if(b.dataset.choice!==undefined){const res=E.choose(s,Number(b.dataset.choice));if(res.ok){forceClose();save(false);render();if(s.status!=="active")showEnding();}else toast(res.message);return;}
+ const cmd=b.dataset.cmd;
+ if(cmd==="begin"){
+  const seedInput=Number($("seed").value),seed=Number.isFinite(seedInput)&&seedInput>0?Math.floor(seedInput)>>>0:57314;
+  s=E.create({seed:seed||57314,difficulty:$("difficulty").value,profile:profileChoice});started=true;endShown=false;activeTab="province";forceClose();save(false);render();toast("Select a province to issue orders. Resume when you are ready.");return;
+ }
+ if(cmd==="continue"){const stored=readSave();if(stored){s=stored;started=true;endShown=false;forceClose();render();if(s.event)showEvent();if(s.status!=="active")showEnding();}return;}
+ if(cmd==="play"){if(modalKind)return;setRunning(!running);return;}
+ if(cmd==="step"){advance();return;}
+ if(cmd==="move"){take("move",s.selected,s.selectedTeam);return;}
+ if(cmd==="recruit"){take("recruit",s.selected);return;}
+ if(cmd==="new"){briefing();return;}
+ if(cmd==="help"){fieldManual();return;}
+ if(cmd==="save"){save(true);return;}
+ if(cmd==="export"){exportSave();return;}
+ if(cmd==="close"){closeModal();return;}
+});
+document.addEventListener("change",function(event){
+ if(event.target.id==="unit-select"){s.selectedTeam=Number(event.target.value);save(false);render();return;}
+ if(event.target.id==="import-save"){
+  const file=event.target.files&&event.target.files[0];if(!file)return;
+  if(file.size>200000){toast("This campaign file is too large.");return;}
+  const reader=new FileReader();
+  reader.onload=function(){try{
+   const imported=JSON.parse(String(reader.result));if(!E.validate(imported))throw new Error("invalid");
+   s=imported;started=true;endShown=false;setRunning(false);forceClose();save(false);render();toast("Campaign imported.");if(s.event)showEvent();if(s.status!=="active")showEnding();
+  }catch(err){toast("This is not a valid Sierra Command campaign file.");}};
+  reader.onerror=function(){toast("The campaign file could not be read.");};reader.readAsText(file);
+ }
+});
+document.addEventListener("keydown",function(event){
+ if(modalKind){
+  if(event.key==="Escape"){event.preventDefault();closeModal();return;}
+  if(event.key==="Tab"){
+   const all=Array.from($("modal").querySelectorAll('button:not(:disabled),input:not([type="file"]),select,a[href]')).filter(el=>!el.hidden);
+   if(all.length){const first=all[0],last=all[all.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
+  }
+  return;
+ }
+ if(event.target.closest("input,select,textarea"))return;
+ if(event.target.closest("[data-region]")&&(event.key==="Enter"||event.key===" ")){event.preventDefault();selectProvince(Number(event.target.closest("[data-region]").dataset.region));return;}
+ if(event.code==="Space"){event.preventDefault();setRunning(!running);}
+ if(event.key.toLowerCase()==="n"&&!running){event.preventDefault();advance();}
+ if(["1","2","3"].includes(event.key)){speed={"1":1,"2":2,"3":4}[event.key];setRunning(running);}
+});
+document.addEventListener("visibilitychange",function(){if(document.hidden&&running)setRunning(false);});
+window.addEventListener("beforeunload",function(){save(false);});
+fillIcons(document);render();briefing();
+})();
+</script>
+</body>
+</html>
