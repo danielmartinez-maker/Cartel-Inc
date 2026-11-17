@@ -40,7 +40,7 @@
 .menu-sound { font: 9px var(--mono); letter-spacing: 1px; display: inline-flex; align-items: center; gap: 9px; padding: 0; }
 .menu-sound .icon { width: 15px; height: 15px; }
 
-.loading-screen { display: flex; flex-direction: column; height: 100dvh; min-height: 660px; background-image: url('./assets/print-grain.svg'); }
+.loading-screen { display: flex; flex-direction: column; height: 100dvh; min-height: 660px; }
 .loading-topline, .loading-bottomline { display: flex; justify-content: space-between; gap: 20px; color: #abbc99; font: 8px var(--mono); letter-spacing: 1.6px; padding: 29px 42px; }
 .loading-topline { border-bottom: 1px solid #829b6c35; }
 .loading-bottomline { border-top: 1px solid #829b6c35; padding-bottom: 28px; }
