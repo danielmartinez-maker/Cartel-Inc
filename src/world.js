@@ -2,6 +2,7 @@ import {DISTRICTS,HQ,INITIATIVES,REGIONS} from './data.js';
 import {INFRASTRUCTURE,INFRA_TASKS} from './infrastructure.js';
 import {NEIGHBORHOOD_TASKS} from './neighborhoods.js';
 import {NEIGHBORS} from './geography.js';
+import {ECONOMIC_PROJECTS} from './civil-economy.js';
 
 // Presentation uses its own deterministic geometry, never the campaign PRNG.
 export const DAY_MS=Object.freeze({1:1200,2:400,3:200});
@@ -65,6 +66,7 @@ export const projectDistrict=p=>INITIATIVES.find(i=>i.id===p.id)?.scope==='provi
 const operationNames={investigate:'Investigation',raid:'Containment',interdict:'Asset disruption',arrest:'Leader arrest',capture:'Member arrest',flip:'Witness negotiation',resupply:'Unit resupply'};
 export function activeOrders(s){
   const orders=[
+    ...(s.economy?.projects??[]).map(p=>({...p,key:`economic-${p.region}-${p.project}`,district:REGIONS[p.region].hub,label:ECONOMIC_PROJECTS[p.project].name,kind:'economy'})),
     ...(s.works||[]).map(w=>({...w,key:`works-${w.id}`,label:w.kind==='infrastructure'?INFRA_TASKS[w.task].name:NEIGHBORHOOD_TASKS[w.task].name,kind:w.kind})),
     ...s.operations.map(o=>({key:`operation-${o.district}`,district:o.district,label:operationNames[o.type],kind:'operation',...o})),
     ...s.projects.map(p=>({...p,key:`project-${p.id}-${p.district}`,district:projectDistrict(p),label:INITIATIVES.find(i=>i.id===p.id).name,kind:'project'})),

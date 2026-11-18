@@ -1,14 +1,19 @@
 // A deterministic legal-orders-only campaign driver for balance regression.
 // It never edits campaign resources, evidence, locations or AI state.
 import {createGame,act,tick,stableDistricts,arrestRequirements,totalThreat,localPower,serialize,restore,leaderOf} from '../src/engine.js';
-import {DISTRICTS,REGIONS,MANDATE_DAYS,HQ} from '../src/data.js';
+import {DISTRICTS,REGIONS,MANDATE_DAYS,HQ,EVENTS} from '../src/data.js';
 import {fileURLToPath} from 'node:url';
 export function simulateCampaign({seed=72841,difficulty='standard',governor='cruz',maxDays=MANDATE_DAYS}={}){
   let s=createGame({seed,difficulty,governor});
   const issue=a=>act(s,a).ok;
   const scheduled=(id,region=null)=>s.completed.includes(id)||region!==null&&s.regions[region].completed.includes(id)||s.projects.some(p=>p.id===id&&(region===null||p.region===region));
   for(let day=0;day<maxDays&&!s.outcome;day++){
-    if(s.pendingEvent)issue({type:'event',choice:1});
+    if(s.pendingEvent){
+      const choices=EVENTS.find(e=>e.id===s.pendingEvent).choices;
+      const choice=choices[1].cost<=s.money?1:choices.findIndex(c=>c.cost<=s.money);
+      if(choice<0)throw new Error(`No affordable response to ${s.pendingEvent} on day ${s.day}.`);
+      if(!issue({type:'event',choice}))throw new Error('The legal campaign driver could not resolve its pending decision.');
+    }
     // Secure core institutions before expanding the force and provincial programs.
     for(const id of ['outreach','analysis','prosecutors','integrity','training','witness','finance','radio','logistics','oversight','audit'])if(!scheduled(id)&&s.money>45)issue({type:'project',id,district:HQ});
     if(s.units.length<11&&s.money>70)issue({type:'recruit',unitType:s.units.length%3===0?'federal':'police'});

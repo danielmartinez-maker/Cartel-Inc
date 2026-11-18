@@ -12,3 +12,125 @@ body{overflow:hidden;background:#092e29}button,select,input{font:inherit}button:
 @media(prefers-reduced-motion:reduce){.command-dock button,.leader-tile,.game-button{transition:none}.command-dock button:hover,.leader-tile:hover,.game-button:hover{transform:none}}
 
 #game-screen{min-height:0;max-width:none}.brand{min-width:34px}.metrics{height:auto;min-height:58px}.metric-number>span{font:19px Georgia,serif;letter-spacing:0}.map-container{z-index:0}.map-area{min-height:0}.map-area::before,.map-area::after{display:none}
+
+/* Command windows share a game navigation frame; each section has its own
+   focused pages rather than exposing every system around the map. */
+.command-panel[open]{width:min(1240px,95vw);height:min(880px,91svh);max-height:91svh}
+.game-menu-top{padding:13px 24px}
+.game-menu-top>div{display:flex;flex-direction:column;gap:6px}
+.game-menu-top small{font:8px Arial,sans-serif;letter-spacing:1.8px;color:#9fb79b}
+.game-menu-top small span{margin-left:20px;color:#d6bf87;letter-spacing:1px}
+.game-menu-top #game-menu-title{font:23px Georgia,serif;letter-spacing:.6px;text-transform:none}
+.command-sections{display:flex;flex-shrink:0;gap:0;overflow-x:auto;background:#123a30;padding:0 20px;border-bottom:1px solid #bba26b;scrollbar-width:thin}
+.command-sections button{flex:1;min-width:92px;padding:13px 12px;background:transparent;color:#bcc7a7;border:0;border-bottom:3px solid transparent;font:12px Georgia,serif;cursor:pointer;white-space:nowrap}
+.command-sections button:hover{background:#c6ad7017;color:#f0dcaa}
+.command-sections button.active{border-bottom-color:#dbbd7b;color:#f2dfaf;background:#e8d0990c}
+.command-panel .panel-content{padding:26px 30px}
+.command-panel .panel-title{font-size:30px}
+.command-panel .panel-subtitle{max-width:760px;line-height:1.65;font-size:13px}
+.command-panel .panel-eyebrow{font-size:9px;letter-spacing:1px}
+.command-panel .game-card{box-shadow:none}
+.dossier-tabs{margin:18px 0 24px;scrollbar-width:thin}
+.dossier-tabs button{font-size:13px;min-height:38px}
+.game-stats{margin-bottom:22px;gap:12px}
+.game-stat{padding:15px;min-height:85px;border:0;border-top:2px solid #b49a60}
+.game-stat small{font-size:9px;letter-spacing:.7px}
+.game-stat b{font-size:26px}
+.game-stat>span{font:10px Georgia,serif;line-height:1.5;color:#c1cba9}
+.game-card>h3,.panel-content>h3{font:22px Georgia,serif;color:#254c36}
+.game-card p,.menu-explainer{font-size:13px;line-height:1.65}
+.game-meter>span{font-size:12px}
+.economic-table{font-size:13px}
+.economic-table caption{text-align:left;font:10px Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#7a7853;padding:0 0 12px}
+.economic-table th{font-weight:normal;vertical-align:middle}
+.economic-table tbody th{text-align:left}
+.economic-table th .icon{margin-right:5px}
+.economic-table th,.economic-table td{padding:12px 10px}
+.economic-table .table-section th{font:9px Arial,sans-serif;letter-spacing:1px;background:#dcd0aa;color:#686c48;padding-top:12px;padding-bottom:8px}
+.economic-table .table-total{border-top:1px solid #8d8959;background:#e5d8b3;color:#234b35}
+.table-scroll{overflow-x:auto;margin:12px 0 24px}
+.table-scroll .economic-table{min-width:530px}
+.economic-table .game-button{font-size:11px;white-space:nowrap;padding:7px 9px}
+.economy-overview-banner{display:flex;justify-content:space-between;align-items:center;padding:24px 28px;margin:6px 0 20px;background:linear-gradient(90deg,#0d392feb,#123e31c9),url('./assets/province-detail.webp') center/cover;color:#ebdab0;border:1px solid #9a8a59}
+.economy-overview-banner small{font:9px Arial,sans-serif;letter-spacing:1.4px;color:#bdc5a5}
+.economy-overview-banner h3{font:28px Georgia,serif;margin:9px 0 11px;color:#f3dfad}
+.economy-overview-banner p{font:13px Georgia,serif;line-height:1.6;color:#c1caaa;margin:0;max-width:650px}
+.economy-overview-banner>.raster-icon{margin-left:25px;opacity:.8}
+.production-chains{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:10px 0 26px}
+.supply-chain{display:flex;align-items:center;gap:12px;background:#244b36;border-top:2px solid #b2965c;padding:18px 12px;color:#e9d6a7;min-height:120px}
+.supply-chain>span{flex-shrink:0}
+.supply-chain small{font:8px Arial,sans-serif;letter-spacing:1.1px;color:#b5c2a3}
+.supply-chain p{font:12px Georgia,serif;line-height:1.45;margin:6px 0;color:#bdc8a9}
+.supply-chain b{font:15px Georgia,serif;color:#f3dfaa}
+.market-selector{max-width:520px;margin:10px 0 20px}
+.market-banner{padding:28px;background-position:center;background-size:cover;border:1px solid #a18a55;color:#e8d6a7;margin-bottom:20px}
+.market-banner>small{font:9px Arial,sans-serif;letter-spacing:1.5px;color:#c0c7a5}
+.market-banner h3{font:32px Georgia,serif;color:#f6e3b2;margin:10px 0}
+.market-banner p{font:13px Georgia,serif;color:#d3d9b8}
+.market-banner .game-button{background:#103b2ee8;border-color:#d2bc80}
+.investment-list>section{border-top:1px solid #b4a473;padding-top:16px;margin-top:16px}
+.investment-list h4{font:18px Georgia,serif;color:#33543a;margin:0 0 10px}
+.investment-list h4 small{display:block;font:9px Arial,sans-serif;letter-spacing:.8px;color:#8b7948;margin-top:7px}
+.investment-list section>p{margin:7px 0 10px}
+.investment-list .game-button{font-size:12px}
+.economy-history{display:flex;align-items:flex-end;gap:12px;height:150px;border-bottom:1px solid #b5a475;padding:0 15px}
+.history-week{flex:1;min-width:16px;max-width:70px;align-self:stretch;display:flex;flex-direction:column}
+.history-week>div{height:125px;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.history-week i,.history-week b{display:block;width:16px;max-width:40%;background:#b18c4b;min-height:2px}
+.history-week b{background:#4b7350}
+.history-week small{font:9px Arial,sans-serif;text-align:center;color:#7c7c57;padding:7px 0}
+.history-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:10px!important;color:#6b7652!important}
+.directory-row{gap:16px;font-size:13px}
+.directory-row:hover{background:#e2d5ae;border-color:#899365}
+.directory-row small{line-height:1.6;font-size:11px}
+.directory-row b{font:16px Georgia,serif;white-space:nowrap}
+.district-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 26px}
+.command-panel[data-menu="units"] .panel-content>.dossier-tabs,
+.command-panel[data-menu="units"] .panel-content>.force-filter,
+.command-panel[data-menu="units"] .panel-content>.recruitment-grid{grid-column:1/-1}
+.force-filter{max-width:300px;margin:0 0 12px}
+.recruitment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.recruitment-grid .game-card{display:flex;flex-direction:column}
+.recruitment-grid .game-card>.raster-icon{margin-bottom:15px}
+.recruitment-grid .game-button{margin-top:auto}
+.command-dock button{font-size:8px;letter-spacing:.6px;width:82px;height:64px}
+.metrics .metric small{font-size:9px;letter-spacing:1px}
+.map-key{font-size:10px}
+.map-scale{position:absolute;left:28px;top:210px;z-index:8;display:flex;gap:6px;align-items:center;color:#e7dfb5;font:10px Georgia,serif;text-shadow:0 1px 3px #103b2c}
+.map-scale button{background:#123d32de;color:#e8d7a8;border:1px solid #bca77377;font:11px Georgia,serif;padding:6px 9px;cursor:pointer}
+.map-scale span{padding:6px 8px;background:#123d32ad}
+.command-panel[data-menu="district"]{max-width:760px}
+.raster-icon.command-icon{background-image:url('./assets/command-emblems.webp');background-size:600% 300%}
+.panel-content .command-icon,.modal-body .command-icon{filter:brightness(.43) saturate(.8)}
+.supply-chain .command-icon,.economy-overview-banner>.command-icon,.action-button.primary .command-icon,.market-banner .command-icon{filter:none}
+.leader-tile-copy small{font-size:9px}
+.leader-tile-copy>span{font-size:10px;line-height:1.5}
+.scenario-setup>summary{cursor:pointer;color:#33583c;font:16px Georgia,serif;padding:5px 0 14px}
+.scenario-setup[open]>summary{border-bottom:1px solid #b9a875;margin-bottom:18px}
+@media(max-width:1100px){.production-chains{grid-template-columns:1fr 1fr}.command-dock button{width:67px;font-size:7px}.metrics .metric small{font-size:8px}.recruitment-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){
+ .command-panel[open]{width:97vw;height:96svh;max-height:96svh}
+ .command-panel .panel-content{padding:20px 16px}
+ .game-menu-top{padding:12px 16px}
+ .game-menu-top small{font-size:7px}
+ .game-menu-top #game-menu-title{font-size:21px}
+ .command-sections{padding:0 8px}
+ .command-sections button{padding:12px 10px;min-width:90px;font-size:12px}
+ .dossier-tabs{gap:4px;overflow-x:auto}
+ .dossier-tabs button{font-size:12px;white-space:nowrap;padding:9px 12px}
+ .command-dock button{width:calc((100vw - 30px)/7);font-size:6px;min-width:51px;height:56px}
+ .game-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .game-stat{padding:12px;min-height:80px}
+ .game-stat small{font-size:8px}
+ .economy-overview-banner{padding:20px}
+ .economy-overview-banner h3{font-size:25px}
+ .economy-overview-banner>.raster-icon{display:none}
+ .production-chains{grid-template-columns:1fr}
+ .supply-chain{min-height:85px}
+ .market-banner{padding:22px}
+ .market-banner h3{font-size:27px}
+ .recruitment-grid{grid-template-columns:1fr}
+ .map-scale{left:15px;top:175px}
+ .district-summary-grid{grid-template-columns:1fr}
+ .metrics .metric small{font-size:8px}
+}

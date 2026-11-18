@@ -1,52 +1,54 @@
-# National campaign verification, v0.6
+# Campaign verification, v0.8
 
-Verified on 17 November 2026. Gameplay and visual review revision: `dea590737e2b99a68156268275db382d306d9277`.
+Verified on 18 November 2026. Gameplay version: `0.8.0`. These notes describe the raster renderer, command menus and expanded civilian economy. Earlier screenshots and verification notes in Git history describe earlier builds.
 
-[Play the reviewed build](https://raw.githack.com/danielmartinez-maker/Cartel-Inc/dea590737e2b99a68156268275db382d306d9277/index.html)
+## Automated evidence
 
-## Automated checks
-
-- 91 Node tests passed. The suite includes five complete legal-order campaigns across all governors and difficulties.
-- 38 JavaScript modules passed syntax and asset checks. Production build and whitespace checks passed.
-- GitHub Actions Verify campaign passed on the reviewed gameplay revision (run 36).
-- The separate legal-order balance driver won all nine campaigns without resource grants or direct state changes:
+- 120 Node tests pass.
+- 49 JavaScript modules pass syntax and asset checks; the static production build and whitespace checks pass.
+- All nine separate legal-order campaigns reach victory. The driver uses the real seeded opening and normal orders, without granting resources, moving units directly or altering AI state.
 
 | Difficulty | Seed 72841 | Seed 4 | Seed 197 |
 | --- | --- | --- | --- |
-| Assisted | Day 267, 1,000 stable | Day 267, 984 stable | Day 268, 995 stable |
-| Standard | Day 323, 965 stable | Day 324, 964 stable | Day 325, 981 stable |
-| Veteran | Day 373, 967 stable | Day 373, 953 stable | Day 374, 958 stable |
+| Assisted | Day 287, 986 stable | Day 284, 994 stable | Day 286, 984 stable |
+| Standard | Day 350, 967 stable | Day 350, 970 stable | Day 354, 976 stable |
+| Veteran | Day 403, 949 stable | Day 402, 965 stable | Day 408, 963 stable |
 
-Each ended with all nine networks dismantled, zero remaining threat, positive public trust, nonnegative funding and the required 14-day hold. This demonstrates a legal winning strategy across these seeds, not the success of every possible strategy or a substitute for human balance feedback.
+Each run dismantled all nine organizations, reached zero remaining threat and completed the 14-day hold. This verifies a legal winning strategy for these runs, not every strategy or human balance preference.
 
-### Covered regressions
+The balance pass caught a mandatory emergency with no affordable option at low cash. Three regional emergencies now include a free fallback with weaker recovery or a public trust cost. A regression exercises every event with an empty treasury and verifies that the campaign can advance afterward. The driver also explicitly checks affordability instead of silently failing its preferred response.
 
-- All 50 adjoining provinces, 1,200 district polygons and 3,600 neighborhood records; symmetric land connectivity and weighted routes.
-- All 454 facilities and corridors, power/water/health/communications cascades, reservoir redundancy, congestion, costed repairs, capacity upgrades, security and front audits.
-- Bridge closure before deployment entry reroutes a unit. Closing all bridges isolates provinces 24 and 37; a cut-off unit holds without phantom travel progress and resumes after a real repair. Route interpolation uses segment durations, including restored saves.
-- Nine organizations, six archetypes, 117 reproducible members, 20 traits, hierarchy references, central plans, costs, rivalry, pacts, front revenue and succession.
-- Regional withdrawal under security pressure, stockpile and funding consumption, command disruption, stress, autonomous action without central funds, and rejection of cyclic reporting chains.
-- Neighborhood employment and inquiry, patrols, utilities, grievance and feedback into district conditions; provincial priorities and continued costs.
-- Version-one and version-two migration, earlier version-three route timing compatibility, validated active work, deterministic replay and malformed import rejection.
-- Presentation remains separate from simulation randomness. Confrontation stages use authoritative progress; pause, disabled motion, hidden views and real outcome labels are covered.
+The raster source-size calculation is checked against all 3,600 neighborhood polygons at four viewport and pixel-density combinations, including large corner cells and high-density displays. This is geometry evidence, not a mobile visual review.
 
-## Live browser review
+## New economic coverage
 
-The immutable gameplay build was reviewed in Chromium through normal controls. The existing day-146 review campaign resumed paused with its prior progress and the new world intact. Review ended paused on day 164.
+- Fuel stockouts idle dependent producers; available materials can still restore energy output.
+- Multiple goods share one corridor capacity. Closed bridges stop freight and increase unmet demand and prices.
+- Goods reconcile across production, actual factory inputs, household consumption, stolen cargo, spoilage, warehouse overflow and ending inventory, within cent-rounding tolerance.
+- Escorts reduce the stolen share and add an explicit $8 weekly cost. Infiltrated cargo adds illicit cash that remains subject to conversion limits.
+- Higher tax rates exchange household purchasing power for receipts. Corruption diverts part of the assessment.
+- Investments reserve treasury money and local materials, appear in active orders, finish on their accepted day, add upkeep and survive save/replay.
+- Duplicate investment, insufficient materials, invalid targets and maximum development are enforced. Malformed policies, investments, shipment records, consumption and histories are rejected.
+- Public accounts reconcile; twelve settlements are retained. Earlier economic saves gain absent fields without changing cartel territory or campaign progress.
 
-- National view showed 50 selectable province shapes, a 9900×5900 viewBox, and all 50 entries plus the country option in the province selector.
-- Province 50, Valle de la Concordia, opened with its correct heading, 24 selectable districts, nine infrastructure/corridor markers and a district directory.
-- Infrastructure layer rendered four dependency paths and two freight convoys in that province. Facility controls displayed condition, security, infiltration, utilization and effective output.
-- A legal power-station repair spent funds, displayed 12 days remaining and an active repair marker, and completed at full condition. The facility subsequently showed ordinary wear and improved output.
-- Neighborhood close zoom showed three distinct cells and 42 crisp building symbols in the selected urban district. Returning from country scale to neighborhood scale rebuilt the three cells correctly.
-- A La Estación employment program was funded through the interface, showed 12 days remaining and completed. The inspected neighborhood showed 79% employment afterward.
-- The Los Cedros dossier displayed thirteen members and three branches. Advancing time produced real recorded branch actions: contesting a rival, establishing a neighboring cell and recruiting locally. Stockpile, command-effectiveness and last-action details were visible.
-- ALPHA deployed from El Pinar to Las Cumbres using the accepted five-day route while an investigation completed there. Its supply and fatigue readouts changed, and it became available for orders on arrival.
-- A legal containment operation displayed ADVANCING and IN CONTACT phases. Pausing held the troop formation. The operation later reported that Los Cedros evaded containment; the map result read CELL EVADED and the district retained rival cells.
-- Disabling Map life removed the transient result; reenabling it did not replay the result. The final campaign remained paused with Map life enabled.
-- The campaign desk showed the correct five-year limit, Day 148 of 1825, during review.
-- No game-origin errors appeared in the scoped console check. Browser-extension metadata messages were separate from game code.
+The existing suite also covers geography, hierarchy validation, bridge isolation and recovery, cartel and regional decisions, infrastructure cascades, neighborhood programs, combat tactics, committed units, save migration and deterministic replay.
 
-## Evidence limits
+## Live interface review
 
-World connectivity, emergency cascades, bridge isolation/rerouting, blocked-route recovery, deterministic replay, full victories and import compatibility are automated evidence. The live review covered selected provinces and operations, not a manual visit to all 3,600 neighborhoods. No new frame-by-frame video, device GPU measurement, mobile-size review or file-picker import test was recorded in this pass. Previous v0.5 screenshots and earlier confrontation GIFs remain historical evidence, not screenshots of the current national campaign.
+Reviewed the running app in Chromium at 1363 × 936 through normal controls. An earlier saved campaign resumed paused, retained its progress and gained the new economic accounting. The review campaign remained paused on Day 24 when capturing the final views.
+
+- Full-screen map with a compact command dock and separate modal command windows. Main sections switch directly while time remains paused.
+- All nine portraits appear in the leader gallery. A dossier opens 13 members and eight separate income sources on their own pages.
+- Forces separate three recruitment types from the filtered roster. A movement filter correctly shows an empty state when no unit is traveling.
+- Four Economy sections open independently. Production inputs, actual stocks, local prices, household measures, recorded trade and facility links display real state.
+- A small business investment spent $28 and eight local materials, displayed 12 days remaining, then opened at level one. Subsequent weekly accounts included its $0.30 upkeep.
+- The ledger displayed three weekly settlements. Issuing a $120 bond and repaying $60 left $60 principal and the matching cash change. Recovery tax and escorted freight settings persisted after reload.
+- Province fifty opened its 24-district directory. Sierra Alta opened correct district and neighborhood controls. Fine zoom kept raster buildings and streets; the map container contained no SVG scenery.
+- Country, province, district and individual-neighborhood navigation remained available. Ready units at a shared base use separate token slots.
+- Screenshots show the live interface, not generated UI mockups: [leader gallery](command-gallery.jpg), [production and trade](economy-trade.jpg), and [neighborhood zoom](neighborhood-zoom.jpg).
+
+## Limits
+
+The art library reuses terrain scenes across settlements. The drawing changes between zoom levels through raster detail transitions; it is not a continuous 3D reconstruction or a unique painting of each neighborhood. Labels, boundary lines and progress arcs are Canvas overlays.
+
+This pass did not repeat a full combat video capture, mobile-size review, file-picker import, manual visits to all 3,600 neighborhoods or GPU performance measurement. Combat and import rules remain covered by the automated suite; the new frame sheet and active terrain were inspected visually. Existing weather and encounter recordings are historical evidence, not recordings of this build.

@@ -1,5 +1,43 @@
 # Artwork provenance
 
+## Current raster renderer, v0.8
+
+The active campaign renders artwork with Canvas. Shared polygon data supplies clipping, boundary overlays and hit testing. The country, province, district and individual neighborhood have independent raster detail levels. The closest supported zoom adapts to the neighborhood bounds, source resolution and canvas pixel density, rather than stretching every cell to one fixed magnification. Street and building illustrations remain bitmap art at the closest supported zoom; there is no SVG scenery fallback. High detail is assembled from reusable terrain scenes, not 3,600 unique paintings. The art transition is a crossfade between scale-specific drawings, not a geometrically continuous 3D reconstruction.
+
+The interface keeps the map full-screen and moves detailed controls into dedicated command windows. A nine-leader gallery opens organization dossiers; economy, force and district sections have their own submenus. The former website-style rails and permanent initiative desk are hidden in the current layout.
+
+| Active asset | Dimensions | Purpose |
+| --- | --- | --- |
+| `assets/connected-country.webp` | 3960 × 2360 | National painting |
+| `assets/province-detail.webp` | 1536 × 1024 | New continuous provincial painting |
+| `assets/terrain-*.webp` | 1254 × 1254 each | Nine reusable close scenes: civic, residential, docks, rural, hills, industrial, arid, wetland and coast |
+| `assets/neighborhood-tiles.webp` | 1254 × 1254 | Earlier close-scene atlas retained as raster loading fallback |
+| `assets/map-sprites.webp` | 1254 × 1254 | 36 cutouts for formations, facilities, vehicles, weather, plants, construction and effects |
+| `assets/field-animation.webp` | 1536 × 1024 | New 6-column, 4-row transparent animation sheet |
+| `assets/command-emblems.webp` | 1774 × 887 | New 6-column, 3-row transparent interface symbols |
+
+The animation rows are federal patrol, hostile formation, civilian shoppers and water. Each has six successive poses. The renderer samples them independently from campaign randomness, with combat time frozen when the campaign pauses. Civilian and water ambience follows the Map life setting. Other moving assets include image-based cars, trucks, boats, rail vehicles, clouds, birds, smoke, dust and construction. Infrastructure outages and operating conditions gate related effects. Recorded trade convoys follow actual freight corridors and stop displaying after a bridge closes.
+
+The command emblems are coins, heart, scales, flag, network, shield / wheat, factory, warehouse, map, eye, book / community, medical cross, water, road, bridge, wrench. They replace mismatched facility illustrations in the treasury, corruption and command controls. Small geometric progress arcs and hit-testing boundaries are interface overlays, not replacement scenery.
+
+The three new production assets were created with the built-in image generator. The patrol sheet received a background-extraction pass that preserved its layout; alpha was retained when encoding WebP. The province drawing was encoded as WebP at its generated resolution. No artificial upscaling is used to claim additional source detail.
+
+### Province detail prompt
+
+> Use case: stylized-concept. Asset type: a production high-resolution province terrain illustration for a strategy game, no UI. The supplied picture is a STYLE REFERENCE only for angular cut-paper illustrated cartography and restrained ochre, burnt sienna, cream, pine green and deep teal colors. Draw a single continuous rural-to-urban province with dense fine details at 3072 by 2048 pixels, landscape 3:2. View straight from high overhead, only a little axonometric relief. Fill the entire rectangular canvas edge to edge with LAND; no island silhouette, sea, ocean, border, margins, frame or horizon. Composition: quiet golden farms, varied field shapes, orchards and small woods across most of the image, a ridge of angular low mountains along the upper quarter, several very small outlying rural settlements, one modest cream provincial capital with connected street blocks and terracotta roofs just RIGHT of center, a second smaller town lower left, a thin teal river flowing from upper middle down through the image with two bridges, a subtle rail line, small freight depot at bottom right, and tiny power and water works. The capital must occupy at most one eighth of the image; this is a whole PROVINCE with expansive readable quiet countryside around the settlement, not a close-up sea of repeated buildings. Keep all colors subdued enough for game units and boundary labels to read clearly. Very fine print grain, well-defined little buildings, detailed natural features. No people, units, pins, troop markers, district boundaries, text, letters, numbers, roads labels, icons, title, legend, UI, skulls or watermark. A coherent single drawing, never a collage or panel grid.
+
+The request suggested 3072 × 2048; the delivered drawing is 1536 × 1024, as listed in the table.
+
+### Field animation prompt summary
+
+A 6 × 4 transparent sheet in the existing cut-paper style: six successive walking poses of a three-person teal federal patrol; six poses of a sienna hostile group walking the opposite way; six poses of two civilian shoppers; six looping teal water and cream foam poses. Equal square cells, fixed scale, angle and baseline, transparent margins, no lettering or borders. The final edit removed the softly colored backdrop without changing alignment, framing, shape, colors or the 1536 × 1024 canvas.
+
+### Command emblem prompt summary
+
+A 6 × 3 transparent sheet of eighteen bold cream paper-cut silhouettes matching `initiatives-print.webp`, in the exact order listed above. Flat symbols, transparent cutouts, generous cell margins and subtle grain, legible at 24 pixels. No colored facilities, labels, gradients, 3D, shadows, UI or watermark.
+
+The sections below preserve earlier art directions and describe historical renderer versions. References there to SVG terrain and vector neighborhood buildings do not describe the active renderer.
+
 The active artwork follows the user-approved reference: angular cut-paper faces, warm ochre and burnt-sienna planes, deep petrol teal backgrounds, bold cream silhouettes and fine screenprint grain. The supplied reference was used as a style guide; it was not included as a game asset or modified.
 
 The built-in image generation tool produced the active atlases, province painting and menu panorama, then they were resized and encoded as WebP. Drafts remain in `assets/portraits.webp` and `assets/initiatives.webp`; the game uses the versioned `-print` assets below. The game makes no image generation or external asset requests.

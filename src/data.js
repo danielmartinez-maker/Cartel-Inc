@@ -140,14 +140,17 @@ export const EVENTS = [
   {id:'grid-failure',scope:'regional',damage:'power',title:'A regional grid failure',tag:'Infrastructure emergency',portrait:1,text:'A power station failure has interrupted water pumping, communications and hospital capacity. Provincial engineers request an emergency allocation.',choices:[
     {label:'Restore emergency generation',detail:'−$20 · repair the affected power station by 35 points',cost:20,repairPower:35},
     {label:'Stabilize critical circuits',detail:'−$4 · repair 10 points; slower recovery for other services',cost:4,repairPower:10},
+    {label:'Ration existing emergency capacity',detail:'No immediate repair · −3 public trust · +2 provincial grievance',cost:0,trust:-3,grievance:2},
   ]},
   {id:'freight-crisis',scope:'regional',damage:'rail',title:'Freight corridor under strain',tag:'Logistics disruption',portrait:1,text:'A rail terminal outage is holding up essential freight. Road detours can carry some deliveries, but sustained congestion will hurt jobs and force supply.',choices:[
     {label:'Fund a rapid rail repair',detail:'−$16 · +30 rail-terminal condition',cost:16,repairRail:30},
     {label:'Organize road detours',detail:'−$5 · +12 depot condition',cost:5,repairDepot:12},
+    {label:'Wait for the next allocation',detail:'No immediate repair · −2 public trust',cost:0,trust:-2},
   ]},
   {id:'neighborhood-relief',scope:'regional',title:'Families leave the outer wards',tag:'Humanitarian decision',portrait:0,text:'Neighborhood councils report that interrupted services and poor employment are driving displacement. Targeted relief can protect public confidence.',choices:[
     {label:'Fund a provincial relief program',detail:'−$14 · improve neighborhood access and reduce grievance',cost:14,neighborhoodAccess:15,grievance:-12},
     {label:'Support community shelters',detail:'−$4 · reduce neighborhood grievance by 5',cost:4,grievance:-5},
+    {label:'Coordinate volunteer shelters',detail:'Reduce provincial grievance by 1 · −2 public trust',cost:0,grievance:-1,trust:-2},
   ]},
   {id:'terminal-audit',scope:'regional',title:'A front inside the freight system',tag:'Institutional infiltration',portrait:2,text:'Inspectors suspect cartel intermediaries are diverting trade through an infrastructure contractor. An audit can expose the arrangement before it becomes entrenched.',choices:[
     {label:'Audit infrastructure contractors',detail:'−$14 · reduce provincial infrastructure infiltration by 25',cost:14,assetInfiltration:-25},

@@ -8,7 +8,7 @@ import {movementCost,prepareTravelDay,routeDuration} from './logistics.js';
 import {applyScenario,terrainAt} from './scenarios.js';
 import {ensureEconomy,INCOME_TYPES,incomeTargets,disruptIncome} from './economy.js';
 import {TACTICS,forcePower,combatForecast,beginBattle,stepBattle,finishBattle,operatingUnits} from './combat.js';
-import {ensureCivilEconomy,stepCivilEconomy,FISCAL_POLICIES} from './civil-economy.js';
+import {ensureCivilEconomy,stepCivilEconomy,FISCAL_POLICIES,TRADE_POLICIES,ECONOMIC_PROJECTS,economicProjectReason,stepEconomicProjects,economicUpkeep,recordSettlement} from './civil-economy.js';
 export {combatForecast,TACTICS};
 export const clamp=(n,min=0,max=100)=>Math.max(min,Math.min(max,n));
 const round=n=>Math.round(n*100)/100,initiative=id=>INITIATIVES.find(i=>i.id===id),has=(s,id)=>s.completed.includes(id);
@@ -44,7 +44,13 @@ export const unitsHere=(s,id)=>s.units.filter(u=>u.district===id&&u.status==='re
 export const unitPower=forcePower;
 export const localPower=(s,id)=>unitsHere(s,id).reduce((v,u)=>v+unitPower(s,u),0);
 export {dominantNetwork,leaderOf,capabilities};
-export function budgetForecast(s){const income=round((64+stableDistricts(s)*.16+s.districts.reduce((v,d)=>v+d.prosperity,0)*.0015+(s.economy?.taxReceipts??0)+(has(s,'finance')?12:0))*DIFFICULTIES[s.difficulty].income),upkeep=round(12+s.units.length*1.15+s.assets.length*.04+s.regions.reduce((v,r)=>v+PROVINCE_PRIORITIES[r.priority].cost,0)+(s.economy?.debt??0)*.006);return {income,upkeep,net:round(income-upkeep)};}
+export function budgetForecast(s){
+ const multiplier=DIFFICULTIES[s.difficulty].income;
+ const receipts={mandate:round(64*multiplier),recovery:round((stableDistricts(s)*.16+s.districts.reduce((v,d)=>v+d.prosperity,0)*.0015)*multiplier),tax:round((s.economy?.taxReceipts??0)*multiplier),financial:has(s,'finance')?round(12*multiplier):0};
+ const costs={administration:12,forces:round(s.units.length*1.15),infrastructure:round(s.assets.length*.04),priorities:round(s.regions.reduce((v,r)=>v+PROVINCE_PRIORITIES[r.priority].cost,0)),debt:round((s.economy?.debt??0)*.006),economy:round(s.economy?economicUpkeep(s):0)};
+ const income=round(Object.values(receipts).reduce((v,n)=>v+n,0)),upkeep=round(Object.values(costs).reduce((v,n)=>v+n,0));
+ return {income,upkeep,net:round(income-upkeep),receipts,costs};
+}
 const supplyCache=new WeakMap();
 export function supplyScore(s,id){const d=s.districts[id];if(!d)return 0;let cache=supplyCache.get(s);if(!cache||cache.day!==s.day){cache={day:s.day,access:nationalAccess(s)};supplyCache.set(s,cache);}const region=s.regions[DISTRICTS[id].region],distance=cache.access[region.id];if(!Number.isFinite(distance))return 0;return clamp(65-distance*1.4-d.threat*.18+region.services.logistics*.25+(d.completed.includes('station')?12:0)+(region.completed.includes('regional-administration')?18:0)+(has(s,'logistics')?15:0));}
 export function recruitmentBase(s,id){const d=s.districts[id];return !!d&&(id===HQ||(d.threat<12&&d.completed.includes('station'))||(REGIONS[DISTRICTS[id].region].hub===id&&d.threat<20&&s.regions[DISTRICTS[id].region].completed.includes('regional-administration')));}
@@ -85,6 +91,14 @@ export function act(s,a){
   if(a.type==='province-priority'){const r=s.regions[a.region];if(!Number.isInteger(a.region)||!r||!Object.hasOwn(PROVINCE_PRIORITIES,a.priority))return no('Choose a province and a valid priority.');r.priority=a.priority;return ok(`${REGIONS[r.id].name}: ${PROVINCE_PRIORITIES[a.priority].name}. Weekly allocation $${PROVINCE_PRIORITIES[a.priority].cost}.`);}
   if(a.type==='patrol'){const u=s.units.find(u=>u.id===a.unit&&u.status==='ready'&&u.type!=='intel');if(!u||(a.neighborhood!==null&&(!Number.isInteger(a.neighborhood)||a.neighborhood<0||a.neighborhood>2)))return no('Choose a ready security unit and a neighborhood.');u.patrol=a.neighborhood;return ok(a.neighborhood===null?`${u.name} resumed district coverage.`:`${u.name} assigned to neighborhood patrol in ${NEIGHBORHOODS[u.district][a.neighborhood].name}.`);}
   if(a.type==='fiscal'){if(!Object.hasOwn(FISCAL_POLICIES,a.policy))return no('Choose a valid fiscal policy.');s.economy.policy=a.policy;return ok(`${FISCAL_POLICIES[a.policy].name} adopted. Receipts change at the next weekly settlement.`);}
+  if(a.type==='trade-policy'){if(!Object.hasOwn(TRADE_POLICIES,a.policy))return no('Choose a valid freight policy.');s.economy.tradePolicy=a.policy;return ok(`${TRADE_POLICIES[a.policy].name} adopted. Weekly allocation $${TRADE_POLICIES[a.policy].cost}.`);}
+  if(a.type==='economic-project'){
+    const reason=economicProjectReason(s,a.region,a.project);if(reason)return no(reason);
+    const p=ECONOMIC_PROJECTS[a.project],cost=projectCost(s,p.cost);if(s.money<cost)return no(`Requires $${cost}.`);
+    spend(s,cost);s.regions[a.region].economy.inventory.materials=round(s.regions[a.region].economy.inventory.materials-p.materials);
+    s.economy.projects.push({region:a.region,project:a.project,remaining:p.days,total:p.days});
+    return ok(`${p.name} funded in ${REGIONS[a.region].name}. Opens in ${p.days} days.`);
+  }
   if(a.type==='borrow'){if(s.economy.debt>480)return no('The public borrowing limit is $600.');s.economy.debt+=120;s.money=round(Math.min(999999,s.money+120));report(s,'Emergency public bond issued: +$120 treasury, $120 debt, weekly debt service applies.','warning');return ok('Public bond issued.');}
   if(a.type==='repay'){const amount=Math.min(60,s.economy.debt);if(!amount)return no('There is no public debt.');if(s.money<amount)return no(`Requires $${amount}.`);spend(s,amount);s.economy.debt=round(s.economy.debt-amount);return ok(`Repaid $${amount} of public debt.`);}
   if(['reinforce','tactic','withdraw'].includes(a.type)){
@@ -212,6 +226,7 @@ export function tick(s,{force=false}={}){
     if(u.status==='operating'){u.supply=clamp(u.supply-.6);u.fatigue=clamp(u.fatigue+.5);u.readiness=clamp(u.readiness-.15);}
     if(u.status==='ready'){const target=supplyScore(s,u.district),quiet=s.districts[u.district].threat<12;u.supply=clamp(u.supply+clamp(target-u.supply,-.7,1.4));u.fatigue=clamp(u.fatigue-(quiet?1.3:.25));u.readiness=clamp(u.readiness+(quiet?.5:.08));}
   }
+  stepEconomicProjects(s,report);
   const finishedWorks=s.works.filter(w=>--w.remaining<=0);s.works=s.works.filter(w=>w.remaining>0);for(const w of finishedWorks)if(w.kind==='infrastructure')finishInfrastructure(s,w,report);else finishNeighborhood(s,w,report);
   const finished=s.projects.filter(p=>--p.remaining<=0);s.projects=s.projects.filter(p=>p.remaining>0);for(const p of finished)finishProject(s,p);
   for(const o of s.operations)if(o.type==='raid'&&o.battle)stepBattle(s,o,()=>random(s));
@@ -237,7 +252,7 @@ export function tick(s,{force=false}={}){
   supplyCache.delete(s);
   const stable=stableDistricts(s),danger=s.districts.filter(d=>d.threat>=25).length,displacement=s.districts.reduce((v,d)=>v+d.displacement,0)/DISTRICTS.length;
   s.trust=clamp(s.trust+(stable*.0002-danger*.00025-s.corruption*.0005-displacement*.0002)*diff.trust);
-  if(s.day%7===0){stepCivilEconomy(s);const budget=budgetForecast(s);s.money=round(clamp(s.money+budget.net,0,999999));report(s,`Weekly funding +$${Math.round(budget.income)}; operating costs $${Math.round(budget.upkeep)}.`);}
+  if(s.day%7===0){stepCivilEconomy(s);const budget=budgetForecast(s);s.money=round(clamp(s.money+budget.net,0,999999));recordSettlement(s,budget);report(s,`Weekly funding +$${Math.round(budget.income)}; operating costs $${Math.round(budget.upkeep)}. Prices ${Math.round(s.economy.priceIndex)}; purchasing power ${Math.round(s.economy.realIncome)}.`);}
   if(stable>=STABILITY_TARGET&&s.networks.every(n=>n.dismantled))s.holdDays++;else s.holdDays=0;
   if(s.holdDays>=14){s.outcome='victory';s.paused=true;report(s,'Mandate fulfilled. The cartel organizations are dismantled and civilian institutions hold the connected country.','success');}
   else if(s.trust<=0||s.day>=MANDATE_DAYS){s.outcome='defeat';s.paused=true;report(s,s.trust<=0?'Public confidence collapsed. The mandate was withdrawn.':'The five-year national mandate expired.','warning');}

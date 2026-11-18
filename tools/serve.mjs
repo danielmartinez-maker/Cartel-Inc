@@ -4,7 +4,8 @@ import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=process.argv.includes('--dist')?resolve('dist'):fileURLToPath(new URL('../',import.meta.url));
-const port=Number(process.env.PORT||process.argv.find(a=>/^--port=\d+$/.test(a))?.split('=')[1]||8080);
+const portArgument=process.argv.find(a=>/^--port=\d+$/.test(a))?.split('=')[1]||process.argv[process.argv.indexOf('--port')+1];
+const port=Number(process.env.PORT||(/^\d+$/.test(portArgument)?portArgument:8080));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png','.md':'text/plain; charset=utf-8'};
 http.createServer(async(req,res)=>{
   try{

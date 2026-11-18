@@ -1,4 +1,4 @@
-import {VERSION,DISTRICTS,REGIONS,NETWORKS,GOVERNORS,DIFFICULTIES,UNIT_TYPES,INITIATIVES,EVENTS,MAX_UNITS,MAX_PROJECTS,MANDATE_DAYS,MEMBERS_PER_CARTEL,SAVE_LIMIT,PROVINCE_PRIORITIES} from './data.js';
+import {VERSION,DISTRICTS,REGIONS,NETWORKS,GOVERNORS,DIFFICULTIES,UNIT_TYPES,INITIATIVES,EVENTS,MAX_UNITS,MAX_PROJECTS,MANDATE_DAYS,MEMBERS_PER_CARTEL,SAVE_LIMIT,PROVINCE_PRIORITIES,TRANSPORT_LINKS} from './data.js';
 import {NEIGHBORS} from './geography.js';
 import {TRAITS,MEMBER_ROLES,INTENTS,STRATEGIES,syncThreat} from './cartels.js';
 import {createNeighborhoods,NEIGHBORHOOD_TASKS} from './neighborhoods.js';
@@ -11,7 +11,7 @@ import {BRANCH_ACTIONS} from './regional-command.js';
 import {ensureEconomy,INCOME_TYPES} from './economy.js';
 import {SCENARIOS,SCENARIO_VERSION,SECTORS,BIOMES} from './scenarios.js';
 import {ARCHETYPES} from './cartels.js';
-import {ensureCivilEconomy,FISCAL_POLICIES,GOODS} from './civil-economy.js';
+import {ensureCivilEconomy,FISCAL_POLICIES,GOODS,TRADE_POLICIES,ECONOMIC_PROJECTS} from './civil-economy.js';
 import {TACTICS,operatingUnits} from './combat.js';
 
 function migrate(text){
@@ -61,6 +61,12 @@ export function validateCampaign(s){
   assert(s.units.filter(u=>u.status==='operating').every(u=>s.operations.some(o=>operatingUnits(o).includes(u.id))));
   assert(s.economy&&Object.hasOwn(FISCAL_POLICIES,s.economy.policy)&&num(s.economy.debt,0,600)&&['taxReceipts','priceIndex','trade'].every(k=>num(s.economy[k],0,100000))&&integer(s.economy.lastDay,0,s.day));
   assert(s.regions.every(r=>r.economy&&['output','employment','shortages','imports','exports','taxBase'].every(k=>num(r.economy[k],0,100000))&&Object.keys(GOODS).every(key=>num(r.economy.inventory[key],0,500)&&num(r.economy.prices[key],0,10)&&num(r.economy.production[key],0,10000)&&num(r.economy.demand[key],0,10000))));
+  assert(Object.hasOwn(TRADE_POLICIES,s.economy.tradePolicy)&&['cargoLoss','leakage','realIncome','poverty'].every(k=>num(s.economy[k],0,100000)));
+  assert(s.regions.every(r=>['utilization','formality','poverty'].every(k=>num(r.economy[k]))&&['wage','realIncome','taxRevenue','leakage','cargoLoss','freight'].every(k=>num(r.economy[k],0,100000))&&r.economy.investment&&Object.keys(ECONOMIC_PROJECTS).every(k=>integer(r.economy.investment[k],0,3))&&r.economy.inputs&&Object.keys(GOODS).every(k=>num(r.economy.inputs[k],0,10000))));
+  assert(s.regions.every(r=>r.economy.consumption&&r.economy.waste&&Object.keys(GOODS).every(k=>num(r.economy.consumption[k],0,r.economy.demand[k])&&num(r.economy.waste[k],0,100000))));
+  assert(Array.isArray(s.economy.projects)&&s.economy.projects.length<=6&&new Set(s.economy.projects.map(p=>`${p.region}:${p.project}`)).size===s.economy.projects.length&&s.economy.projects.every(p=>integer(p.region,0,49)&&Object.hasOwn(ECONOMIC_PROJECTS,p.project)&&s.regions[p.region].economy.investment[p.project]<3&&p.total===ECONOMIC_PROJECTS[p.project].days&&integer(p.remaining,1,p.total)));
+  assert(Array.isArray(s.economy.history)&&s.economy.history.length<=12&&s.economy.history.every((h,i)=>integer(h.day,0,s.day)&&h.day%7===0&&(!i||h.day>s.economy.history[i-1].day)&&['income','upkeep','prices','realIncome','trade'].every(k=>num(h[k],0,100000))&&num(h.net,-100000,100000)));
+  assert(Array.isArray(s.economy.shipments)&&s.economy.shipments.length<=TRANSPORT_LINKS.length*8&&new Set(s.economy.shipments.map(f=>`${f.link}:${f.good}:${f.from}`)).size===s.economy.shipments.length&&s.economy.shipments.every(f=>Object.hasOwn(GOODS,f.good)&&TRANSPORT_LINKS.some(l=>l.id===f.link&&l.regions.includes(f.from)&&l.regions.includes(f.to)&&f.from!==f.to)&&num(f.amount,0,1000)&&num(f.loss,0,f.amount)));
   const battleFields=b=>Object.hasOwn(TACTICS,b.tactic)&&Array.isArray(b.units)&&b.units.length>=1&&b.units.length<=3&&new Set(b.units).size===b.units.length&&b.units.every(id=>s.units.some(u=>u.id===id&&u.type!=='intel'))&&['control','escapeRisk','civilianRisk'].every(k=>num(b[k]))&&Array.isArray(b.entries)&&b.entries.length<=5&&b.entries.every(e=>integer(e.day,0,s.day)&&typeof e.text==='string'&&e.text.length<250);
   assert(s.operations.every(o=>(o.racket===undefined||o.type==='interdict'&&Object.hasOwn(INCOME_TYPES,o.racket))&&(o.battle===undefined||o.type==='raid'&&battleFields(o.battle)&&o.battle.units.includes(o.unit)&&o.battle.units.every(id=>s.units.some(u=>u.id===id&&u.status==='operating'&&u.district===o.district))&&['friendlySuppression','enemySuppression'].every(k=>num(o.battle[k]))&&num(o.battle.initialThreat)&&num(o.battle.forecast,0,1)&&integer(o.battle.lastOrderDay,-1,s.day)&&['approach','contact','containment'].includes(o.battle.phase))));
   const assignments=s.operations.flatMap(operatingUnits);assert(new Set(assignments).size===assignments.length);

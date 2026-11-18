@@ -27,9 +27,9 @@ let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUni
 let sound=false,audioContext=null,toastTimer=null,lastOutcome=null,newGovernor='cruz',wasRunningBeforeModal=false;
 let scene='loading',loadingTarget='menu',loadingSerial=0,loadingDone=false;
 const modal=$('#modal'),commandMenu=$('#command-menu');
-let dossierTab='overview',contextVisible=false,combatTactic='deliberate',combatUnits=null,targetRacket='extortion',previewScenario=null,previewSerial=0,previewTimer=null;
+let dossierTab='overview',economyTab='overview',marketRegion=0,districtTab='overview',forcesTab='roster',unitFilter='all',contextVisible=false,combatTactic='deliberate',combatUnits=null,targetRacket='extortion',previewScenario=null,previewSerial=0,previewTimer=null;
 const menuNames={district:'District command',units:'Security forces',initiatives:'Development',networks:'Cartel intelligence',infrastructure:'Infrastructure',province:'Provincial administration',economy:'National economy',activity:'Intelligence & operations'};
-function openCommand(view){pane=view;dispatchUnit=null;state.paused=true;$('#game-menu-title').textContent=menuNames[view];$('#command-menu').dataset.menu=view;if(!commandMenu.open)commandMenu.showModal();$('#panel-content').scrollTop=0;render();}
+function openCommand(view){if(!menuNames[view])return;pane=view;dispatchUnit=null;state.paused=true;$('#game-menu-title').textContent=menuNames[view];$('#command-menu').dataset.menu=view;if(!commandMenu.open)commandMenu.showModal();$('#panel-content').scrollTop=0;render();}
 function closeCommand(){if(commandMenu.open)commandMenu.close();state.paused=true;render();}
 commandMenu.addEventListener('cancel',e=>{e.preventDefault();closeCommand();});
 commandMenu.addEventListener('click',e=>{if(e.target===commandMenu){const r=commandMenu.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeCommand();}});
@@ -70,7 +70,7 @@ function selectDistrict(id,network=null){
   render();
 }
 const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
-  focusedUnit=id;openCommand('units');
+  focusedUnit=id;forcesTab='roster';unitFilter='all';openCommand('units');
   setTimeout(()=>document.querySelector(`[data-roster="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
 },(plan,destination)=>{
   const preview=$('#route-preview');preview.hidden=!plan||dispatchUnit===null;
@@ -78,7 +78,8 @@ const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
 });
 map.onProvince=id=>{selected=REGIONS[id].hub;selectedNeighborhood=0;contextVisible=true;render();};
 map.onInfrastructure=id=>{focusedAsset=id;selected=INFRASTRUCTURE.find(a=>a.id===id).district;openCommand('infrastructure');};
-map.onNeighborhood=(id,index)=>{selected=id;selectedNeighborhood=index;contextVisible=true;map.selectedNeighborhood=index;render();};
+map.onNeighborhood=(id,index)=>{if(dispatchUnit!==null){selectDistrict(id);return;}if(selected!==id){combatUnits=null;targetNetwork=dominantNetwork(state.districts[id]);}selected=id;selectedNeighborhood=index;contextVisible=true;map.selectedNeighborhood=index;render();};
+map.onFocusDistrict=(id,index=0)=>{selected=id;selectedNeighborhood=index;combatUnits=null;targetNetwork=dominantNetwork(state.districts[id]);renderContext();};
 map.onClear=()=>{contextVisible=false;render();};
 map.onView=id=>{
   const r=id===null?null:REGIONS[id];$('#region-focus').value=id===null?'all':String(id);
@@ -86,6 +87,7 @@ map.onView=id=>{
   $('.map-heading .eyebrow').textContent=r?`PROVINCE ${r.id+1} / ${r.subtitle.toUpperCase()}`:'FIFTY PROVINCES / NATIONAL MANDATE';
   $('.map-heading p').textContent=r?'24 districts · 72 neighborhoods · connected by land.':'50 provinces · 1,200 districts · 3,600 neighborhoods.';
 };
+map.onScale=scale=>{const labels={country:'Country',province:'Province · double-click a district to zoom',neighborhood:map.fine?'Neighborhood · fine detail':'District · double-click a neighborhood'};$('#map-scale-label').textContent=labels[scale];$('#map-parent').hidden=scale==='country';$('#map-parent').textContent=scale==='neighborhood'?(map.fine?'↑ District':'↑ Province'):'↑ Country';if(map.currentState)renderContext();};
 map.setMotion(mapMotion);
 reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches||!customMotion){mapMotion=!reducedMotion.matches;map.setMotion(mapMotion);render();}});
 for(const [i,view]of ['economy','activity','economy','province','networks'].entries()){const el=document.querySelectorAll('.metric')[i];el.dataset.action='view';el.dataset.view=view;el.setAttribute('role','button');el.tabIndex=0;}
@@ -176,33 +178,22 @@ function operationReason(type,d,network=null){
   return '';
 }
 function districtPanel(){
-  const d=state.districts[selected],def=DISTRICTS[selected],nid=targetNetwork??dominantNetwork(d);
-  const stable=d.stability>=75&&d.support>=60&&d.threat<8;
-  const status=stable?'STABILIZED':d.threat>=25?'CARTEL PRESENCE':'UNSECURED';
-  const here=state.units.filter(u=>u.district===selected&&u.status!=='moving'&&u.status!=='training');
-  const op=state.operations.find(o=>o.district===selected);
+ const d=state.districts[selected],def=DISTRICTS[selected],nid=targetNetwork??dominantNetwork(d),op=state.operations.find(o=>o.district===selected);
+ const stable=d.stability>=75&&d.support>=60&&d.threat<8,here=state.units.filter(u=>u.district===selected&&!['moving','training'].includes(u.status));
+ const tabs={overview:'Conditions',security:'Security orders',neighborhoods:'Neighborhoods'};
+ const header=`<div class="panel-eyebrow"><span>${REGIONS[def.region].name} / DISTRICT ${selected%24+1}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${stable?'STABILIZED':d.threat>=25?'CARTEL PRESENCE':'UNSECURED'}</span></div><h2 class="panel-title">${esc(def.localName)}</h2><p class="panel-subtitle">${TERRAIN[terrainAt(state,selected)].label} · ${def.population},000 residents</p><nav class="dossier-tabs" aria-label="District sections">${Object.entries(tabs).map(([id,name])=>`<button data-action="district-tab" data-tab="${id}" class="${id===districtTab?'active':''}" aria-pressed="${id===districtTab}">${name}</button>`).join('')}</nav>`;
+ if(districtTab==='neighborhoods')return header+neighborhoodPanel(d);
+ if(districtTab==='security'){
   const investigateReason=operationReason('investigate',d),raidReason=operationReason('raid',d);
-  let priority=d.threat>=25?'Contain the local cell before committing to civilian projects.':d.support<60?'Public support is too low for lasting control. Fund local services.':d.stability<75?'Support is growing. Keep threat below 8% and allow stability to build.':'Keep local institutions strong and prevent the networks from returning.';
-  if(selected===HQ&&state.day===0)priority='Your headquarters is secure. Investigate a district with cartel presence, then send ALPHA to contain it.';
-  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[terrainAt(state,selected)].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[terrainAt(state,selected)]}"></div><span>${TERRAIN[terrainAt(state,selected)].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / ${DISTRICTS.length}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
-    <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${REGIONS[def.region].name}</span><span>${icon('people')}${def.population},000 residents</span></div>
-    <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><details class="civilian-details"><summary>Community conditions</summary>${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Displacement',d.displacement,'threat')}${bar('Institutions',d.institutions)}<p>Supply access: ${Math.round(supplyScore(state,selected))}%. Fear and displacement weaken support. Prosperity and institutions constrain recruitment.</p></details><label class="target-label">TARGET FACTION<select id="district-network" aria-label="Target faction">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])} threat</option>`).join('')}</select></label>
-    ${tacticalPanel(d,nid,op)}<details class="neighborhood-disclosure"><summary>Neighborhood programs</summary>${neighborhoodPanel(d)}</details><div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
-    ${op&&op.type!=='raid'?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway',capture:'Member arrest underway',flip:'Witness negotiation underway',resupply:'Resupply underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[op?.network??nid].color}"></i>${NETWORKS[op?.network??nid].name}</span></div>`:''}</div>`:''}
-    ${actionButton({action:'investigate',title:'Gather intelligence',detail:'4 days · build intelligence & case evidence',iconName:'eye',cost:`$${projectCost(state,6)}`,disabled:!!investigateReason,primary:true})}
-    ${investigateReason?`<p class="reason">${investigateReason}</p>`:''}
-    ${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`${TACTICS[combatTactic].days} days · ${Math.round(combatForecast(state,selected,nid,combatTactic,combatUnits)?.chance*100)}% forecast`,iconName:'target',cost:`$${projectCost(state,TACTICS[combatTactic].cost)}`,disabled:!!raidReason})}
-    ${actionButton({action:'view',title:'Deploy security forces',detail:'Select a unit, then its destination on the map',iconName:'shield',extra:'data-view="units"'})}
-    <div class="section-label">DEPLOYED HERE <span>${here.length} ${here.length===1?'unit':'units'}</span></div>
-    ${here.length?here.map(u=>`<button class="unit-inline" data-action="focus-unit" data-unit="${u.id}">${unitToken(u)}<span><strong>${esc(u.name)}</strong><small>${UNIT_TYPES[u.type].name} · ${u.status==='operating'?'Operation in progress':'Ready for orders'}</small></span>${icon('chevron',12)}</button>`).join(''):'<p class="empty-text">No unit stationed in this district.</p>'}
-    <div class="notice"><strong>${icon('leaf',12)} FIELD PRIORITY</strong>${priority}</div>
-    ${actionButton({action:'category',title:'Fund a local initiative',detail:`${d.services} services delivered · ${Math.floor(d.stability)}% stability`,iconName:'people',extra:'data-category="civilian"'})}
-    <button class="network-mini" data-action="view-network" data-network="${nid}">${portrait(NETWORKS[nid].portrait)}<span><strong>${NETWORKS[op?.network??nid].name}</strong><small>${state.networks[nid].dismantled?'Network dismantled':state.networks[nid].captured?'Leader in custody':'Regional network'} · ${percent(state.networks[nid].evidence)} case evidence</small></span>${icon('chevron')}</button>`;
+  return header+`<label class="target-label">TARGET FACTION<select id="district-network" aria-label="Target faction">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])}% presence</option>`).join('')}</select></label>${op&&!op.battle?`<div class="notice"><strong>${op.type} underway</strong>${progress(op.remaining,op.total)}</div>`:''}${tacticalPanel(d,nid,op)}${actionButton({action:'investigate',title:'Gather intelligence',detail:investigateReason||'4 days · local intelligence and case evidence',iconName:'eye',cost:`$${projectCost(state,6)}`,disabled:!!investigateReason,primary:true})}${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`${TACTICS[combatTactic].days} days · ${Math.round(combatForecast(state,selected,nid,combatTactic,combatUnits).chance*100)}% forecast`,iconName:'target',cost:`$${projectCost(state,TACTICS[combatTactic].cost)}`,disabled:!!raidReason})}${actionButton({action:'view',title:'Deploy security forces',detail:'Choose a unit and its destination',iconName:'shield',extra:'data-view="units"'})}`;
+ }
+ const priority=d.threat>=25?'Reduce the local cell before committing civilian teams.':d.support<60?'Fund local services and jobs to build public support.':d.stability<75?'Keep threat below 8% while local institutions build stability.':'Keep institutions strong and prevent the networks from returning.';
+ return header+`<div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><div class="notice"><strong>FIELD PRIORITY</strong>${selected===HQ&&state.day===0?'Your headquarters is secure. Investigate a district with cartel presence, then deploy ALPHA.':priority}</div><div class="district-summary-grid">${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Institutions',d.institutions)}${bar('Displacement',d.displacement,'threat')}</div><p class="panel-subtitle">Supply access ${Math.round(supplyScore(state,selected))}%. ${here.length} units stationed here. ${d.services} local services delivered.</p>${actionButton({action:'district-tab',title:op?.battle?'Open tactical command':'Security orders',detail:op?`${op.remaining} days remaining on ${op.type}`:'Investigations, containment and financial disruption',iconName:'shield',extra:'data-tab="security"',primary:true})}${actionButton({action:'district-tab',title:'Neighborhood programs',detail:'Local jobs, services, grievance and patrols',iconName:'people',extra:'data-tab="neighborhoods"'})}${actionButton({action:'category',title:'Development initiatives',detail:'Fund district, provincial and national programs',iconName:'leaf',extra:'data-category="civilian"'})}${actionButton({action:'province-market',title:'Provincial economy',detail:'Production, household costs and investment',iconName:'coin',extra:`data-region="${def.region}"`})}${here.map(u=>`<button class="unit-inline" data-action="focus-unit" data-unit="${u.id}">${unitToken(u)}<span><strong>${esc(u.name)}</strong><small>${UNIT_TYPES[u.type].name} · ${u.status}</small></span>${icon('chevron',12)}</button>`).join('')}`;
 }
 function renderContext(){
  const el=$('#district-context');el.hidden=!contextVisible;if(!contextVisible)return;
- const d=state.districts[selected],def=DISTRICTS[selected],op=state.operations.find(o=>o.district===selected),n=NEIGHBORHOODS[selected][selectedNeighborhood];
- el.innerHTML=`<button class="context-dismiss" data-action="dismiss-context" aria-label="Close district inspection">×</button><small>${REGIONS[def.region].name.toUpperCase()} / ${map.zoom>=17?n.name.toUpperCase():'DISTRICT'}</small><h2>${map.zoom>=17?n.name:def.localName}</h2><div class="context-stats"><span>${Math.round(d.support)}<em>SUPPORT</em></span><span>${Math.round(d.intel)}<em>INTEL</em></span><span>${Math.round(d.threat)}<em>THREAT</em></span>${op?.battle?`<span>${Math.round(op.battle.control)}<em>CONTROL</em></span>`:''}</div>${op?`<p>${op.battle?TACTICS[op.battle.tactic].name:op.type} · ${op.remaining} days remaining</p>`:''}<div class="context-actions"><button data-action="inspect-district">${op?.battle?'Tactical command':'Inspect & issue orders'}</button><button data-action="neighborhood-map">Neighborhoods</button></div>`;
+ const d=state.districts[selected],def=DISTRICTS[selected],op=state.operations.find(o=>o.district===selected),n=NEIGHBORHOODS[selected][selectedNeighborhood],fine=map.fine,community=d.neighborhoods[selectedNeighborhood];
+ el.innerHTML=`<button class="context-dismiss" data-action="dismiss-context" aria-label="Close district inspection">×</button><small>${REGIONS[def.region].name.toUpperCase()} / ${fine?def.localName.toUpperCase():'DISTRICT'}</small><h2>${fine?n.name:def.localName}</h2><div class="context-stats"><span>${Math.round(fine?community.support:d.support)}<em>SUPPORT</em></span><span>${Math.round(fine?community.access:d.intel)}<em>${fine?'ACCESS':'INTEL'}</em></span><span>${Math.round(fine?community.grievance:d.threat)}<em>${fine?'GRIEVANCE':'THREAT'}</em></span>${op?.battle?`<span>${Math.round(op.battle.control)}<em>CONTROL</em></span>`:''}</div>${op?`<p>${op.battle?TACTICS[op.battle.tactic].name:op.type} · ${op.remaining} days remaining</p>`:''}<div class="context-actions"><button data-action="inspect-district">${op?.battle?'Tactical command':'Inspect & issue orders'}</button><button data-action="${fine?'district-map':'neighborhood-map'}">${fine?'District map':'Neighborhoods'}</button></div>`;
 }
 function tacticalPanel(d,nid,op){
  if(op?.battle){const b=op.battle,ready=state.units.filter(u=>u.district===d.id&&u.type!=='intel'&&u.status==='ready');return `<section class="tactical-card"><div class="tactical-heading"><small>LIVE TACTICAL COMMAND</small><strong>${NETWORKS[nid].name}</strong></div><div class="tactical-score">${bar('Area control',b.control)}${bar('Friendly suppression',b.friendlySuppression,'threat')}${bar('Enemy suppression',b.enemySuppression)}${bar('Escape risk',b.escapeRisk,'threat')}</div><p>${b.units.map(id=>esc(state.units.find(u=>u.id===id).name)).join(' + ')} · ${op.remaining} days remaining · ${Math.round(b.forecast*100)}% current forecast</p><label class="target-label">TACTICAL ORDER<select id="active-tactic">${Object.entries(TACTICS).map(([id,t])=>`<option value="${id}" ${id===b.tactic?'selected':''}>${t.name}</option>`).join('')}</select></label><p class="reason">Changing tactics adds one reorganization day. One command per day.</p>${ready.map(u=>`<button class="game-button" data-action="reinforce" data-unit="${u.id}" ${b.units.length>=3||b.lastOrderDay===state.day||state.money<projectCost(state,3)?'disabled':''}>Reinforce with ${u.name} · $${projectCost(state,3)}</button>`).join('')}<button class="game-button retreat-button" data-action="withdraw">Order withdrawal</button><div class="battle-log">${b.entries.map(e=>`<p><small>DAY ${e.day+1}</small>${esc(e.text)}</p>`).join('')}</div></section>`;}
@@ -230,12 +221,12 @@ function neighborhoodPanel(d){
  const n=d.neighborhoods[selectedNeighborhood],def=NEIGHBORHOODS[d.id][selectedNeighborhood],working=state.works.find(w=>w.kind==='neighborhood'&&w.target===d.id*3+selectedNeighborhood);
  return `<div class="section-label">NEIGHBORHOODS <span>District / neighborhood command</span></div><div class="neighborhood-tabs">${NEIGHBORHOODS[d.id].map(b=>`<button data-action="neighborhood-focus" data-neighborhood="${b.index}" class="${b.index===selectedNeighborhood?'active':''}">${b.name}</button>`).join('')}</div>
  <article class="neighborhood-card"><h3>${def.name}</h3><small>${def.type.toUpperCase()} · ${Math.round(DISTRICTS[d.id].population/3)},000 residents</small>${bar('Neighborhood support',n.support)}${bar('Service access',n.access,'intel')}${bar('Employment',n.employment)}${bar('Grievance',n.grievance,'threat')}<p>Local security ${Math.round(n.security)}%. Largest faction influence ${Math.round(Math.max(...n.influence))}%.</p>
- <button class="small-button secondary" data-action="neighborhood-map">Inspect neighborhood map</button>${working?progress(working.remaining,working.total):`<div class="civic-actions">${Object.entries(NEIGHBORHOOD_TASKS).map(([id,t])=>`<button class="small-button" data-action="neighborhood-work" data-task="${id}" ${state.money<projectCost(state,t.cost)||state.outcome?'disabled':''}>${t.name} · ${t.days}d · $${projectCost(state,t.cost)}</button>`).join('')}</div>`}</article>`;
+ <button class="small-button secondary" data-action="focus-neighborhood-map">Inspect neighborhood map</button>${working?progress(working.remaining,working.total):`<div class="civic-actions">${Object.entries(NEIGHBORHOOD_TASKS).map(([id,t])=>`<button class="small-button" data-action="neighborhood-work" data-task="${id}" ${state.money<projectCost(state,t.cost)||state.outcome?'disabled':''}>${t.name} · ${t.days}d · $${projectCost(state,t.cost)}</button>`).join('')}</div>`}</article>`;
 }
 function provincePanel(){
  const id=DISTRICTS[selected].region,r=REGIONS[id],status=state.regions[id],ds=state.districts.slice(id*24,id*24+24),services=status.services;
  return heading(`PROVINCE ${id+1} / 50`,r.name,'Twenty-four districts and seventy-two neighborhoods linked to the national economy and infrastructure network.')+
- `<div class="province-overview"><span><b>${ds.filter(d=>d.stability>=75&&d.support>=60&&d.threat<8).length}/24</b> stable districts</span><span><b>${Math.round(ds.reduce((v,d)=>v+d.threat,0)/24)}%</b> mean threat</span><span><b>${Math.round(services.average)}%</b> service continuity</span></div>
+ `<label class="target-label">PROVINCE<select id="administration-province" aria-label="Administer province">${REGIONS.map(r=>`<option value="${r.id}" ${r.id===id?'selected':''}>${r.name}</option>`).join('')}</select></label><div class="province-overview"><span><b>${ds.filter(d=>d.stability>=75&&d.support>=60&&d.threat<8).length}/24</b> stable districts</span><span><b>${Math.round(ds.reduce((v,d)=>v+d.threat,0)/24)}%</b> mean threat</span><span><b>${Math.round(services.average)}%</b> service continuity</span></div>
  <label class="target-label">PROVINCIAL PRIORITY<select id="province-priority" aria-label="Provincial priority">${Object.entries(PROVINCE_PRIORITIES).map(([key,p])=>`<option value="${key}" ${status.priority===key?'selected':''}>${p.name} · $${p.cost}/week</option>`).join('')}</select></label><p class="reason">Services reduces neighborhood grievance. Economy sustains jobs and repairs. Security builds local watch capacity. Integrity pushes back infiltration.</p>
  <div class="section-label">CONNECTED PUBLIC SERVICES</div>${['power','water','health','comms','logistics','commerce'].map(key=>bar(key.toUpperCase(),services[key],key==='comms'?'intel':'')).join('')}<p class="reason">Water, health and communications depend on power. Depots, rail and airfields sustain logistics.</p>
  ${actionButton({action:'infrastructure-view',title:'Inspect major infrastructure',detail:`${INFRA_BY_REGION[id].length} sites and land corridors`,iconName:'depot'})}
@@ -269,20 +260,16 @@ function initiativesPanel(){
 }
 function initiativeById(id){return INITIATIVES.find(i=>i.id===id);}
 function unitsPanel(){
-  return heading('SECURITY COMMAND','Your forces','Deploy units across connected districts. Use intelligence to prepare, security to contain, and local institutions to hold.')+
-    `<div class="notice"><strong>Logistics and readiness</strong>Long deployments and operations consume supply and build fatigue. Regional administration, secure stations and the Logistics policy sustain distant units.</div><div class="section-label">ACTIVE ROSTER <span>${state.units.length} / ${MAX_UNITS} units</span></div>`+
-    state.units.map(u=>{
-      const ready=u.status==='ready';
-      const destination=u.status==='moving'?DISTRICTS[u.path.at(-1)].name:DISTRICTS[u.district].name;
-      const reason=operationReason('interdict',state.districts[u.district],dominantNetwork(state.districts[u.district]));
-      return `<article class="roster-card" data-roster="${u.id}" ${focusedUnit===u.id?'style="border-color:#71945b"':''}><div class="roster-head">${unitToken(u)}<div><h3>${esc(u.name)}</h3><small>${UNIT_TYPES[u.type].name}</small></div><span class="state-tag ${ready?'good':''}">${u.blocked?'ROUTE BLOCKED':{ready:'READY',moving:'EN ROUTE',training:'TRAINING',operating:'ASSIGNED'}[u.status]}</span></div>
-        <p>${u.status==='moving'?'Moving to ':u.status==='training'?'Training at ':'Stationed in '}<button class="network-home" data-action="select" data-district="${u.status==='moving'?u.path.at(-1):u.district}">${destination}</button></p>
-        ${u.blocked?'<p class="reason">Holding at a closed crossing. Repair the bridge or reopen a land corridor.</p>':''}${!ready&&u.remaining>0?progress(u.remaining,u.total):''}${ready&&u.type!=='intel'?`<label class="target-label">NEIGHBORHOOD PATROL<select data-patrol-unit="${u.id}" aria-label="${u.name} neighborhood patrol"><option value="none">District coverage</option>${NEIGHBORHOODS[u.district].map(n=>`<option value="${n.index}" ${u.patrol===n.index?'selected':''}>${n.name}</option>`).join('')}</select></label>`:''}<div class="logistics-grid"><span>Supply <b>${Math.round(u.supply)}%</b></span><span>Readiness <b>${Math.round(u.readiness)}%</b></span><span>Fatigue <b>${Math.round(u.fatigue)}%</b></span></div>${ready?`<button class="small-button secondary resupply-button" data-action="resupply" data-unit="${u.id}" ${state.operations.some(o=>o.district===u.district)||state.money<projectCost(state,8)?'disabled':''}>Resupply · 3d · $${projectCost(state,8)}</button>`:''}<div class="roster-controls"><span>${u.type==='intel'?'+1.1 LOCAL INTEL / DAY':`${Math.floor(unitPower(state,u))} OPERATIONAL POWER`}</span><button class="small-button" data-action="dispatch" data-unit="${u.id}" ${!ready||state.outcome?'disabled':''}>${dispatchUnit===u.id?'Choose district…':'Deploy'} ${icon('arrow',12)}</button></div>
-        ${u.type!=='intel'&&ready?`<button class="action-button" data-action="interdict" data-district="${u.district}" data-network="${dominantNetwork(state.districts[u.district])}" ${reason?'disabled':''}>${icon('network',14)}<span><strong>Disrupt network assets</strong><small>${reason||'5 days · reduce funding & build evidence'}</small></span><span class="cost">$${projectCost(state,7)}</span></button>`:''}
-      </article>`;
-    }).join('')+`<div class="section-label">RECRUITMENT <span>Selected regional base or HQ</span></div>`+
-    Object.entries(UNIT_TYPES).map(([type,def])=>`<div class="recruit-row"><span><strong>${def.name}</strong><small>${def.days} days · ${def.description}</small></span><button class="small-button secondary" data-action="recruit" data-unit-type="${type}" ${state.money<projectCost(state,def.cost)||state.units.length>=MAX_UNITS||state.outcome?'disabled':''}>+ $${projectCost(state,def.cost)}</button></div>`).join('')+
-    `<div class="notice"><strong>Containment needs a permanent presence.</strong>Security units suppress local cells each day. Intelligence teams reveal activity. Police stations keep working after a unit moves on.</div>`;
+ const nav=heading('SECURITY COMMAND','Your forces','Maintain supplied units, prepare operations and deploy across connected districts.')+`<nav class="dossier-tabs" aria-label="Force sections"><button data-action="forces-tab" data-tab="roster" class="${forcesTab==='roster'?'active':''}">Active roster · ${state.units.length}</button><button data-action="forces-tab" data-tab="recruitment" class="${forcesTab==='recruitment'?'active':''}">Recruitment</button></nav>`;
+ if(forcesTab==='recruitment'){
+  const base=recruitmentBase(state,selected)?selected:recruitmentBase(state,REGIONS[DISTRICTS[selected].region].hub)?REGIONS[DISTRICTS[selected].region].hub:HQ;
+  return nav+`<div class="notice"><strong>RECRUITMENT BASE: ${esc(DISTRICTS[base].name)}</strong>Training begins at this secure base. There are ${MAX_UNITS-state.units.length} roster places available.</div><div class="recruitment-grid">${Object.entries(UNIT_TYPES).map(([type,def])=>`<article class="game-card">${icon(def.icon,56)}<h3>${def.name}</h3><p>${def.description}</p><p>Training ${def.days} days · ${projectCost(state,def.cost)} funding</p><button class="game-button" data-action="recruit" data-unit-type="${type}" ${state.money<projectCost(state,def.cost)||state.units.length>=MAX_UNITS||state.outcome?'disabled':''}>Recruit · $${projectCost(state,def.cost)}</button></article>`).join('')}</div>`;
+ }
+ const filtered=state.units.filter(u=>unitFilter==='all'||u.status===unitFilter);
+ return nav+`<label class="target-label force-filter">ROSTER FILTER<select id="force-status" aria-label="Force status">${Object.entries({all:'All units',ready:'Ready for orders',moving:'En route',operating:'Assigned to operations',training:'In training'}).map(([key,label])=>`<option value="${key}" ${unitFilter===key?'selected':''}>${label}</option>`).join('')}</select></label>`+filtered.map(u=>{
+  const ready=u.status==='ready',destination=u.status==='moving'?u.path.at(-1):u.district;
+  return `<article class="roster-card" data-roster="${u.id}" ${focusedUnit===u.id?'style="border-color:#71945b"':''}><div class="roster-head">${unitToken(u)}<div><h3>${esc(u.name)}</h3><small>${UNIT_TYPES[u.type].name}</small></div><span class="state-tag ${ready?'good':''}">${u.blocked?'BLOCKED':{ready:'READY',moving:'EN ROUTE',training:'TRAINING',operating:'ASSIGNED'}[u.status]}</span></div><p>${u.status==='moving'?'Destination':'Base'}: <button class="network-home" data-action="select" data-district="${destination}">${esc(DISTRICTS[destination].name)}</button></p>${u.blocked?'<p class="reason">Holding at a closed crossing. Restore a land corridor.</p>':''}${!ready&&u.remaining>0?progress(u.remaining,u.total):''}${ready&&u.type!=='intel'?`<label class="target-label">PATROL AREA<select data-patrol-unit="${u.id}" aria-label="${u.name} neighborhood patrol"><option value="none">District coverage</option>${NEIGHBORHOODS[u.district].map(n=>`<option value="${n.index}" ${u.patrol===n.index?'selected':''}>${n.name}</option>`).join('')}</select></label>`:''}<div class="logistics-grid"><span>Supply <b>${Math.round(u.supply)}%</b></span><span>Readiness <b>${Math.round(u.readiness)}%</b></span><span>Fatigue <b>${Math.round(u.fatigue)}%</b></span></div><p class="reason">${u.type==='intel'?'+1.1 local intelligence per day':`${Math.floor(unitPower(state,u))} operational power`}</p><div class="roster-controls"><button class="small-button secondary" data-action="resupply" data-unit="${u.id}" ${!ready||state.operations.some(o=>o.district===u.district)||state.money<projectCost(state,8)?'disabled':''}>Resupply · $${projectCost(state,8)}</button><button class="small-button" data-action="dispatch" data-unit="${u.id}" ${!ready||state.outcome?'disabled':''}>Deploy ${icon('arrow',12)}</button></div></article>`;
+ }).join('')+(!filtered.length?'<p class="empty-text">No units match this filter.</p>':'');
 }
 function networksPanel(){return cartelMenu(state,focusedNetwork,dossierTab);}
 
@@ -304,13 +291,14 @@ function renderPanel(){
   if(!commandMenu.open)return;
   const panel=$('#panel-content'),scroll=panel.scrollTop;
   const active=document.activeElement;
+  const activeId=panel.contains(active)?active.id:null;
   const activeData=panel.contains(active)&&active?.dataset.action?{...active.dataset}:null;
-  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel,activity:activityPanel,province:provincePanel,infrastructure:infrastructurePanel,economy:()=>economyMenu(state)}[pane])();
+  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel,activity:activityPanel,province:provincePanel,infrastructure:infrastructurePanel,economy:()=>economyMenu(state,economyTab,marketRegion)}[pane])();
   panel.scrollTop=scroll;
   if(activeData){
     const replacement=[...panel.querySelectorAll('[data-action]')].find(e=>Object.entries(activeData).every(([k,v])=>e.dataset[k]===v));
     if(replacement&&!replacement.disabled)replacement.focus({preventScroll:true});
-  }
+  }else if(activeId){const replacement=document.getElementById(activeId);if(panel.contains(replacement))replacement.focus({preventScroll:true});}
 }
 function render(){
   renderContext();
@@ -326,7 +314,7 @@ function render(){
   $('#threat-label').textContent=atLarge?`${atLarge} ${atLarge===1?'leader':'leaders'} at large`:'All leaders in custody';
   $('#commander').innerHTML=`${portrait(gov.portrait)}<div><small>PROVINCIAL GOVERNOR</small><strong>${gov.name}</strong><p>${gov.role} · ${DIFFICULTIES[state.difficulty].label}</p></div><button class="icon-button" data-action="briefing" title="Governor and mission briefing" aria-label="Governor and mission briefing">${icon('info',15)}</button>`;
   document.querySelectorAll('[data-action="view"]').forEach(b=>{
-    const active=b.dataset.view===pane;b.classList.toggle('active',active);
+    const active=commandMenu.open&&b.dataset.view===pane;b.classList.toggle('active',active);
     if(b.getAttribute('role')==='tab')b.setAttribute('aria-selected',String(active));
   });
   $('#initiative-categories').innerHTML=CATEGORIES.map(c=>`<button class="category-card ${pane==='initiatives'&&category===c.id?'active':''}" data-action="category" data-category="${c.id}">${badge(c.icon)}<span><strong>${c.label}</strong><small>${c.description}</small></span>${icon('chevron')}</button>`).join('');
@@ -395,7 +383,7 @@ function settings(){
 function newGame(){
   openModal('A new mandate','CAMPAIGN SETUP',`<div class="province-card"><img src="${ART.province}" alt="Illustrated Santa Esperanza campaign map" width="160" height="106"><div><small>CAMPAIGN 01 / COASTAL CORRIDOR</small><h3>Santa Esperanza</h3><p>1,200 districts. Fifty connected provinces. Nine cartel organizations.<br>Restore civilian control before the mandate expires.</p></div></div><p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
     <div class="new-game-fields"><label>Difficulty<select id="new-difficulty">${Object.entries(DIFFICULTIES).map(([id,d])=>`<option value="${id}" ${id==='standard'?'selected':''}>${d.label}</option>`).join('')}</select></label><label>Campaign seed<input id="new-seed" inputmode="numeric" type="number" min="0" max="4294967295" value="${Math.floor(Math.random()*1000000)}"></label></div>
-    <div class="scenario-setup"><label class="target-label">CAMPAIGN SCENARIO<select id="new-scenario"><option value="auto">Seed director</option>${Object.entries(SCENARIOS).map(([id,t])=>`<option value="${id}">${t.name}</option>`).join('')}<option value="classic">Classic opening</option></select></label><div class="scenario-buttons"><button class="game-button" data-action="random-seed">Reroll seed</button><button class="game-button" data-action="export-scenario" id="export-scenario" disabled>Export briefing PNG</button></div><canvas id="scenario-preview" aria-label="Image briefing of the selected campaign seed"></canvas><p id="scenario-description">Preparing the seeded opening…</p><code id="replay-code"></code><div class="replay-entry"><input id="replay-input" placeholder="Paste a replay code" aria-label="Replay code"><button class="game-button" data-action="load-replay">Load code</button></div></div>
+    <details class="scenario-setup"><summary>Scenario & map briefing</summary><label class="target-label">CAMPAIGN SCENARIO<select id="new-scenario"><option value="auto">Seed director</option>${Object.entries(SCENARIOS).map(([id,t])=>`<option value="${id}">${t.name}</option>`).join('')}<option value="classic">Classic opening</option></select></label><div class="scenario-buttons"><button class="game-button" data-action="random-seed">Reroll seed</button><button class="game-button" data-action="export-scenario" id="export-scenario" disabled>Export briefing PNG</button></div><canvas id="scenario-preview" aria-label="Image briefing of the selected campaign seed"></canvas><p id="scenario-description">Preparing the seeded opening…</p><code id="replay-code"></code><div class="replay-entry"><input id="replay-input" placeholder="Paste a replay code" aria-label="Replay code"><button class="game-button" data-action="load-replay">Load code</button></div></details>
     ${hasCampaign?'<div class="confirmation">Starting a new operation replaces this device’s autosave. Export your current campaign first if you want to keep it.</div>':''}
     ${actionButton({action:'start-new',title:'Begin new operation',detail:'Start paused with a fresh provincial mandate',iconName:'flag',primary:true})}`);
   schedulePreview();
@@ -424,13 +412,18 @@ document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
   const a=button.dataset.action;
   if(a==='close-command')closeCommand();
-  else if(a==='inspect-district')openCommand('district');
+  else if(a==='inspect-district'){districtTab=state.operations.some(o=>o.district===selected&&o.battle)?'security':'overview';openCommand('district');}
+  else if(a==='district-tab'){districtTab=button.dataset.tab;$('#panel-content').scrollTop=0;render();}
+  else if(a==='forces-tab'){forcesTab=button.dataset.tab;$('#panel-content').scrollTop=0;render();}
   else if(a==='dismiss-context'){contextVisible=false;render();}
   else if(a==='cartel-gallery'){focusedNetwork=null;render();}
   else if(a==='dossier-tab'){dossierTab=button.dataset.tab;$('#panel-content').scrollTop=0;render();}
+  else if(a==='economy-tab'){economyTab=button.dataset.tab;$('#panel-content').scrollTop=0;render();}
   else if(a==='borrow'||a==='repay')command({type:a});
-  else if(a==='province-market'){selected=REGIONS[Number(button.dataset.region)].hub;openCommand('province');}
-  else if(a==='financial-target'){targetRacket=button.dataset.racket;if(commandMenu.open)commandMenu.close();selectDistrict(Number(button.dataset.district),Number(button.dataset.network));openCommand('district');}
+  else if(a==='economic-project')command({type:a,region:Number(button.dataset.region),project:button.dataset.project});
+  else if(a==='province-market'){marketRegion=Number(button.dataset.region);economyTab='markets';openCommand('economy');}
+  else if(a==='locate-province'){if(commandMenu.open)commandMenu.close();selected=REGIONS[Number(button.dataset.region)].hub;map.focusRegion(Number(button.dataset.region));contextVisible=false;render();}
+  else if(a==='financial-target'){targetRacket=button.dataset.racket;districtTab='security';if(commandMenu.open)commandMenu.close();selectDistrict(Number(button.dataset.district),Number(button.dataset.network));openCommand('district');}
   else if(a==='disrupt-income')command({type:'interdict',district:selected,network:targetNetwork??dominantNetwork(state.districts[selected]),racket:targetRacket});
   else if(a==='reinforce')command({type:a,district:selected,unit:Number(button.dataset.unit)});
   else if(a==='withdraw')command({type:a,district:selected});
@@ -464,16 +457,18 @@ document.addEventListener('click',async event=>{
   else if(a==='recruit')command({type:a,unitType:button.dataset.unitType,district:recruitmentBase(state,selected)?selected:recruitmentBase(state,REGIONS[DISTRICTS[selected].region].hub)?REGIONS[DISTRICTS[selected].region].hub:HQ});
   else if(a==='investigate-member'){const m=state.members.find(m=>m.id===button.dataset.member);if(m)command({type:'investigate',district:m.location,network:m.network});}
   else if(a==='neighborhood-focus'){selectedNeighborhood=Number(button.dataset.neighborhood);map.selectedNeighborhood=selectedNeighborhood;render();}
-  else if(a==='neighborhood-map'){if(commandMenu.open)commandMenu.close();contextVisible=true;map.focusDistrict(selected,selectedNeighborhood);render();}
+  else if(a==='neighborhood-map'){if(commandMenu.open)commandMenu.close();contextVisible=true;if(map.close)map.focusNeighborhood(selected,selectedNeighborhood);else map.focusDistrict(selected,selectedNeighborhood);render();}
+  else if(a==='district-map'){if(commandMenu.open)commandMenu.close();contextVisible=true;map.focusDistrict(selected,selectedNeighborhood);render();}
+  else if(a==='focus-neighborhood-map'){if(commandMenu.open)commandMenu.close();contextVisible=true;map.focusNeighborhood(selected,selectedNeighborhood);render();}
   else if(a==='neighborhood-work')command({type:'neighborhood',district:selected,neighborhood:selectedNeighborhood,task:button.dataset.task});
   else if(a==='infrastructure-work')command({type:'infrastructure',asset:button.dataset.asset,task:button.dataset.task});
-  else if(a==='asset-focus'){const def=INFRASTRUCTURE.find(a=>a.id===button.dataset.asset);focusedAsset=def.id;selected=def.district;pane='infrastructure';if(map.activeRegion!==DISTRICTS[selected].region)map.focusRegion(DISTRICTS[selected].region);render();}
+  else if(a==='asset-focus'){const def=INFRASTRUCTURE.find(a=>a.id===button.dataset.asset);focusedAsset=def.id;selected=def.district;openCommand('infrastructure');}
   else if(a==='infrastructure-view'){openCommand('infrastructure');layer='infrastructure';$('#map-layer').value=layer;map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
   else if(a==='province-view'){openCommand('province');map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
   else if(a==='resupply')command({type:a,unit:Number(button.dataset.unit)});
   else if(a==='capture-member'||a==='flip-member')command({type:a==='capture-member'?'capture':'flip',member:button.dataset.member});
   else if(a==='arrest')command({type:a,network:Number(button.dataset.network)});
-  else if(a==='focus-unit'){focusedUnit=Number(button.dataset.unit);openCommand('units');}
+  else if(a==='focus-unit'){focusedUnit=Number(button.dataset.unit);forcesTab='roster';unitFilter='all';openCommand('units');}
   else if(a==='view-network'){
     focusedNetwork=Number(button.dataset.network);dossierTab='overview';openCommand('networks');
   }else if(a==='dispatch'){
@@ -486,6 +481,7 @@ document.addEventListener('click',async event=>{
   else if(a==='zoom-in')map.setZoom(map.zoom*.3);
   else if(a==='zoom-out')map.setZoom(-map.zoom*.3);
   else if(a==='zoom-fit')map.fit();
+  else if(a==='map-parent'){if(map.fine)map.focusDistrict(selected,selectedNeighborhood);else if(map.close)map.focusRegion(DISTRICTS[selected].region);else map.fit();}
   else if(a==='help')help();else if(a==='briefing')briefing();else if(a==='reports')reports();else if(a==='settings')settings();
   else if(a==='sound'){
     sound=!sound;const gameSound=$('#sound-button');gameSound.innerHTML=icon(sound?'volume':'mute',16);gameSound.setAttribute('aria-label',sound?'Mute sound':'Enable sound');gameSound.title=sound?'Mute sound':'Enable sound';$('#menu-sound-button').setAttribute('aria-label',sound?'Mute sound':'Enable sound');renderMenu();chime();
@@ -516,6 +512,10 @@ document.addEventListener('change',event=>{
  if(event.target.matches('[data-combat-unit]')){combatUnits=[...document.querySelectorAll('[data-combat-unit]:checked')].map(e=>Number(e.dataset.combatUnit));render();}
  if(event.target.id==='income-target'){targetRacket=event.target.value;render();}
  if(event.target.id==='fiscal-policy')command({type:'fiscal',policy:event.target.value});
+ if(event.target.id==='trade-policy')command({type:'trade-policy',policy:event.target.value});
+ if(event.target.id==='market-region'){marketRegion=Number(event.target.value);render();}
+ if(event.target.id==='force-status'){unitFilter=event.target.value;render();}
+ if(event.target.id==='administration-province'){selected=REGIONS[Number(event.target.value)].hub;render();}
  if(['new-scenario','new-difficulty'].includes(event.target.id))schedulePreview();
 if(event.target.id==='infrastructure-focus'){focusedAsset=event.target.value;render();}if(event.target.id==='province-priority'){command({type:'province-priority',region:DISTRICTS[selected].region,priority:event.target.value});}if(event.target.dataset.patrolUnit){command({type:'patrol',unit:Number(event.target.dataset.patrolUnit),neighborhood:event.target.value==='none'?null:Number(event.target.value)});}if(event.target.id==='faction-focus'){focusedNetwork=Number(event.target.value);$('#panel-content').scrollTop=0;render();}if(event.target.id==='district-network'){targetNetwork=Number(event.target.value);render();}});
 $('#map-layer').addEventListener('change',event=>{
