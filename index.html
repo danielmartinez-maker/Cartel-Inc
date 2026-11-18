@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#203a33">
+  <meta name="description" content="An original province strategy game. Restore public trust and dismantle nine fictional cartels across fifty connected provinces.">
+  <title>Cartel: Containment</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./art-direction.css">
+  <link rel="stylesheet" href="./screens.css">
+  <link rel="stylesheet" href="./living-map.css">
+  <link rel="stylesheet" href="./confrontation.css">
+  <link rel="stylesheet" href="./strategy.css">
+  <link rel="stylesheet" href="./game-ui.css">
+</head>
+<body>
+  <section id="main-menu" class="main-menu" aria-labelledby="menu-title" hidden>
+    <div class="menu-atmosphere" aria-hidden="true"></div>
+    <div class="menu-topline"><span>AN ORIGINAL PROVINCE STRATEGY GAME</span><span>CAMPAIGN 01 / SANTA ESPERANZA</span></div>
+    <div class="menu-layout">
+      <div class="menu-content">
+        <div class="menu-insignia" id="menu-insignia" aria-hidden="true"></div>
+        <p class="menu-eyebrow">A PROVINCE WORTH PROTECTING</p>
+        <h1 id="menu-title">CARTEL<span>CONTAINMENT</span></h1>
+        <p class="menu-intro">Restore trust. Reclaim the province.<br>Bring the networks to justice.</p>
+        <nav class="menu-actions" aria-label="Main menu">
+          <button class="menu-button continue-button" data-action="continue-game" id="continue-button" disabled><span class="menu-button-number">01</span><span>Continue operation<small id="continue-summary">No saved operation</small></span><span aria-hidden="true">→</span></button>
+          <button class="menu-button new-operation-button" data-action="new-game" id="menu-new-game"><span class="menu-button-number">02</span><span>New operation<small>Choose your governor and mandate</small></span><span aria-hidden="true">→</span></button>
+          <div class="menu-secondary"><button data-action="import">Import campaign</button><button data-action="help">Field manual</button><button data-action="credits">About the game</button></div>
+        </nav>
+        <div class="menu-save-card" id="menu-save-card" hidden></div>
+      </div>
+      <div class="menu-province-caption"><span class="menu-coordinate">25° N / FICTIONAL TERRITORY</span><h2>Santa Esperanza</h2><p>From the highlands to the harbor,<br>every district is a foothold.</p><span class="menu-province-stats">50 PROVINCES <i></i> 1,200 DISTRICTS <i></i> 9 CARTELS <i></i> ONE MANDATE</span></div>
+    </div>
+    <footer class="menu-footer"><span>PUBLIC TRUST <b>·</b> INTELLIGENCE <b>·</b> LASTING CONTROL</span><button class="menu-sound" data-action="sound" id="menu-sound-button" aria-label="Enable sound">Sound off</button></footer>
+  </section>
+  <section id="loading-screen" class="loading-screen" aria-labelledby="loading-title">
+    <div class="loading-topline"><span>CARTEL: CONTAINMENT</span><span>PROVINCIAL COMMAND</span></div>
+    <div class="loading-layout">
+      <div class="loading-map"><img src="./assets/connected-country.webp" alt="Illustrated Santa Esperanza province" width="9900" height="5900"><span class="loading-map-label">SANTA ESPERANZA / COASTAL CORRIDOR</span></div>
+      <div class="loading-copy"><p class="menu-eyebrow" id="loading-kicker">PREPARING THE PROVINCE</p><h1 id="loading-title">A new mandate<br>takes shape.</h1><p class="loading-description">The highlands, the coast, and every community in between.</p>
+        <div class="loading-progress-label"><span id="loading-stage">Preparing campaign</span><strong id="loading-percent">0%</strong></div><progress id="asset-progress" max="100" value="0" aria-label="Campaign loading progress">0%</progress>
+        <p class="loading-tip" id="loading-tip">Public support turns temporary security into lasting control.</p>
+        <div class="loading-recovery" id="loading-recovery" hidden><p>Some artwork could not load. The map and campaign controls are still available.</p><div><button data-action="retry-loading">Retry artwork</button><button data-action="finish-loading">Continue anyway</button></div></div>
+        <button class="loading-back" id="loading-back" data-action="main-menu" hidden>← Back to main menu</button>
+      </div>
+    </div>
+    <div class="loading-bottomline"><span>01 / INVESTIGATE</span><span>02 / CONTAIN</span><span>03 / REBUILD</span><span>04 / HOLD</span></div>
+  </section>
+  <div class="game-shell" id="game-screen" hidden inert>
+    <header class="masthead">
+      <button class="brand" data-action="main-menu" aria-label="Return to main menu"><span id="brand-mark" class="brand-mark"></span><span><strong>CARTEL<span class="brand-colon">:</span></strong><small>CONTAINMENT</small></span></button>
+      <div class="operation-label"><span class="live-dot"></span><div><small>PROVINCIAL STABILIZATION MANDATE</small><span>Operation Santa Esperanza</span></div><span class="version-label">01 / CAMPAIGN</span></div>
+      <div class="header-actions">
+        <button class="icon-button" data-action="pause-menu" id="campaign-menu-button" aria-label="Pause and campaign menu" title="Pause and campaign menu"></button>
+        <span id="save-status" class="save-status">LOCAL AUTOSAVE</span>
+        <button class="icon-button" data-action="sound" id="sound-button" aria-label="Enable sound" title="Enable sound"></button>
+        <button class="icon-button" data-action="help" aria-label="Field manual" title="Field manual (H)" id="help-button"></button>
+        <button class="icon-button" data-action="settings" aria-label="Campaign and save options" title="Campaign and save options" id="settings-button"></button>
+      </div>
+    </header>
+    <section class="metrics" aria-label="Province status">
+      <div class="metric"><span class="metric-icon" id="money-icon"></span><div><small>TREASURY</small><div class="metric-number"><span id="money-value">$80</span><em id="income-value">+$11 / week</em></div></div></div>
+      <div class="metric"><span class="metric-icon" id="trust-icon"></span><div><small>PUBLIC TRUST</small><div class="metric-number"><span id="trust-value">76<span>%</span></span><div class="mini-track"><i id="trust-track"></i></div></div></div></div>
+      <div class="metric"><span class="metric-icon amber" id="corruption-icon"></span><div><small>CORRUPTION</small><div class="metric-number"><span id="corruption-value">18<span>%</span></span><em id="corruption-label" class="amber">Manageable</em></div></div></div>
+      <div class="metric"><span class="metric-icon" id="stability-icon"></span><div><small>DISTRICTS STABILIZED</small><div class="metric-number"><span id="stability-value">1<span> / 1,200</span></span><em>Target: 900</em></div></div></div>
+      <div class="metric"><span class="metric-icon rust" id="network-icon"></span><div><small>NETWORKS DISMANTLED</small><div class="metric-number"><span id="networks-value">0<span> / 9</span></span><em id="threat-label">9 leaders at large</em></div></div></div>
+    </section>
+    <main class="workspace">
+      <nav class="rail" aria-label="Command views">
+        <div class="rail-top"><button data-action="view" data-view="district" class="rail-button active" title="Province map" aria-label="Province map"></button><button data-action="view" data-view="units" class="rail-button" title="Security forces" aria-label="Security forces"></button><button data-action="view" data-view="initiatives" class="rail-button" title="Initiatives" aria-label="Initiatives"></button><button data-action="view" data-view="networks" class="rail-button" title="Cartel networks" aria-label="Cartel networks"></button><button data-action="view" data-view="infrastructure" class="rail-button" title="Critical infrastructure" aria-label="Critical infrastructure"></button><button data-action="view" data-view="province" class="rail-button" title="Provincial administration" aria-label="Provincial administration"></button></div>
+        <div class="rail-bottom"><button data-action="reports" class="rail-button" title="Field reports" aria-label="Field reports"></button><button data-action="briefing" class="rail-button" title="Mission briefing" aria-label="Mission briefing"></button></div>
+      </nav>
+      <section class="stage" aria-label="Province map and initiative desk">
+        <div class="map-area">
+          <div class="map-heading"><div class="eyebrow">FIFTY CONNECTED PROVINCES <span> / </span> ONE MANDATE</div><h1>Santa Esperanza</h1><p>1,200 districts. 3,600 neighborhoods.</p></div>
+          <div class="region-control"><label for="region-focus">PROVINCE</label><select id="region-focus" aria-label="Focus province"></select></div><div class="layer-control"><label for="map-layer">MAP LAYER</label><select id="map-layer" aria-label="Map layer"><option value="control">Territorial control</option><option value="support">Public support</option><option value="intelligence">Intelligence coverage</option><option value="infrastructure">Infrastructure & supply</option><option value="economy">Economic sectors</option></select></div>
+          <div class="province-life-controls"><div class="weather-readout"><span class="weather-symbol" aria-hidden="true"></span><span><strong id="weather-label">Clear skies</strong><small id="light-label">Daylight</small></span></div><div class="life-buttons"><button data-action="map-motion" id="map-motion-button" aria-pressed="true">Map life on</button><button data-action="view" data-view="activity" id="activity-shortcut">Activity <span id="active-order-count">0</span></button></div></div>
+          <div id="map-container" class="map-container"></div>
+          <div class="map-key" id="map-key"><span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span></div>
+          <div class="map-scale"><button data-action="map-parent" id="map-parent" hidden>↑ Province</button><span id="map-scale-label">Country</span></div><div class="map-controls"><button data-action="zoom-in" class="map-control" aria-label="Zoom in" title="Zoom in"></button><button data-action="zoom-out" class="map-control" aria-label="Zoom out" title="Zoom out"></button><button data-action="zoom-fit" class="map-control" aria-label="Fit country" title="Fit country"></button></div>
+          <button class="field-report" data-action="reports"><span class="field-report-head"><span class="live-dot"></span> FIELD REPORT <span id="report-day">DAY 001</span></span><span id="latest-report">Mandate received. Protect communities and build lasting control.</span><span class="report-read">View activity log <span aria-hidden="true">→</span></span></button>
+          <section id="district-context" class="district-context" hidden></section><div id="dispatch-hint" class="dispatch-hint" hidden></div>
+          <div id="route-preview" class="route-preview" role="status" hidden></div>
+        </div>
+        <section class="initiative-desk" aria-label="Initiative categories"><div class="desk-heading"><span>INITIATIVE DESK</span><small>Lasting control starts beyond the front line.</small></div><div id="initiative-categories" class="initiative-categories"></div></section>
+      </section>
+      <dialog class="command-panel" id="command-menu" aria-labelledby="game-menu-title"><header class="game-menu-top"><div><small>PROVINCIAL COMMAND <span>TIME PAUSED</span></small><span id="game-menu-title">COMMAND</span></div><button data-action="close-command" aria-label="Close command menu">×</button></header>
+        <nav class="command-sections" aria-label="Command sections"><button data-action="view" data-view="units">Forces</button><button data-action="view" data-view="networks">Cartels</button><button data-action="view" data-view="initiatives">Development</button><button data-action="view" data-view="infrastructure">Infrastructure</button><button data-action="view" data-view="economy">Economy</button><button data-action="view" data-view="province">Province</button><button data-action="view" data-view="activity">Operations</button></nav>
+        <div class="commander" id="commander"></div>
+        <div class="panel-tabs" role="tablist" aria-label="Command panel"><button role="tab" data-action="view" data-view="district" aria-selected="true" class="active">District</button><button role="tab" data-action="view" data-view="province" aria-selected="false">Province</button><button role="tab" data-action="view" data-view="infrastructure" aria-selected="false">Infra</button><button role="tab" data-action="view" data-view="initiatives" aria-selected="false">Initiatives</button><button role="tab" data-action="view" data-view="units" aria-selected="false">Forces</button><button role="tab" data-action="view" data-view="networks" aria-selected="false">Networks</button><button role="tab" data-action="view" data-view="activity" aria-selected="false">Activity</button></div>
+        <div class="panel-content" id="panel-content" role="tabpanel"></div>
+      </dialog>
+    </main>
+    <nav class="command-dock" aria-label="Campaign menus"><button data-action="view" data-view="units"><span class="dock-emblem">⚑</span>FORCES</button><button data-action="view" data-view="networks"><span class="dock-emblem">♜</span>CARTELS</button><button data-action="view" data-view="initiatives"><span class="dock-emblem">⌂</span>DEVELOPMENT</button><button data-action="view" data-view="infrastructure"><span class="dock-emblem">▣</span>INFRASTRUCTURE</button><button data-action="view" data-view="economy"><span class="dock-emblem">◈</span>ECONOMY</button><button data-action="view" data-view="province"><span class="dock-emblem">⚐</span>PROVINCE</button><button data-action="view" data-view="activity"><span class="dock-emblem">◎</span>INTELLIGENCE</button></nav>
+    <footer class="timebar">
+      <div class="date-block"><span id="day-display">DAY 001</span><small id="week-display">WEEK 01 · YEAR 1</small></div>
+      <div class="simulation-state"><span id="simulation-indicator" class="simulation-indicator"></span><div><strong id="simulation-label">Planning phase</strong><small id="simulation-detail">Issue orders, then advance time.</small></div></div>
+      <div class="time-controls"><button class="resume-button" data-action="pause" id="pause-button"></button><div class="speed-controls" aria-label="Simulation speed"><button data-action="speed" data-speed="1" class="active" aria-label="Normal speed" aria-pressed="true">1×</button><button data-action="speed" data-speed="2" aria-label="Three times speed" aria-pressed="false">3×</button><button data-action="speed" data-speed="3" aria-label="Six times speed" aria-pressed="false">6×</button></div></div>
+      <div class="mission-progress"><span>PROVINCIAL STABILITY <strong id="mission-percent">4%</strong></span><div class="mission-track"><i id="mission-track"></i></div></div>
+      <button class="briefing-button" data-action="briefing">Mission briefing <span id="briefing-icon"></span></button>
+    </footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal" class="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+  <input type="file" id="import-save" accept=".json,application/json" hidden>
+  <noscript><div class="noscript-message">Enable JavaScript to play Cartel: Containment.</div></noscript>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

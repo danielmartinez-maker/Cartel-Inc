@@ -1,0 +1,37 @@
+.confrontation { --cartel-color: #bb6555; }
+.encounter-ground { fill: #3f3327; fill-opacity: .12; stroke: #f1d397; stroke-opacity: .24; stroke-width: .7; }
+.encounter-pressure-base { stroke: #113a31; stroke-width: 4; stroke-opacity: .8; fill: none; }
+.encounter-pressure { stroke: #e4b36b; stroke-width: 2.2; stroke-linecap: round; fill: none; }
+.cartel-member circle { fill: var(--cartel-color); stroke: #ffe7bc; stroke-width: .9; }
+.cartel-member .member-shadow { fill: #0b3632; stroke: none; }
+.cartel-member path { stroke: #f9dfaf; stroke-width: .7; }
+.security-member circle { fill: #f5dfad; stroke: #174f40; stroke-width: 1.4; }
+.security-member path { fill: none; stroke: #174f40; stroke-width: .8; }
+.exchange-security { --exchange-color: #ffe0a0; }
+.exchange-cartel { --exchange-color: var(--cartel-color); }
+.encounter-tracer { stroke: var(--exchange-color); stroke-width: 1.8; stroke-linecap: round; fill: none; opacity: 0; }
+.encounter-muzzle { fill: var(--exchange-color); opacity: 0; }
+.encounter-contact { opacity: 0; }
+.encounter-contact circle { fill: #f2dbb4; fill-opacity: .25; stroke: #e9bb7d; stroke-width: .65; }
+.encounter-contact path { fill: none; stroke: var(--exchange-color); stroke-width: 1; stroke-linecap: round; }
+.encounter-caption { font: 8px var(--mono); letter-spacing: 1.4px; fill: #ffe4b0; stroke: #123d32; stroke-width: 3.5; paint-order: stroke; }
+.encounter-unit-name { font: 7px var(--mono); letter-spacing: .7px; fill: #f8e2b1; stroke: #123d32; stroke-width: 3; paint-order: stroke; }
+.settlement.engaged .enemy-dots { visibility: hidden; }
+.map-unit.engaged .unit-shadow { stroke: #f5d28d; stroke-width: 2; }
+.map-unit.engaged .unit-map-label { display: none; }
+.work-raid.has-confrontation { opacity: 0; }
+.confrontation-result { --result-color: #b3d8a6; }
+.result-evaded { --result-color: #dda06e; }
+.result-suppressed { --result-color: #d6c38d; }
+.resolution-ring { fill: none; stroke: var(--result-color); stroke-width: 1.5; }
+.resolution-dots circle { fill: #bb6555; stroke: #f0d9aa; stroke-width: .7; }
+.resolution-label rect { fill: #0b3632; stroke: var(--result-color); stroke-width: 1; }
+.resolution-label text { fill: var(--result-color); font: 8px var(--mono); letter-spacing: .8px; }
+.confrontation-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #bca67966; font: 8px var(--mono); line-height: 1.7; color: #80673f; }
+.confrontation-readout > span { display: inline-flex; align-items: center; gap: 5px; }
+.encounter-key { width: 7px; height: 7px; display: inline-block; border-radius: 50%; }
+.security-key { background: #285e4a; border: 1px solid #edcf91; }.cartel-key { border: 1px solid #7e4c38; }
+#province-map[data-motion="false"] :is(.encounter-tracer,.encounter-muzzle,.encounter-contact) { display: none; }
+#province-map:not([data-layer="control"]) .encounter-ground { fill-opacity: .07; }
+@media (prefers-reduced-motion: reduce) { .encounter-tracer,.encounter-muzzle,.encounter-contact { display: none; } }
+.encounter-cover path{fill:#d7bb814d;stroke:#9c85595c;stroke-width:.7}.encounter-smoke circle{fill:#d9cba9;stroke:none;pointer-events:none}.encounter-muzzle{fill:#f8d187;stroke:#ffe8b3;stroke-width:.5}.district-view .confrontation .encounter-caption{font-size:6px}.country-view .confrontation{opacity:.65}.country-view .encounter-caption,.country-view .encounter-unit-name{display:none}
