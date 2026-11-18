@@ -1,37 +1,49 @@
-# Expanded campaign simulation, v0.5
+# Connected national campaign, v0.6
 
-The country contains five provinces, each using 24 independently simulated district cells. The translated/mirrored land polygons have exactly five times the original polygon area. A 3300×1900 country view covers the five land masses and their sea corridors. District identity 0–23 belongs to the original province so old save references survive migration. Decorative painting does not define hit areas or adjacency.
+Fifty adjoining province polygons share boundary vertices, forming one contiguous country. Each contains 24 Voronoi districts, with three clipped neighborhood cells per district. The 1,200-district route graph is symmetric and connected by land. Generated artwork is decorative; native SVG geometry defines selections and boundaries. The map renders the 50 province overview and one detailed province at a time.
 
-## Tick and determinism
+## Authoritative daily tick
 
-Accepted orders spend immediately and store duration, selected faction, operation power and forecast. Each day processes unit travel and logistics, completed projects and operations, provincial service rollouts, district conditions, cartel decisions, public trust, weekly finance and terminal objectives. Pending decisions stop ticks. The seeded PRNG belongs only to simulation; presentation never consumes it.
+Accepted commands spend immediately and store their duration, target and forecast. Each daily tick processes force travel and recovery, public works, local projects, operations, provincial rollouts, infrastructure wear, district conditions, neighborhood conditions, central and regional cartel actions, weekly finance, events and terminal objectives. Infrastructure output is refreshed after AI actions so sabotage appears immediately. Decisions pause the simulation. The campaign PRNG is separate from animation geometry and timing. Save replay is deterministic.
 
-A district has a nine-value cell array. Total threat is synchronized from this array, capped at 100; adding one faction cannot overfill a district. Containment and asset disruption affect the explicitly selected faction. Removing the last cell of one faction does not remove its rivals. UI dots use the dominant faction's color, and confrontation effects use the operation's actual target.
+## Communities and public works
 
-## AI decisions
+District fear and displacement erode support. Prosperity affects government funding and cartel recruitment. Institutions, services, stations and ready units suppress cells. Three neighborhoods per district separately track support, service access, employment, grievance, security and nine faction influence values. Utilities feed neighborhood access; education and commerce support employment. Grievance changes recruitment pressure. Neighborhood support and employment feed back into the district. Individual patrols improve local security. Targeted programs are costed, timed and unique per neighborhood.
 
-Every active organization schedules a decision roughly every 5–20 days, depending on effective logistics. Plans are scored and unaffordable or impossible plans are excluded. The best three are weighted by squared scores, then selected with the campaign PRNG. Replaying a save preserves the choices.
+Province priorities add continuing weekly costs and influence services, employment, security or integrity. Water and clinic rollouts deliver one eligible district daily. National administration can open provincial water delivery and administration sequentially. Regional hubs and secure stations can recruit locally.
 
-Expansion starts from established cells and follows the district graph, including transport corridors. Security presence, support, institutions, stability, local threat and terrain affect targets. At most 18 cells of strength 12 or more can be active for one faction before new expansion stops. Rival attacks require a neighboring rival and respect active pacts. Relations and pact pairs are symmetric. Pacts expire after 21 days and contribute to organizational income.
+## Infrastructure and supply
 
-Cohesion modifies defense and aggression; logistics modifies mobility and decision intervals. Funding pays for decisions and constrains recruitment. Heat encourages relocation. Investigations establish a temporary watch that blocks relocation, and an accepted member operation locks its target's location through resolution. Captured leadership stops normal plans and cell growth, with reduced income while the organization attempts recovery.
+There are 454 facilities and interprovincial corridors. Every province has power, water, a hospital, telecoms, a depot and a rail terminal. Geography also determines coastal ports, airfields, reservoirs and universities. State includes condition, level, security, infiltration, controller, load and outage duration.
 
-Dossier decision reasons report the factor associated with the selected plan, rather than inventing narrative events. The game exposes simulation information directly; it does not implement a hidden-information deception model.
+Output combines condition, capacity level, infiltration, congestion and outages. Loads over 75% reduce delivered output. Power supports water pumping, communications and hospitals; reservoirs provide limited backup. Freight facilities support logistics and commerce. Employment and household access react gradually to sustained service failures. Facilities wear over time, while policies, repairs, security and audits counter deterioration and infiltration.
 
-## Members and succession
+National supply access is a weighted province graph from headquarters. Bridge condition below 15 closes its edge. Other corridors remain usable with delay from poor output. District threat, local facilities, administration and logistics policy also affect supply. Unit supply, readiness and fatigue modify power.
 
-Forty-five seeded members are generated, with unique names and five initial roles per faction. Two traits per member contribute skill-weighted capability modifiers. Leader traits carry greater organizational weight than staff traits. Removing a specialist applies an additional role penalty. Loyalty influences witness-deal chance; exposure gates individual operations.
+Deployment stores the full path and the travel days for each edge. Tokens interpolate on that timing rather than on geometric length. At junctions, units recalculate the next edge cost and reroute around a new closure. If all alternatives are closed, they hold without consuming travel time and resume when an actual repair reopens access. An already entered crossing completes before the next junction assessment. Repairs take effect after the force movement phase, so a newly opened route is used on the following day.
 
-Arresting a leader reduces cohesion, funding and cell strength and sets one succession assessment date. Succession needs cohesion above 44, at least 20 funds, remaining total strength above 35, and an active candidate. Skill, loyalty and ambition rank candidates. A promoted member leaves their old specialist role; the captured leader becomes a former leader. No members are generated during succession. Successful promotion loses more cohesion, funding and evidence, and returns the organization to active decisions. If recovery fails, the captured organization continues to decay.
+## Organizations and central AI
 
-## Civilian and force layers
+Nine cartels use six archetypes. Thirteen named members per faction have 20 possible traits, command references, skill, loyalty, exposure, authority, stress, ambition and district/neighborhood locations. Traits and specialists change real capabilities, with arsenal, manpower, institutional penetration, counterintelligence, cohesion and logistics contributing further modifiers.
 
-Prosperity affects recruitment priorities, legal income and weekly government funding. Fear and displacement reduce support. Institutions and services suppress cells. Provincial water and clinic programs deliver only one eligible district daily and skip already completed or currently funded local projects. Regional administration affects every district in its province and opens its hub for recruitment if secure. Local stations can serve as forward recruitment bases.
+Funds pay for ranked central plans. The planner scores local and rival conditions, government presence, terrain, public support, prosperity, infrastructure opportunities, strategy and exposure. It chooses among its three highest scored affordable plans through the seeded PRNG. Plans include recruitment, fortification, expansion, coercion, bribery, withdrawal, relocation, rivalry, pacts, infrastructure infiltration, fronts, sabotage, counterintelligence and discipline. Expansion and withdrawal cannot traverse closed bridges. Up to 80 strong cells per faction can participate in central expansion.
 
-Supply depends on the route from headquarters, average threat along that route, local stations, regional administration and the logistics policy. Ready units approach local supply access; movement and operations consume supply and increase fatigue. Readiness and fatigue recover faster in quiet districts. Unit power uses all three values. Resupply is a costed three-day operation with the unit unavailable during delivery. Upkeep grows with roster size, capped at 18 units.
+Pacts expire after 21 days and block rivalry against their parties. Relations are symmetric. Trade, extortion and controlled commercial fronts generate separate weekly revenue streams. Fronts only persist while the faction controls the facility with sufficient infiltration. Audits can remove the front, reduce funding and strengthen the case.
 
-## Save compatibility and limits
+## Regional command and succession
 
-Version-two saves include cell arrays, members, relations, pacts, AI timers, civilian conditions, regional programs, force logistics and operation targets. Validation rejects invalid references, inconsistent threat totals, asymmetric relations, duplicate work and broken operating-unit assignments. Version-one saves are validated before migration. Original districts and in-flight orders are retained; new faction state and territories use the original campaign seed. A migrated victory opens the new campaign phase. A migrated defeat stays terminal. All restores pause.
+Each cartel has three regional branches with commanders, stockpiles, autonomy, loyalty, posture and a recorded last action. Regional planners consider consolidating, recruiting, withdrawing, expanding, rivalry, infrastructure penetration and local revenue. Available supplies and central funding constrain orders. Active staff, skill, authority, stress and broken reporting chains affect command effectiveness and action cadence. Commander traits affect preferences. Branch plans remain inside their assigned province.
 
-Verification includes exact-area geometry, connected and weighted routes, capability changes, pressure responses, affordable AI decisions, pact expiry, real leader arrests and succession, blocked succession, member operations, rival cell targeting, regional rollouts, supply, bases, roster caps, migration and malformed imports. The legal-order campaign driver exercises all nine arrests, remaining-cell cleanup and the 90-district objective on all three difficulties.
+Loyal branches can draw central resources. High autonomy and low loyalty can produce a splintered branch, which uses its own stockpile and collects local resources. It can resist after a leader arrest even with no central funds. It remains part of the original faction's dossier and victory requirement. Capturing or turning its commander disables its decisions. Branch resource consumption and plans survive saves.
+
+A leader arrest reduces funding, cohesion and cells and opens a succession assessment. A surviving candidate, sufficient cohesion, funds and remaining strength permit promotion. Promotion uses an existing member, leaves the old specialist role vacant and reconnects the hierarchy without creating a reporting cycle. Investigations and accepted operations prevent targets from relocating before resolution. Captured organizations decay; after remaining cell strength falls below three, dissolution stands down unfinished faction operations.
+
+## Objectives and compatibility
+
+The five-year mandate requires 900 stable districts and all nine organizations dismantled, sustained for 14 days. Public trust reaching zero or day 1,825 causes defeat. Force, project and public-works caps are 60, 32 and 40.
+
+Version-one and version-two saves are validated by the archived previous engine before migration. Original districts, member identities, cases, finances and active work are retained. New geography recalculates old moving routes. Existing version-three moves lacking segment timings retain their accepted ETA while gaining valid timings. Restores pause. Validation rejects invalid cells, assets, command cycles, asymmetric relations, impossible references, duplicate work, malformed route timings and inconsistent operating units.
+
+## Scope
+
+The player sees the simulated state directly. This is not an intelligence deception model. Splintered branches retain their parent faction identity, and succession uses a finite cast. All 50 provinces currently have the same district count and neighborhood count. Geography and civilian conditions vary, but this release does not simulate every household, vehicle or individual armed member as an independent agent.

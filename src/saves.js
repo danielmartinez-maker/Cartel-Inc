@@ -6,6 +6,8 @@ import {INFRASTRUCTURE,INFRA_INDEX,INFRA_TASKS,provincialInfrastructure} from '.
 import {findRoute} from './geography.js';
 import {restore as restorePrevious} from './compat-v2/saves.js';
 import {createGame} from './simulation.js';
+import {restoreTravelTimings,routeDuration} from './logistics.js';
+import {BRANCH_ACTIONS} from './regional-command.js';
 
 function migrate(text){
  const source=JSON.parse(text),old=restorePrevious(text),s=createGame({seed:old.seed,governor:old.governor,difficulty:old.difficulty});
@@ -32,11 +34,16 @@ export function validateCampaign(s){
   assert(ids(s.regions)&&s.regions.length===REGIONS.length&&s.regions.every((r,i)=>r.id===i&&completed(r.completed,'region')&&Object.hasOwn(PROVINCE_PRIORITIES,r.priority)&&r.services&&['power','water','health','comms','logistics','commerce','education','average'].every(k=>num(r.services[k])))&&completed(s.completed,'province'));
   assert(ids(s.members)&&s.members.length===NETWORKS.length*MEMBERS_PER_CARTEL&&s.members.every(m=>typeof m.id==='string'&&m.id.length<20&&network(m.network)&&typeof m.name==='string'&&m.name.length>0&&m.name.length<80&&Object.hasOwn(MEMBER_ROLES,m.role)&&Array.isArray(m.traits)&&m.traits.length===2&&new Set(m.traits).size===2&&m.traits.every(t=>Object.hasOwn(TRAITS,t))&&num(m.skill)&&num(m.loyalty)&&num(m.exposure)&&district(m.location)&&['active','captured','defected'].includes(m.status)&&integer(m.neighborhood,0,2)&&['ambition','stress','authority'].every(k=>num(m[k]))&&(m.commander===null||s.members.some(c=>c.id===m.commander&&c.id!==m.id&&c.network===m.network))&&integer(m.watchedUntil,0,MANDATE_DAYS+100)));
   assert(NETWORKS.every(n=>s.members.filter(m=>m.network===n.id).length===MEMBERS_PER_CARTEL&&s.members.filter(m=>m.network===n.id&&m.role==='leader').length===1));
+  for(const member of s.members){
+    let parent=member;const seen=new Set([member.id]);
+    while(parent.commander!==null){parent=s.members.find(m=>m.id===parent.commander);assert(parent&&!seen.has(parent.id));seen.add(parent.id);}
+  }
+  assert(s.networks.every(n=>n.branches.every(b=>b.lastAction===undefined||(b.lastAction&&integer(b.lastAction.day,0,s.day)&&Object.hasOwn(BRANCH_ACTIONS,b.lastAction.intent)&&district(b.lastAction.target)&&typeof b.lastAction.reason==='string'&&b.lastAction.reason.length<200))));
   assert(ids(s.networks)&&s.networks.length===NETWORKS.length&&s.networks.every((n,i)=>n.id===i&&['funds','evidence','cohesion','heat','logistics'].every(k=>num(n[k]))&&typeof n.captured==='boolean'&&typeof n.dismantled==='boolean'&&s.members.some(m=>m.id===n.leaderId&&m.network===n.id&&m.role==='leader'&&(n.captured?m.status==='captured':m.status==='active'))&&(!n.dismantled||n.captured)&&Object.hasOwn(INTENTS,n.intent)&&district(n.focus)&&integer(n.nextDecision,0,MANDATE_DAYS+200)&&integer(n.successionAt,0,MANDATE_DAYS+100)&&integer(n.successions,0,MEMBERS_PER_CARTEL-1)&&['arsenal','manpower','counterintel','infiltration','patronage','laundering','infighting'].every(k=>num(n[k]))&&Object.hasOwn(STRATEGIES,n.strategy)&&integer(n.strategySince,0,MANDATE_DAYS)&&n.revenue&&['extortion','trade','fronts'].every(k=>num(n.revenue[k],0,100000))&&Array.isArray(n.fronts)&&new Set(n.fronts).size===n.fronts.length&&n.fronts.every(id=>INFRA_INDEX.has(id))&&Array.isArray(n.branches)&&n.branches.length===3&&n.branches.every((b,j)=>b.id===j&&integer(b.region,0,REGIONS.length-1)&&s.members.some(m=>m.id===b.commander&&m.network===n.id)&&['autonomy','loyalty','stockpile'].every(k=>num(b[k]))&&['hold','extract','autonomous','disrupted'].includes(b.posture)&&typeof b.splintered==='boolean'&&integer(b.nextDecision,0,MANDATE_DAYS+100))&&Array.isArray(n.aiLog)&&n.aiLog.length<=6&&n.aiLog.every(l=>integer(l.day,0,MANDATE_DAYS)&&Object.hasOwn(INTENTS,l.intent)&&district(l.target)&&typeof l.reason==='string'&&l.reason.length<200)));
   assert(Array.isArray(s.relations)&&s.relations.length===NETWORKS.length&&s.relations.every((row,a)=>Array.isArray(row)&&row.length===NETWORKS.length&&row.every((v,b)=>num(v,-100,100)&&v===s.relations[b]?.[a]&&(a!==b||v===0))));
   assert(Array.isArray(s.pacts)&&s.pacts.length<=36&&new Set(s.pacts.map(p=>`${p.a}:${p.b}`)).size===s.pacts.length&&s.pacts.every(p=>network(p.a)&&network(p.b)&&p.a<p.b&&integer(p.until,0,MANDATE_DAYS+100)));
   assert(ids(s.units)&&s.units.length>=3&&s.units.length<=MAX_UNITS&&integer(s.nextUnitId,4,200));
-  assert(s.units.every(u=>integer(u.id,1,199)&&u.id<s.nextUnitId&&typeof u.name==='string'&&u.name.length<=20&&Object.hasOwn(UNIT_TYPES,u.type)&&district(u.district)&&['ready','moving','training','operating'].includes(u.status)&&integer(u.remaining,0,240)&&integer(u.total,u.remaining,240)&&['supply','readiness','fatigue'].every(k=>num(u[k]))&&(u.patrol===null||integer(u.patrol,0,2))&&Array.isArray(u.path)&&u.path.length<=DISTRICTS.length&&u.path.every((id,i)=>district(id)&&(!i||NEIGHBORS[u.path[i-1]].includes(id)))&&(u.status!=='moving'||(u.remaining>0&&u.path.length>=2&&u.path[0]===u.district))&&(u.status!=='training'||u.remaining>0)));
+  assert(s.units.every(u=>integer(u.id,1,199)&&u.id<s.nextUnitId&&typeof u.name==='string'&&u.name.length<=20&&Object.hasOwn(UNIT_TYPES,u.type)&&district(u.district)&&['ready','moving','training','operating'].includes(u.status)&&integer(u.remaining,0,DISTRICTS.length*10)&&integer(u.total,u.remaining,DISTRICTS.length*10)&&['supply','readiness','fatigue'].every(k=>num(u[k]))&&(u.patrol===null||integer(u.patrol,0,2))&&Array.isArray(u.path)&&u.path.length<=DISTRICTS.length&&u.path.every((id,i)=>district(id)&&(!i||NEIGHBORS[u.path[i-1]].includes(id)))&&typeof u.blocked==='boolean'&&Array.isArray(u.routeDays)&&u.routeDays.every(v=>integer(v,1,10))&&(u.status==='moving'?(u.remaining>0&&u.path.length>=2&&u.path[0]===u.district&&u.routeDays.length===u.path.length-1&&routeDuration(u.routeDays)===u.total):(!u.blocked&&u.routeDays.length===0))&&(u.status!=='training'||u.remaining>0)));
   assert(Array.isArray(s.projects)&&s.projects.length<=MAX_PROJECTS&&s.projects.every(p=>INITIATIVES.some(i=>i.id===p.id)&&district(p.district)&&p.region===DISTRICTS[p.district].region&&integer(p.remaining,1,90)&&integer(p.total,p.remaining,90)));
   assert(new Set(s.projects.map(p=>{const scope=INITIATIVES.find(i=>i.id===p.id).scope;return `${p.id}:${scope==='province'?'all':scope==='region'?p.region:p.district}`;})).size===s.projects.length);
   const operations=['investigate','raid','interdict','arrest','capture','flip','resupply'];
@@ -57,5 +64,7 @@ export function validateCampaign(s){
 }
 export function restore(text){
   if(typeof text!=='string'||text.length>SAVE_LIMIT)throw new Error('This save file is too large.');const envelope=JSON.parse(text);if(envelope?.game!=='cartel-containment')throw new Error('This save is incompatible or damaged.');
-  const s=[1,2].includes(envelope.version)?migrate(text):envelope.version===VERSION?envelope.state:null;validateCampaign(s);s.paused=true;return s;
+  const s=[1,2].includes(envelope.version)?migrate(text):envelope.version===VERSION?envelope.state:null;
+  if(s&&Array.isArray(s.units))restoreTravelTimings(s);
+  validateCampaign(s);s.paused=true;return s;
 }

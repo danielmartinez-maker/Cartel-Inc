@@ -31,6 +31,17 @@ export function samplePolyline(points,progress){
 }
 export function unitPose(unit,fraction=0,slot=0){
   if(unit.status==='moving'&&unit.path.length>1){
+    if(unit.routeDays?.length===unit.path.length-1){
+      let elapsed=Math.max(0,Math.min(unit.total,unit.total-unit.remaining+(unit.blocked?0:fraction)));
+      for(let i=0;i<unit.routeDays.length;i++){
+        const days=unit.routeDays[i];
+        if(elapsed<days||i===unit.routeDays.length-1){
+          const a=DISTRICTS[unit.path[i]],b=DISTRICTS[unit.path[i+1]],t=bounded(elapsed/days);
+          return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI};
+        }
+        elapsed-=days;
+      }
+    }
     return samplePolyline(unit.path.map(id=>[DISTRICTS[id].x,DISTRICTS[id].y]),progressOf(unit,fraction));
   }
   const d=DISTRICTS[unit.district];return {x:d.x+29+slot*21,y:d.y+1,angle:0};
@@ -57,7 +68,7 @@ export function activeOrders(s){
     ...(s.works||[]).map(w=>({...w,key:`works-${w.id}`,label:w.kind==='infrastructure'?INFRA_TASKS[w.task].name:NEIGHBORHOOD_TASKS[w.task].name,kind:w.kind})),
     ...s.operations.map(o=>({key:`operation-${o.district}`,district:o.district,label:operationNames[o.type],kind:'operation',...o})),
     ...s.projects.map(p=>({...p,key:`project-${p.id}-${p.district}`,district:projectDistrict(p),label:INITIATIVES.find(i=>i.id===p.id).name,kind:'project'})),
-    ...s.units.filter(u=>['moving','training'].includes(u.status)).map(u=>({...u,key:`unit-${u.id}`,unit:u.id,district:u.status==='moving'?u.path.at(-1):HQ,label:`${u.name} · ${u.status==='moving'?'Deploying':'Training'}`,kind:'unit'})),
+    ...s.units.filter(u=>['moving','training'].includes(u.status)).map(u=>({...u,key:`unit-${u.id}`,unit:u.id,district:u.status==='moving'?u.path.at(-1):u.district,label:`${u.name} · ${u.blocked?'Route blocked':u.status==='moving'?'Deploying':'Training'}`,kind:'unit'})),
   ];
   return orders.sort((a,b)=>a.remaining-b.remaining||a.key.localeCompare(b.key));
 }

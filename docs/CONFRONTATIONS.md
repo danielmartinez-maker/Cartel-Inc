@@ -1,3 +1,9 @@
+# Current confrontation phases, v0.6
+
+Operation progress now drives three presentation phases: advancing below 18%, contact from 18% to 72%, and containment for the remainder. Security dots approach before exchanges begin, then shift to a surrounding formation. Tracers alternate; impacts follow travel. Smoke and cover remain decorative. The phase and progress ring interpolate with the authoritative campaign fraction. Pause freezes encounter time, hidden views remove transient results, and reduced motion leaves a static encounter marker. Confirmed contained, weakened and evaded reports still determine endings.
+
+The earlier implementation and evidence record follows.
+
 # Confrontation animation, v0.5
 
 ![Detail from a live browser recording](confrontation-detail.gif)

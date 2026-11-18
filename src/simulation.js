@@ -4,6 +4,7 @@ import {createMembers,seeded,ARCHETYPES,capabilities,leaderOf,dominantNetwork,al
 import {createInfrastructure,INFRASTRUCTURE,assetState,provincialInfrastructure,nationalAccess,transportCost,INFRA_TASKS,infrastructureAvailability,finishInfrastructure,stepInfrastructure} from './infrastructure.js';
 import {createNeighborhoods,communityProfile,NEIGHBORHOOD_TASKS,finishNeighborhood,stepNeighborhoods} from './neighborhoods.js';
 import {stepCartels} from './cartel-ai.js';
+import {movementCost,prepareTravelDay,routeDuration} from './logistics.js';
 export const clamp=(n,min=0,max=100)=>Math.max(min,Math.min(max,n));
 const round=n=>Math.round(n*100)/100,initiative=id=>INITIATIVES.find(i=>i.id===id),has=(s,id)=>s.completed.includes(id);
 const ok=message=>({ok:true,message}),no=message=>({ok:false,message});
@@ -16,7 +17,7 @@ export function createGame({seed=72841,governor='cruz',difficulty='standard'}={}
   const s={version:VERSION,seed:seed>>>0,rng:seed>>>0,governor,difficulty,day:0,started:false,paused:true,speed:1,money:DIFFICULTIES[difficulty].starting,trust:76,corruption:18,inflation:0,holdDays:0,outcome:null,
     districts:DISTRICTS.map(d=>({id:d.id,support:d.id===HQ?67:d.id%24===9?58:39+(d.id*7)%15,intel:d.id===HQ?70:d.threat>20?34:16+(d.id*3)%12,threat:d.threat,cells:NETWORKS.map(n=>n.id===d.network?d.threat:0),security:d.id===HQ?55:d.id===13?28:d.id%24===9?25:8,stability:d.id===HQ?75:d.id%24===9?35:0,services:d.id===HQ?2:0,completed:[],prosperity:35+(d.id*11)%27,fear:d.threat*.65,displacement:4+(d.id*3)%9,institutions:d.id===HQ?65:24+(d.id*7)%19})),
     regions:REGIONS.map(r=>({id:r.id,completed:[],priority:'balanced',services:null})),
-    units:[{id:1,name:'ALPHA',type:'federal',district:HQ},{id:2,name:'BRAVO',type:'police',district:13},{id:3,name:'ECHO',type:'intel',district:HQ}].map(u=>({...u,status:'ready',path:[],remaining:0,total:0,supply:95,readiness:90,fatigue:5,patrol:null})),
+    units:[{id:1,name:'ALPHA',type:'federal',district:HQ},{id:2,name:'BRAVO',type:'police',district:13},{id:3,name:'ECHO',type:'intel',district:HQ}].map(u=>({...u,status:'ready',path:[],routeDays:[],blocked:false,remaining:0,total:0,supply:95,readiness:90,fatigue:5,patrol:null})),
     networks:NETWORKS.map(n=>({id:n.id,funds:80,evidence:12,captured:false,dismantled:false,leaderId:`${n.id}-0`,cohesion:n.archetype==='territorial'?85:n.archetype==='patronage'?76:n.archetype==='clandestine'?74:65,heat:20,logistics:70,intent:'entrench',focus:n.home,nextDecision:6+n.id%4,successionAt:0,successions:0,aiLog:[],arsenal:65,manpower:60,counterintel:30,infiltration:25,patronage:25,laundering:20,infighting:15,strategy:n.archetype==='mercantile'?'profit':n.archetype==='patronage'?'penetrate':'consolidate',strategySince:0,revenue:{extortion:0,trade:0,fronts:0},fronts:[],branches:[]})),
     members:createMembers(seed),assets:createInfrastructure(seed),works:[],nextWorkId:1,relations,pacts:[],projects:[],operations:[],completed:[],log:[],nextUnitId:4,nextEvent:18,pendingEvent:null,pendingRegion:null,eventCount:0,stats:{raids:0,arrests:0,membersCaptured:0,defections:0,projects:0,spending:0,infrastructure:0,neighborhoodProjects:0},migration:null};
   for(const d of s.districts)d.neighborhoods=createNeighborhoods(d);
@@ -42,8 +43,8 @@ export function supplyScore(s,id){const d=s.districts[id];if(!d)return 0;let cac
 export function recruitmentBase(s,id){const d=s.districts[id];return !!d&&(id===HQ||(d.threat<12&&d.completed.includes('station'))||(REGIONS[DISTRICTS[id].region].hub===id&&d.threat<20&&s.regions[DISTRICTS[id].region].completed.includes('regional-administration')));}
 export function movementPlan(s,unitId,destination){
   const u=s.units.find(u=>u.id===unitId),d=s.districts[destination];if(!u||!d)return {...no('Choose a unit and a district.'),path:[],days:0};if(u.status!=='ready')return {...no('This unit is already assigned.'),path:[],days:0};if(u.district===destination)return {...no('This unit is already stationed here.'),path:[],days:0};
-  const cost=(a,b)=>transportCost(s,a,b)??Math.max(1,TERRAIN[DISTRICTS[b].terrain].travel-(s.districts[b].completed.includes('roads')?1:0));
-  const path=findRoute(u.district,destination,cost);if(!path.length)return {...no('No connected route is available.'),path:[],days:0};const days=path.slice(1).reduce((v,id,i)=>v+cost(path[i],id),0);return {ok:true,path,days,message:`ETA ${days} ${days===1?'day':'days'}`};
+  const cost=(a,b)=>movementCost(s,a,b);
+  const path=findRoute(u.district,destination,cost);if(!path.length)return {...no('No connected route is available.'),path:[],days:0};const durations=path.slice(1).map((id,i)=>cost(path[i],id)),days=routeDuration(durations);return {ok:true,path,durations,days,message:`ETA ${days} ${days===1?'day':'days'}`};
 }
 export function operationForecast(s,id,network=null){const d=s.districts[id];if(!d)return 0;network=network??dominantNetwork(d);if(!Number.isInteger(network)||!s.networks[network])return 0;const c=capabilities(s,network);return clamp(.5+d.intel*.0035+localPower(s,id)*.004-s.corruption*.0015-d.cells[network]*.0012-(c.defense-1)*.12-d.fear*.0006,.25,.98);}
 export function initiativeAvailability(s,id,districtId){
@@ -79,18 +80,18 @@ export function act(s,a){
   if(a.type==='infrastructure'||a.type==='neighborhood'){
     if(s.works.length>=MAX_WORKS)return no('The national works desk is at capacity.');let task,cost,target,district;
     if(a.type==='infrastructure'){const reason=infrastructureAvailability(s,a.asset,a.task);if(reason)return no(reason);task=INFRA_TASKS[a.task];target=a.asset;district=INFRASTRUCTURE.find(i=>i.id===a.asset).district;}
-    else{task=NEIGHBORHOOD_TASKS[a.task];if(!task||!Number.isInteger(a.neighborhood)||a.neighborhood<0||a.neighborhood>2||!s.districts[a.district])return no('Choose a valid neighborhood and program.');district=a.district;target=district*3+a.neighborhood;if(s.works.some(w=>w.kind==='neighborhood'&&w.target===target))return no('A program is already active in this neighborhood.');if(s.districts[district].threat>55&&a.task!=='intelligence')return no('Reduce district threat below 55 before sending civic teams.');}
+    else{task=Object.hasOwn(NEIGHBORHOOD_TASKS,a.task)?NEIGHBORHOOD_TASKS[a.task]:null;if(!task||!Number.isInteger(a.neighborhood)||a.neighborhood<0||a.neighborhood>2||!s.districts[a.district])return no('Choose a valid neighborhood and program.');district=a.district;target=district*3+a.neighborhood;if(s.works.some(w=>w.kind==='neighborhood'&&w.target===target))return no('A program is already active in this neighborhood.');if(s.districts[district].threat>55&&a.task!=='intelligence')return no('Reduce district threat below 55 before sending civic teams.');}
     cost=projectCost(s,task.cost);if(s.money<cost)return no(`Requires $${cost}.`);spend(s,cost);s.works.push({id:s.nextWorkId++,kind:a.type,target,task:a.task,district,remaining:task.days,total:task.days});return ok(`${task.name} commissioned. Completion in ${task.days} days.`);
   }
   if(a.type==='project'){
     const available=initiativeAvailability(s,a.id,a.district);if(!available.ok)return available;const item=initiative(a.id),cost=projectCost(s,item.cost),days=Math.ceil(item.days*(s.governor==='cruz'&&item.category==='civilian'?.75:1));
     spend(s,cost);s.projects.push({id:a.id,district:a.district,region:DISTRICTS[a.district].region,remaining:days,total:days});report(s,`${item.name} funded ${item.scope==='local'?`in ${DISTRICTS[a.district].name}`:item.scope==='region'?`for ${REGIONS[DISTRICTS[a.district].region].name}`:'across the mandate'}.`,'project');return ok(`${item.name} funded. Completion in ${days} days.`);
   }
-  if(a.type==='move'){const plan=movementPlan(s,a.unit,a.district);if(!plan.ok)return no(plan.message);const u=s.units.find(u=>u.id===a.unit);u.patrol=null;u.path=plan.path;u.remaining=plan.days;u.total=plan.days;u.status='moving';report(s,`${u.name} en route to ${DISTRICTS[a.district].name}. ${plan.message}.`);return ok(`${u.name} dispatched. ${plan.message}.`);}
+  if(a.type==='move'){const plan=movementPlan(s,a.unit,a.district);if(!plan.ok)return no(plan.message);const u=s.units.find(u=>u.id===a.unit);u.patrol=null;u.path=plan.path;u.routeDays=plan.durations;u.blocked=false;u.remaining=plan.days;u.total=plan.days;u.status='moving';report(s,`${u.name} en route to ${DISTRICTS[a.district].name}. ${plan.message}.`);return ok(`${u.name} dispatched. ${plan.message}.`);}
   if(a.type==='recruit'){
     const type=Object.hasOwn(UNIT_TYPES,a.unitType)?UNIT_TYPES[a.unitType]:null,location=a.district??HQ;if(!type)return no('Unknown unit type.');if(!recruitmentBase(s,location))return no('Recruit at headquarters, a secure police station or a regional administration base.');if(s.units.length>=MAX_UNITS)return no(`The mandate supports ${MAX_UNITS} units.`);const cost=projectCost(s,type.cost);if(s.money<cost)return no(`Requires $${cost}.`);
     const names=['DELTA','FOXTROT','GOLF','HOTEL','INDIA','JULIET','KILO','LIMA','MIKE','NOVEMBER','OSCAR','PAPA','QUEBEC','ROMEO','SIERRA'];spend(s,cost);const id=s.nextUnitId++,name=names[id-4]||`UNIT ${id}`;
-    s.units.push({id,name,type:a.unitType,district:location,status:'training',path:[],remaining:type.days,total:type.days,supply:95,readiness:90,fatigue:5,patrol:null});return ok(`${name} recruited at ${DISTRICTS[location].name}. Ready in ${type.days} days.`);
+    s.units.push({id,name,type:a.unitType,district:location,status:'training',path:[],routeDays:[],blocked:false,remaining:type.days,total:type.days,supply:95,readiness:90,fatigue:5,patrol:null});return ok(`${name} recruited at ${DISTRICTS[location].name}. Ready in ${type.days} days.`);
   }
   if(['investigate','raid','interdict','arrest','capture','flip','resupply'].includes(a.type)){
     let id=a.district,member=null,unit=null,network=a.network;
@@ -161,7 +162,12 @@ function finishOperation(s,o){
 export function tick(s,{force=false}={}){
   if(s.outcome||s.pendingEvent!==null||(!force&&(s.paused||!s.started)))return false;s.day++;
   for(const u of s.units){
-    if(u.status==='moving'||u.status==='training'){u.remaining--;if(u.status==='moving'){u.supply=clamp(u.supply-.25);u.fatigue=clamp(u.fatigue+.4);}if(u.remaining<=0){if(u.status==='moving')u.district=u.path.at(-1);report(s,`${u.name} ${u.status==='moving'?`arrived in ${DISTRICTS[u.district].name}`:'is ready at its recruitment base'}.`);u.status='ready';u.path=[];u.remaining=0;u.total=0;}}
+    if(u.status==='moving'||u.status==='training'){
+      const advancing=u.status!=='moving'||prepareTravelDay(s,u,report);
+      if(advancing)u.remaining--;
+      if(u.status==='moving'){u.supply=clamp(u.supply-(advancing?.25:.1));u.fatigue=clamp(u.fatigue+(advancing?.4:.05));}
+      if(u.remaining<=0){if(u.status==='moving')u.district=u.path.at(-1);report(s,`${u.name} ${u.status==='moving'?`arrived in ${DISTRICTS[u.district].name}`:'is ready at its recruitment base'}.`);u.status='ready';u.path=[];u.routeDays=[];u.blocked=false;u.remaining=0;u.total=0;}
+    }
     if(u.status==='operating'){u.supply=clamp(u.supply-.6);u.fatigue=clamp(u.fatigue+.5);u.readiness=clamp(u.readiness-.15);}
     if(u.status==='ready'){const target=supplyScore(s,u.district),quiet=s.districts[u.district].threat<12;u.supply=clamp(u.supply+clamp(target-u.supply,-.7,1.4));u.fatigue=clamp(u.fatigue-(quiet?1.3:.25));u.readiness=clamp(u.readiness+(quiet?.5:.08));}
   }
@@ -184,12 +190,15 @@ export function tick(s,{force=false}={}){
   s.corruption=clamp(s.corruption+.018*(s.governor==='vega'?.5:1)+s.projects.length*.004-(has(s,'integrity')?.06:0));s.inflation=clamp(s.inflation-.04,0,50);
   stepNeighborhoods(s);
   stepCartels(s,()=>random(s),report);
+  // Sabotage and infiltrated facilities affect the interface and new orders immediately.
+  for(const region of s.regions)region.services=provincialInfrastructure(s,region.id);
+  supplyCache.delete(s);
   const stable=stableDistricts(s),danger=s.districts.filter(d=>d.threat>=25).length,displacement=s.districts.reduce((v,d)=>v+d.displacement,0)/DISTRICTS.length;
   s.trust=clamp(s.trust+(stable*.0002-danger*.00025-s.corruption*.0005-displacement*.0002)*diff.trust);
   if(s.day%7===0){const budget=budgetForecast(s);s.money=round(clamp(s.money+budget.net,0,999999));report(s,`Weekly funding +$${Math.round(budget.income)}; operating costs $${Math.round(budget.upkeep)}.`);}
   if(stable>=STABILITY_TARGET&&s.networks.every(n=>n.dismantled))s.holdDays++;else s.holdDays=0;
   if(s.holdDays>=14){s.outcome='victory';s.paused=true;report(s,'Mandate fulfilled. The cartel organizations are dismantled and civilian institutions hold the connected country.','success');}
   else if(s.trust<=0||s.day>=MANDATE_DAYS){s.outcome='defeat';s.paused=true;report(s,s.trust<=0?'Public confidence collapsed. The mandate was withdrawn.':'The five-year national mandate expired.','warning');}
-  else if(s.day>=s.nextEvent){const event=EVENTS[s.eventCount%EVENTS.length];s.pendingEvent=event.id;s.pendingRegion=event.scope==='regional'?Math.floor(random(s)*REGIONS.length):null;if(event.damage){const asset=assetState(s,`${s.pendingRegion}-${event.damage}`);if(asset){asset.condition=clamp(asset.condition-30);asset.downtime=7;}}s.eventCount++;s.paused=true;report(s,'A provincial decision needs your attention.','decision');}return true;
+  else if(s.day>=s.nextEvent){const event=EVENTS[s.eventCount%EVENTS.length];s.pendingEvent=event.id;s.pendingRegion=event.scope==='regional'?Math.floor(random(s)*REGIONS.length):null;if(event.damage){const asset=assetState(s,`${s.pendingRegion}-${event.damage}`);if(asset){asset.condition=clamp(asset.condition-30);asset.downtime=7;s.regions[s.pendingRegion].services=provincialInfrastructure(s,s.pendingRegion);supplyCache.delete(s);}}s.eventCount++;s.paused=true;report(s,'A provincial decision needs your attention.','decision');}return true;
 }
 export function serialize(s){return JSON.stringify({game:'cartel-containment',version:VERSION,state:s});}

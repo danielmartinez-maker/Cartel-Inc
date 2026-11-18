@@ -1,3 +1,9 @@
+# Current national map, v0.6
+
+The connected map uses a 50-province overview, a 24-district provincial view and a three-neighborhood close view. Only the active province has detailed district, infrastructure and traffic DOM elements. Freight convoys travel between simulated rail terminals, depots, ports and airfields; facility output determines whether they run. Utility lines stop flowing when a dependent facility loses service. Repairs have visible work rings and active facility halos. Unit tokens follow accepted travel days for each route segment and stop at blocked crossings. Map life and reduced motion stop animation. Ambient effects can continue during pause; units, orders and encounters use campaign time.
+
+The earlier implementation record follows. Sea-route ambience described below belongs to the previous island map.
+
 # Living provinces, v0.5
 
 Verified live views: [province and Activity view](living-province.jpg) · [keyboard deployment preview](deployment-preview.jpg). These are unmodified browser screenshots.

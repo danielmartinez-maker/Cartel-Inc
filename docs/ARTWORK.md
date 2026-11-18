@@ -84,3 +84,8 @@ The district atlas order is mountain, forest, rural, urban / capital, border, co
 `assets/mandate-map.webp` is a new 2640×1520 generated terrain painting displayed across the 3300×1900 country view. A code-rendered five-island geometry guide and the original province painting were supplied as composition and style references. The prompt requested the five coastlines and layout from the guide, differentiated highlands, eastern trading ports, central farms and city, southern agricultural valleys and misty coastal woodland. It specified warm ochre/cream cut-paper terrain, deep teal sea, printed grain, natural rivers, tiny towns and no text, UI, dots, labels or district borders. The final painting was resized/encoded as WebP and is clipped to the exact playable polygons. Interactive borders, cells, ferry corridors, names and symbols are native SVG, independent of generated image accuracy.
 
 Both assets were created with the built-in image generator and are included in the repository. They extend the existing user-approved style without replacing the earlier assets.
+
+
+## Connected country, v0.6
+
+`assets/connected-country.webp` (3960×2360) replaces the separate-island presentation with a generated contiguous-country terrain painting in the approved ochre, cream and teal style. It includes illustrated towns, farms, forests, mountains, waterways, freight yards, airfields, ports and dams. Native SVG supplies the exact 50 province boundaries, district and neighborhood cells, route graph, infrastructure symbols and all status overlays. Painted facilities are scenery; clickable SVG markers identify the simulated infrastructure. Older terrain artwork remains in the repository for provenance and compatibility.

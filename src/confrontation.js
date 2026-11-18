@@ -3,6 +3,10 @@ import {bounded,progressOf,unitPose} from './world.js';
 
 export const RESULT_LABELS=Object.freeze({cleared:'CELL CONTAINED',suppressed:'CELL WEAKENED',evaded:'CELL EVADED'});
 export const encounterKey=e=>`${e.day}:${e.district}:${e.unit}:${e.result}`;
+export function tacticalFrame(progress){
+  const p=bounded(progress);
+  return {phase:p<.18?'ADVANCING':p<.72?'IN CONTACT':'CONTAINING',advance:bounded(p/.18),encircle:bounded((p-.72)/.28),contact:p>=.18};
+}
 export function activeConfrontations(s){
   return s.operations.filter(o=>o.type==='raid'&&(s.districts[o.district]?.cells?.[o.network]??s.districts[o.district]?.threat)>0).flatMap(o=>{
     const unit=s.units.find(u=>u.id===o.unit&&u.type!=='intel'&&u.status==='operating'&&u.district===o.district);
@@ -58,6 +62,7 @@ export class ConfrontationLayer{
       view.element.style.setProperty('--cartel-color',NETWORKS[model.network].color);
       view.element.querySelector('.encounter-unit-name').textContent=model.unit.name;
       view.element.querySelector('.encounter-pressure').setAttribute('stroke-dasharray',`${progressOf(model.operation)*100} 100`);
+      view.progress=progressOf(model.operation);
       view.enemies.forEach((e,i)=>{e.style.display=i<model.members?'':'none';});
     }
     this.paint();
@@ -87,17 +92,20 @@ export class ConfrontationLayer{
   }
   paint(){
     for(const view of this.views.values()){
-      const time=view.timeline.seconds,wave=this.motion?Math.sin(time*3):0,origin=view.friendly,phase=Math.floor(time/1.8),reposition=this.motion?Math.sin(time*.9)*3:0;
+      const tactical=tacticalFrame(view.progress),time=view.timeline.seconds,wave=this.motion?Math.sin(time*3):0,origin={x:view.friendly.x+(1-tactical.advance)*17-tactical.encircle*6,y:view.friendly.y},phase=Math.floor(time/1.8),reposition=this.motion?Math.sin(time*.9)*3:0;
+      view.element.dataset.phase=tactical.phase.toLowerCase().replace(' ','-');
+      view.element.querySelector('.encounter-caption').textContent=tactical.phase;
+      view.element.querySelector('.encounter-pressure').setAttribute('stroke-dasharray',`${view.progress*100} 100`);
       const smoke=view.element.querySelectorAll('.encounter-smoke circle');smoke.forEach((e,i)=>{const drift=(time*.35+i*.31)%1;setPose(e,-22+i*19+drift*8,-15-drift*23);e.setAttribute('r',3+drift*7);e.style.opacity=this.motion?Math.sin(drift*Math.PI)*.16:0;});
       view.enemies.forEach((e,i)=>{const [x,y]=formation[i];setPose(e,x+wave*(i%2?1.4:-1.4)+reposition*(i%2?1:-1),y+wave*.7);});
-      view.allies.forEach((e,i)=>setPose(e,origin.x-9+i*6+wave*.7-reposition*.4,origin.y-9+(i%2)*15+Math.sin(time*1.4+i)*1.1));
+      view.allies.forEach((e,i)=>setPose(e,origin.x-9+i*6+wave*.7-reposition*.4-tactical.encircle*(i===2?19:0),origin.y-9+(i%2)*15+Math.sin(time*1.4+i)*1.1+tactical.encircle*(i===2?-20:4)));
       exchangeFrame(time).forEach((sample,i)=>{
         const v=view.exchanges[i],lane=phase%3,source=i?{x:formation[lane][0],y:formation[lane][1]}:{x:origin.x-8+lane*5,y:origin.y-8+lane*5},target=i?{x:origin.x-5,y:origin.y+lane*3}:{x:formation[(lane+1)%5][0],y:formation[(lane+1)%5][1]};
         const point=t=>[source.x+(target.x-source.x)*t,source.y+(target.y-source.y)*t];
         const a=point(Math.max(0,sample.travel-.18)),b=point(sample.travel);
-        v.tracer.setAttribute('d',`M${a.join(',')}L${b.join(',')}`);v.tracer.style.opacity=this.motion&&sample.visible ? .85 : 0;
-        setPose(v.muzzle,source.x,source.y);v.muzzle.style.opacity=this.motion?sample.muzzle*.65:0;
-        setPose(v.contact,target.x,target.y);v.contact.style.opacity=this.motion?sample.contact*.6:0;
+        v.tracer.setAttribute('d',`M${a.join(',')}L${b.join(',')}`);v.tracer.style.opacity=this.motion&&tactical.contact&&sample.visible ? .85 : 0;
+        setPose(v.muzzle,source.x,source.y);v.muzzle.style.opacity=this.motion&&tactical.contact?sample.muzzle*.65:0;
+        setPose(v.contact,target.x,target.y);v.contact.style.opacity=this.motion&&tactical.contact?sample.contact*.6:0;
         v.contact.querySelector('circle').setAttribute('r',4+(1-sample.contact)*5);
       });
     }
@@ -107,8 +115,9 @@ export class ConfrontationLayer{
       view.dots.setAttribute('transform',`translate(${-t*(escape?40:15)} ${-t*(escape?18:5)})`);view.dots.style.opacity=1-t;
     }
   }
-  frame(delta,{visible,running}){
+  frame(delta,{visible,running,fraction=0}){
     if(!visible){this.suspend();return;}
+    for(const view of this.views.values())view.progress=progressOf(view.model.operation,fraction);
     for(const view of [...this.views.values(),...this.results.values()])view.timeline.step(delta,{visible,running,motion:this.motion});
     for(const [key,view]of this.results)if(view.timeline.seconds>=3.2){view.element.remove();this.results.delete(key);}
     this.paint();

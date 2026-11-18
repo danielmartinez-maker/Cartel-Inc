@@ -1,8 +1,9 @@
 import {DISTRICTS,NETWORKS,DIFFICULTIES} from './data.js';
-import {INFRASTRUCTURE,INFRA_BY_REGION,assetState} from './infrastructure.js';
+import {INFRASTRUCTURE,INFRA_BY_REGION,assetState,transportCost} from './infrastructure.js';
 import {communityProfile} from './neighborhoods.js';
 import {NEIGHBORS} from './geography.js';
 import {capabilities,leaderOf,successionCandidate,alterCell,cellThreat,INTENTS} from './cartels.js';
+import {stepRegionalCommand} from './regional-command.js';
 const clamp=(v,min=0,max=100)=>Math.max(min,Math.min(max,v));
 const present=(s,id)=>s.units.filter(u=>u.district===id&&u.type!=='intel'&&['ready','operating'].includes(u.status)).length;
 const total=(s,id)=>s.districts.reduce((v,d)=>v+d.cells[id],0);
@@ -21,13 +22,13 @@ export function planCartel(s,n){
     add('recruit',(19+(65-reinforce.support)*.3+(45-reinforce.prosperity)*.2+communityProfile(reinforce).grievance*.12)*c.recruit,7,reinforce.id,'Seeking recruits where services are weak');
     add('coerce',(10+(100-n.cohesion)*.15)*c.coercion,5,reinforce.id,'Using intimidation to regain control');
   }
-  const destinations=[...new Set(front.flatMap(d=>NEIGHBORS[d.id]))].map(id=>s.districts[id]);
+  const destinations=[...new Set(front.flatMap(d=>NEIGHBORS[d.id].filter(id=>Number.isFinite(transportCost(s,d.id,id)??1))))].map(id=>s.districts[id]);
   const expand=destinations.filter(d=>d.cells[n.id]<1&&d.id!==9&&d.threat<65&&d.stability<75).map(d=>({d,score:40-d.security*.45-d.institutions*.25-d.support*.18-present(s,d.id)*45+scoreTerrain(DISTRICTS[d.id],type)+(type==='mercantile'?d.prosperity*.2:0)})).sort((a,b)=>b.score-a.score||a.d.id-b.d.id)[0];
   if(expand&&active<80&&n.manpower>=8&&n.arsenal>=5)add('expand',(18+expand.score)*c.aggression,12,expand.d.id,'Probing a vulnerable neighboring district');
   const corrupt=occupied.filter(d=>d.institutions<70).sort((a,b)=>(b.prosperity-b.institutions)-(a.prosperity-a.institutions))[0];
   if(corrupt)add('bribe',(16+s.corruption*.25-corrupt.institutions*.1)*c.bribe,9,corrupt.id,'Cultivating weak local institutions');
   if(pressure){
-    const refuge=NEIGHBORS[pressure.id].map(id=>s.districts[id]).filter(d=>!present(s,d.id)&&d.threat<75&&d.id!==9).sort((a,b)=>(b.cells[n.id]-b.security)-(a.cells[n.id]-a.security))[0];
+    const refuge=NEIGHBORS[pressure.id].filter(id=>Number.isFinite(transportCost(s,pressure.id,id)??1)).map(id=>s.districts[id]).filter(d=>!present(s,d.id)&&d.threat<75&&d.id!==9).sort((a,b)=>(b.cells[n.id]-b.security)-(a.cells[n.id]-a.security))[0];
     if(refuge)add('regroup',(35+n.heat*.2)*c.logistics,5,refuge.id,'Withdrawing from concentrated security pressure',{origin:pressure.id});
   }
   if(leader.watchedUntil<s.day&&n.heat>45&&!s.operations.some(o=>o.member===leader.id)){
@@ -85,20 +86,21 @@ export function stepCartels(s,random,report){
       n.funds=clamp(n.funds+income*(n.captured?.2:1));n.arsenal=clamp(n.arsenal+2*c.logistics);n.manpower=clamp(n.manpower+2*c.recruit);n.infighting=clamp(n.infighting+(50-n.cohesion)*.03+n.branches.filter(b=>b.splintered).length);
       if(s.day%28===0){n.strategy=n.heat>72?'evade':n.funds<30?'profit':n.infighting>55?'consolidate':NETWORKS[n.id].archetype==='patronage'?'penetrate':NETWORKS[n.id].archetype==='mercantile'?'profit':'contest';n.strategySince=s.day;}
     }
-    for(const branch of n.branches){
-      const commander=s.members.find(m=>m.id===branch.commander),active=commander?.status==='active';
-      branch.autonomy=clamp(branch.autonomy+(n.captured?.35:-.025)+(active&&commander.traits.includes('ambitious')?.04:0));branch.loyalty=clamp(branch.loyalty+(n.cohesion-60)*.0007-(commander?.ambition??50)*.00015-(n.captured?.15:0));
-      if(active&&branch.autonomy>75&&branch.loyalty<40&&!branch.splintered){branch.splintered=true;n.infighting=clamp(n.infighting+12);report(s,`${commander.name}'s regional branch of ${NETWORKS[n.id].name} has become autonomous.`,'warning');}
-      if(s.day>=branch.nextDecision){branch.nextDecision=s.day+21;branch.posture=!active?'disrupted':branch.splintered?'autonomous':n.strategy==='profit'?'extract':'hold';
-        if(active&&n.funds>=5&&(!n.captured||branch.splintered)){const local=cells.filter(d=>DISTRICTS[d.id].region===branch.region).sort((a,b)=>b.threat-a.threat)[0];if(local){n.funds-=5;branch.stockpile=clamp(branch.stockpile+4*c.logistics);alterCell(local,n.id,branch.splintered?4:2);local.fear=clamp(local.fear+(branch.splintered?2:0));}}
-      }
-    }
+    stepRegionalCommand(s,n,c,random,report);
     if(n.captured){
       n.intent='recover';
       if(n.successionAt&&s.day>=n.successionAt){
         const successor=successionCandidate(s,n.id);
         if(successor&&n.cohesion>44&&n.funds>=20&&total(s,n.id)>35){
-          leader.role='formerLeader';successor.role='leader';successor.commander=null;successor.authority=90;n.leaderId=successor.id;n.captured=false;n.successions++;n.cohesion=clamp(n.cohesion-15);n.evidence=Math.max(25,n.evidence-15);n.funds=clamp(n.funds-20);n.heat=35;
+          leader.role='formerLeader';successor.role='leader';
+          // Remove the promoted member from its old chain before reattaching staff.
+          const previousParent=successor.commander;
+          successor.commander=null;successor.authority=90;
+          for(const m of s.members.filter(m=>m.network===n.id&&m.id!==successor.id)){
+            if(m.commander===successor.id)m.commander=previousParent===m.id?successor.id:previousParent;
+            if(m.commander===leader.id&&m.status==='active')m.commander=successor.id;
+          }
+          n.leaderId=successor.id;n.captured=false;n.successions++;n.cohesion=clamp(n.cohesion-15);n.evidence=Math.max(25,n.evidence-15);n.funds=clamp(n.funds-20);n.heat=35;
           report(s,`${successor.name} has taken command of ${NETWORKS[n.id].name}. Its captured leader has been replaced.`,'warning');
         }
         n.successionAt=0;
