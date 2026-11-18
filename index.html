@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./living-map.css">
   <link rel="stylesheet" href="./confrontation.css">
   <link rel="stylesheet" href="./strategy.css">
+  <link rel="stylesheet" href="./game-ui.css">
 </head>
 <body>
   <section id="main-menu" class="main-menu" aria-labelledby="menu-title" hidden>
@@ -75,23 +76,24 @@
       <section class="stage" aria-label="Province map and initiative desk">
         <div class="map-area">
           <div class="map-heading"><div class="eyebrow">FIFTY CONNECTED PROVINCES <span> / </span> ONE MANDATE</div><h1>Santa Esperanza</h1><p>1,200 districts. 3,600 neighborhoods.</p></div>
-          <div class="region-control"><label for="region-focus">PROVINCE</label><select id="region-focus" aria-label="Focus province"></select></div><div class="layer-control"><label for="map-layer">MAP LAYER</label><select id="map-layer" aria-label="Map layer"><option value="control">Territorial control</option><option value="support">Public support</option><option value="intelligence">Intelligence coverage</option><option value="infrastructure">Infrastructure & supply</option></select></div>
+          <div class="region-control"><label for="region-focus">PROVINCE</label><select id="region-focus" aria-label="Focus province"></select></div><div class="layer-control"><label for="map-layer">MAP LAYER</label><select id="map-layer" aria-label="Map layer"><option value="control">Territorial control</option><option value="support">Public support</option><option value="intelligence">Intelligence coverage</option><option value="infrastructure">Infrastructure & supply</option><option value="economy">Economic sectors</option></select></div>
           <div class="province-life-controls"><div class="weather-readout"><span class="weather-symbol" aria-hidden="true"></span><span><strong id="weather-label">Clear skies</strong><small id="light-label">Daylight</small></span></div><div class="life-buttons"><button data-action="map-motion" id="map-motion-button" aria-pressed="true">Map life on</button><button data-action="view" data-view="activity" id="activity-shortcut">Activity <span id="active-order-count">0</span></button></div></div>
           <div id="map-container" class="map-container"></div>
           <div class="map-key" id="map-key"><span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span></div>
           <div class="map-controls"><button data-action="zoom-in" class="map-control" aria-label="Zoom in" title="Zoom in"></button><button data-action="zoom-out" class="map-control" aria-label="Zoom out" title="Zoom out"></button><button data-action="zoom-fit" class="map-control" aria-label="Fit province" title="Fit province"></button></div>
           <button class="field-report" data-action="reports"><span class="field-report-head"><span class="live-dot"></span> FIELD REPORT <span id="report-day">DAY 001</span></span><span id="latest-report">Mandate received. Protect communities and build lasting control.</span><span class="report-read">View activity log <span aria-hidden="true">→</span></span></button>
-          <div id="dispatch-hint" class="dispatch-hint" hidden></div>
+          <section id="district-context" class="district-context" hidden></section><div id="dispatch-hint" class="dispatch-hint" hidden></div>
           <div id="route-preview" class="route-preview" role="status" hidden></div>
         </div>
         <section class="initiative-desk" aria-label="Initiative categories"><div class="desk-heading"><span>INITIATIVE DESK</span><small>Lasting control starts beyond the front line.</small></div><div id="initiative-categories" class="initiative-categories"></div></section>
       </section>
-      <aside class="command-panel" aria-label="Command center">
+      <dialog class="command-panel" id="command-menu" aria-labelledby="game-menu-title"><header class="game-menu-top"><span id="game-menu-title">COMMAND</span><button data-action="close-command" aria-label="Close command menu">×</button></header>
         <div class="commander" id="commander"></div>
         <div class="panel-tabs" role="tablist" aria-label="Command panel"><button role="tab" data-action="view" data-view="district" aria-selected="true" class="active">District</button><button role="tab" data-action="view" data-view="province" aria-selected="false">Province</button><button role="tab" data-action="view" data-view="infrastructure" aria-selected="false">Infra</button><button role="tab" data-action="view" data-view="initiatives" aria-selected="false">Initiatives</button><button role="tab" data-action="view" data-view="units" aria-selected="false">Forces</button><button role="tab" data-action="view" data-view="networks" aria-selected="false">Networks</button><button role="tab" data-action="view" data-view="activity" aria-selected="false">Activity</button></div>
         <div class="panel-content" id="panel-content" role="tabpanel"></div>
-      </aside>
+      </dialog>
     </main>
+    <nav class="command-dock" aria-label="Campaign menus"><button data-action="view" data-view="units"><span class="dock-emblem">⚑</span>FORCES</button><button data-action="view" data-view="networks"><span class="dock-emblem">♜</span>CARTELS</button><button data-action="view" data-view="initiatives"><span class="dock-emblem">⌂</span>DEVELOPMENT</button><button data-action="view" data-view="infrastructure"><span class="dock-emblem">▣</span>INFRASTRUCTURE</button><button data-action="view" data-view="economy"><span class="dock-emblem">◈</span>ECONOMY</button><button data-action="view" data-view="province"><span class="dock-emblem">⚐</span>PROVINCE</button><button data-action="view" data-view="activity"><span class="dock-emblem">◎</span>INTELLIGENCE</button></nav>
     <footer class="timebar">
       <div class="date-block"><span id="day-display">DAY 001</span><small id="week-display">WEEK 01 · YEAR 1</small></div>
       <div class="simulation-state"><span id="simulation-indicator" class="simulation-indicator"></span><div><strong id="simulation-label">Planning phase</strong><small id="simulation-detail">Issue orders, then advance time.</small></div></div>

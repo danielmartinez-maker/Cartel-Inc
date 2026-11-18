@@ -51,6 +51,7 @@ export const NEIGHBORHOODS=DISTRICTS.map(d=>{
 });
 export const PROVINCE_PRIORITIES={balanced:{name:'Balanced administration',cost:0},services:{name:'Public service delivery',cost:2},economy:{name:'Economic recovery',cost:2},security:{name:'Community security',cost:2},integrity:{name:'Institutional integrity',cost:2}};
 export const TERRAIN = {
+  arid:{label:'Dry country',fill:'#d5ab73',travel:2},wetland:{label:'Wetland',fill:'#94aaa0',travel:3},
   mountain: { label:'Highlands', fill:'#b9a17b', travel:3 }, forest:{label:'Woodland',fill:'#9cad8b',travel:2},
   rural:{label:'Rural district',fill:'#dfc497',travel:2}, urban:{label:'Urban district',fill:'#ecd1a2',travel:1},
   capital:{label:'Provincial capital',fill:'#f4dbaa',travel:1}, border:{label:'Border crossing',fill:'#c9ab80',travel:2},

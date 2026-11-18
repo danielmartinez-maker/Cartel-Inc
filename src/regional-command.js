@@ -57,7 +57,7 @@ function applyBranchPlan(s,n,b,p,c){
   if(p.intent==='recruit'){n.manpower=clamp(n.manpower+3*c.recruit);alterCell(d,n.id,2*c.recruit);}
   if(p.intent==='withdraw'){const origin=s.districts[p.origin],moved=Math.min(origin.cells[n.id]*.2,6);alterCell(origin,n.id,-moved);alterCell(d,n.id,moved);}
   if(p.intent==='expand'){alterCell(d,n.id,10);n.manpower=clamp(n.manpower-6);n.arsenal=clamp(n.arsenal-4);d.fear=clamp(d.fear+3);d.stability=clamp(d.stability-8);}
-  if(p.intent==='extract'){const income=3+d.prosperity*.03;n.funds=clamp(n.funds+income*(b.splintered?.25:1));b.stockpile=clamp(b.stockpile+income);d.prosperity=clamp(d.prosperity-.5);}
+  if(p.intent==='extract'){const income=3+d.prosperity*.03;n.dirtyCash=clamp(n.dirtyCash+income*(b.splintered?.25:1),0,1000);b.stockpile=clamp(b.stockpile+income);d.prosperity=clamp(d.prosperity-.5);}
   if(p.intent==='infiltrate'){const a=assetState(s,p.asset);a.infiltration=clamp(a.infiltration+8*c.bribe);if(a.infiltration>35)a.controller=n.id;}
   if(p.intent==='rivalry'){alterCell(d,p.rival,-4*c.aggression);alterCell(d,n.id,2);d.fear=clamp(d.fear+2);s.relations[n.id][p.rival]=s.relations[p.rival][n.id]=clamp(s.relations[n.id][p.rival]-5,-100,100);}
   if(b.splintered)d.fear=clamp(d.fear+1);

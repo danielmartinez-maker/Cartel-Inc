@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createGame,act,tick,restore,serialize,unitPower,supplyScore,recruitmentBase,memberRequirements,leaderOf,totalThreat,budgetForecast} from '../src/engine.js';
+import {createGame as createOpening,act,tick,restore,serialize,unitPower,supplyScore,recruitmentBase,memberRequirements,leaderOf,totalThreat,budgetForecast} from '../src/engine.js';
+const createGame=(options={})=>createOpening({...options,scenario:'classic'});
 import {LAND,LANDS,DISTRICTS,REGIONS,NETWORKS,MAX_UNITS,HQ,NEIGHBORHOODS,PROVINCE_NEIGHBORS,MEMBERS_PER_CARTEL,VERSION} from '../src/data.js';
 import {NEIGHBORS,findRoute} from '../src/geography.js';
 import {ARCHETYPES,TRAITS,createMembers,capabilities,alterCell,dominantNetwork} from '../src/cartels.js';

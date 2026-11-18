@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,act,tick,serialize,restore,movementPlan} from '../src/engine.js';
+import {createGame as createOpening,act,tick,serialize,restore,movementPlan} from '../src/engine.js';
+const createGame=(options={})=>createOpening({...options,scenario:'classic'});
 import {DISTRICTS,TRANSPORT_LINKS} from '../src/data.js';
 import {assetState,assetOutput} from '../src/infrastructure.js';
 import {capabilities} from '../src/cartels.js';

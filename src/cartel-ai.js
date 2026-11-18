@@ -3,6 +3,9 @@ import {INFRASTRUCTURE,INFRA_BY_REGION,assetState,transportCost} from './infrast
 import {communityProfile} from './neighborhoods.js';
 import {NEIGHBORS} from './geography.js';
 import {capabilities,leaderOf,successionCandidate,alterCell,cellThreat,INTENTS} from './cartels.js';
+import {INCOME_TYPES,incomeForecast,stepEconomy} from './economy.js';
+import {operatingUnits} from './combat.js';
+import {terrainAt} from './scenarios.js';
 import {stepRegionalCommand} from './regional-command.js';
 const clamp=(v,min=0,max=100)=>Math.max(min,Math.min(max,v));
 const present=(s,id)=>s.units.filter(u=>u.district===id&&u.type!=='intel'&&['ready','operating'].includes(u.status)).length;
@@ -11,7 +14,7 @@ const allied=(s,a,b)=>s.pacts.some(p=>((p.a===a&&p.b===b)||(p.a===b&&p.b===a))&&
 const scoreTerrain=(d,type)=>type==='mercantile'?(['port','coast'].includes(d.terrain)?18:0):type==='territorial'?(['mountain','forest'].includes(d.terrain)?16:0):type==='patronage'?(['urban','capital'].includes(d.terrain)?14:0):type==='clandestine'?(d.terrain==='forest'?18:0):type==='mobile'?(d.terrain==='border'?16:0):0;
 export function planCartel(s,n){
   if(n.dismantled||n.captured)return [];
-  const c=capabilities(s,n.id),leader=leaderOf(s,n.id),type=NETWORKS[n.id].archetype;
+  const c=capabilities(s,n.id),leader=leaderOf(s,n.id),type=n.archetype??NETWORKS[n.id].archetype;
   const occupied=s.districts.filter(d=>d.cells[n.id]>1),front=occupied.filter(d=>d.cells[n.id]>=16),active=occupied.filter(d=>d.cells[n.id]>=12).length;
   const pressure=occupied.filter(d=>present(s,d.id)>0).sort((a,b)=>b.cells[n.id]-a.cells[n.id])[0];
   const home=s.districts[leader.location],plans=[];
@@ -23,7 +26,7 @@ export function planCartel(s,n){
     add('coerce',(10+(100-n.cohesion)*.15)*c.coercion,5,reinforce.id,'Using intimidation to regain control');
   }
   const destinations=[...new Set(front.flatMap(d=>NEIGHBORS[d.id].filter(id=>Number.isFinite(transportCost(s,d.id,id)??1))))].map(id=>s.districts[id]);
-  const expand=destinations.filter(d=>d.cells[n.id]<1&&d.id!==9&&d.threat<65&&d.stability<75).map(d=>({d,score:40-d.security*.45-d.institutions*.25-d.support*.18-present(s,d.id)*45+scoreTerrain(DISTRICTS[d.id],type)+(type==='mercantile'?d.prosperity*.2:0)})).sort((a,b)=>b.score-a.score||a.d.id-b.d.id)[0];
+  const expand=destinations.filter(d=>d.cells[n.id]<1&&d.id!==9&&d.threat<65&&d.stability<75).map(d=>({d,score:40-d.security*.45-d.institutions*.25-d.support*.18-present(s,d.id)*45+scoreTerrain({...DISTRICTS[d.id],terrain:terrainAt(s,d.id)},type)+(type==='mercantile'?d.prosperity*.2:0)})).sort((a,b)=>b.score-a.score||a.d.id-b.d.id)[0];
   if(expand&&active<80&&n.manpower>=8&&n.arsenal>=5)add('expand',(18+expand.score)*c.aggression,12,expand.d.id,'Probing a vulnerable neighboring district');
   const corrupt=occupied.filter(d=>d.institutions<70).sort((a,b)=>(b.prosperity-b.institutions)-(a.prosperity-a.institutions))[0];
   if(corrupt)add('bribe',(16+s.corruption*.25-corrupt.institutions*.1)*c.bribe,9,corrupt.id,'Cultivating weak local institutions');
@@ -35,7 +38,7 @@ export function planCartel(s,n){
     const refuge=occupied.filter(d=>d.id!==leader.location&&!present(s,d.id)&&d.intel<70).sort((a,b)=>(a.intel+a.security-b.intel-b.security))[0];
     if(refuge)add('relocate',(22+n.heat*.35+present(s,home.id)*20)*c.stealth,8,refuge.id,'Moving command away from exposure');
   }
-  const contested=destinations.flatMap(d=>s.networks.filter(r=>r.id!==n.id&&!r.dismantled&&d.cells[r.id]>10&&!allied(s,n.id,r.id)).map(r=>({d,r,score:22+(50-s.relations[n.id][r.id])*.18-present(s,d.id)*18+scoreTerrain(DISTRICTS[d.id],type)}))).sort((a,b)=>b.score-a.score)[0];
+  const contested=destinations.flatMap(d=>s.networks.filter(r=>r.id!==n.id&&!r.dismantled&&d.cells[r.id]>10&&!allied(s,n.id,r.id)).map(r=>({d,r,score:22+(50-s.relations[n.id][r.id])*.18-present(s,d.id)*18+scoreTerrain({...DISTRICTS[d.id],terrain:terrainAt(s,d.id)},type)}))).sort((a,b)=>b.score-a.score)[0];
   if(contested)add('rivalry',contested.score*c.aggression,10,contested.d.id,'Contesting a rival cell',{rival:contested.r.id});
   const partner=s.networks.filter(r=>r.id!==n.id&&!r.dismantled&&!r.captured&&!allied(s,n.id,r.id)&&s.relations[n.id][r.id]>-10).sort((a,b)=>s.relations[n.id][b.id]-s.relations[n.id][a.id])[0];
   if(partner)add('pact',(12+(65-n.funds)*.4+n.heat*.08)*c.diplomacy,8,leader.location,'Seeking breathing room through a temporary pact',{rival:partner.id});
@@ -48,6 +51,8 @@ export function planCartel(s,n){
   if(strategic&&pressure&&n.arsenal>=12)add('sabotage',(20+n.heat*.22+(type==='predatory'?20:0))*c.aggression,16,strategic.district,'Disrupting logistics under government pressure',{asset:strategic.id});
   if(n.heat>35||n.evidence>55)add('counterintel',(15+n.heat*.3+n.evidence*.13)*c.stealth,10,leader.location,'Protecting command and exposed members');
   if(n.infighting>35)add('discipline',(n.infighting*.65)*c.cohesion,12,leader.location,'Containing a leadership dispute');
+  const revenues=incomeForecast(s,n.id).revenue,best=Object.keys(INCOME_TYPES).filter(key=>n.rackets[key].level<85&&n.rackets[key].blockedUntil<=s.day).sort((a,b)=>(revenues[b]+1)/(n.rackets[b].level+10)-(revenues[a]+1)/(n.rackets[a].level+10))[0];
+  if(best&&occupied.length)add('diversify',(n.strategy==='profit'?43:18)+(60-n.funds)*.15,12,leader.location,`Developing ${INCOME_TYPES[best].name.toLowerCase()}`,{racket:best});
   const weights={consolidate:{entrench:1.45,regroup:1.3,recruit:1.15},profit:{front:1.65,bribe:1.25,pact:1.2},penetrate:{infiltrate:1.6,bribe:1.35},contest:{rivalry:1.25,expand:1.3,sabotage:1.35},evade:{relocate:1.5,counterintel:1.5,regroup:1.2}};
   for(const p of plans)p.score*=weights[n.strategy]?.[p.intent]??1;
   return plans.filter(p=>p.score>0).sort((a,b)=>b.score-a.score||a.target-b.target);
@@ -56,7 +61,8 @@ function applyPlan(s,n,p,c,random,report){
   const d=s.districts[p.target],scale=DIFFICULTIES[s.difficulty].growth;
   n.funds=clamp(n.funds-p.cost);n.intent=p.intent;n.focus=p.target;
   n.aiLog.unshift({day:s.day,intent:p.intent,target:p.target,reason:p.reason});n.aiLog=n.aiLog.slice(0,6);
-  if(p.intent==='entrench'){alterCell(d,n.id,2.5*c.defense);n.cohesion=clamp(n.cohesion+4);n.logistics=clamp(n.logistics+2);}
+  if(p.intent==='entrench'){d.fortifications[n.id]=clamp(d.fortifications[n.id]+8*c.defense);alterCell(d,n.id,2.5*c.defense);n.cohesion=clamp(n.cohesion+4);n.logistics=clamp(n.logistics+2);}
+  if(p.intent==='diversify'){n.rackets[p.racket].level=clamp(n.rackets[p.racket].level+18);n.heat=clamp(n.heat+3);}
   if(p.intent==='recruit'){n.manpower=clamp(n.manpower+8*c.recruit);alterCell(d,n.id,(3+(100-d.support)*.025+(100-d.prosperity)*.015)*c.recruit*scale);n.heat=clamp(n.heat+2);}
   if(p.intent==='expand'){n.manpower=clamp(n.manpower-8);n.arsenal=clamp(n.arsenal-5);alterCell(d,n.id,12+5*scale);d.fear=clamp(d.fear+6);d.stability=clamp(d.stability-10);report(s,`${NETWORKS[n.id].name} established a cell in ${DISTRICTS[d.id].name}.`,'warning');}
   if(p.intent==='bribe'){n.infiltration=clamp(n.infiltration+3);n.patronage=clamp(n.patronage+2);d.institutions=clamp(d.institutions-3*c.bribe);s.corruption=clamp(s.corruption+.4*c.bribe);n.heat=clamp(n.heat-4);if(!s.completed.includes('witness'))n.evidence=clamp(n.evidence-1);}
@@ -80,11 +86,8 @@ export function stepCartels(s,random,report){
     if(s.day%7===0){
       const ports=cells.filter(d=>['port','border'].includes(DISTRICTS[d.id].terrain)).length,trade=s.pacts.filter(p=>p.a===n.id||p.b===n.id).length;
       for(const m of s.members.filter(m=>m.network===n.id&&m.status==='active')){m.stress=clamp(m.stress+n.heat*.03+(n.captured?5:0)-(n.funds>35?2:0));m.loyalty=clamp(m.loyalty+(n.cohesion-55)*.015-(m.ambition-50)*.006-(m.stress>65?1:0)+(m.traits.includes('loyal')?.2:0));}
-      n.fronts=n.fronts.filter(id=>assetState(s,id)?.controller===n.id&&assetState(s,id).infiltration>20);
-      n.revenue={extortion:Math.min(14,3+cells.length*.09)*(1+n.patronage/200),trade:(2+ports*.2+trade)*c.logistics,fronts:n.fronts.reduce((v,id)=>v+assetState(s,id).condition*.04,0)*(.5+n.laundering/100)};
-      const income=Object.values(n.revenue).reduce((a,b)=>a+b,0)*c.income*(s.completed.includes('finance')?.4:1);
-      n.funds=clamp(n.funds+income*(n.captured?.2:1));n.arsenal=clamp(n.arsenal+2*c.logistics);n.manpower=clamp(n.manpower+2*c.recruit);n.infighting=clamp(n.infighting+(50-n.cohesion)*.03+n.branches.filter(b=>b.splintered).length);
-      if(s.day%28===0){n.strategy=n.heat>72?'evade':n.funds<30?'profit':n.infighting>55?'consolidate':NETWORKS[n.id].archetype==='patronage'?'penetrate':NETWORKS[n.id].archetype==='mercantile'?'profit':'contest';n.strategySince=s.day;}
+      stepEconomy(s,n);n.arsenal=clamp(n.arsenal+2*c.logistics);n.manpower=clamp(n.manpower+2*c.recruit);n.infighting=clamp(n.infighting+(50-n.cohesion)*.03+n.branches.filter(b=>b.splintered).length);
+      if(s.day%28===0){n.strategy=n.heat>72?'evade':n.funds<30?'profit':n.infighting>55?'consolidate':n.archetype==='patronage'?'penetrate':n.archetype==='mercantile'?'profit':'contest';n.strategySince=s.day;}
     }
     stepRegionalCommand(s,n,c,random,report);
     if(n.captured){
@@ -109,7 +112,7 @@ export function stepCartels(s,random,report){
         n.dismantled=true;n.cohesion=0;for(const d of s.districts)alterCell(d,n.id,-d.cells[n.id]);
         for(const m of s.members.filter(m=>m.network===n.id&&m.status==='active'))m.status='defected';for(const branch of n.branches){branch.posture='disrupted';branch.splintered=false;}
         const cancelled=s.operations.filter(o=>o.network===n.id&&o.type!=='resupply');
-        for(const o of cancelled){const unit=s.units.find(u=>u.id===o.unit);if(unit)unit.status='ready';}
+        for(const o of cancelled)for(const id of operatingUnits(o)){const unit=s.units.find(u=>u.id===id);if(unit)unit.status='ready';}
         s.operations=s.operations.filter(o=>o.network!==n.id||o.type==='resupply');
         s.trust=clamp(s.trust+4);report(s,`${NETWORKS[n.id].name} has been dismantled. Remaining members have abandoned the organization.`,'success');
       }

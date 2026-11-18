@@ -31,7 +31,7 @@ export const TRAITS={
   resilient:{name:'Resilient',description:'Helps the organization recover cohesion after losses.',cohesion:.24,defense:.08},
   patient:{name:'Patient',description:'Keeps a low profile and waits before expanding.',stealth:.18,aggression:-.12},
 };
-export const INTENTS={entrench:'Fortifying cells',recruit:'Recruiting',expand:'Expanding influence',bribe:'Cultivating connections',regroup:'Regrouping',rivalry:'Contesting a rival',pact:'Seeking an arrangement',coerce:'Coercing communities',relocate:'Relocating command',recover:'Rebuilding command',infiltrate:'Infiltrating infrastructure',front:'Building a commercial front',sabotage:'Disrupting infrastructure',counterintel:'Countering investigations',discipline:'Restoring internal discipline',branch:'Regional branch action'};
+export const INTENTS={diversify:'Developing an income source',entrench:'Fortifying cells',recruit:'Recruiting',expand:'Expanding influence',bribe:'Cultivating connections',regroup:'Regrouping',rivalry:'Contesting a rival',pact:'Seeking an arrangement',coerce:'Coercing communities',relocate:'Relocating command',recover:'Rebuilding command',infiltrate:'Infiltrating infrastructure',front:'Building a commercial front',sabotage:'Disrupting infrastructure',counterintel:'Countering investigations',discipline:'Restoring internal discipline',branch:'Regional branch action'};
 export function seeded(seed){let value=seed>>>0;return ()=>{value=(value+0x6D2B79F5)>>>0;let t=value;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 export function createMembers(seed){
   const random=seeded(seed^0x59b183),traits=Object.keys(TRAITS),roles=['leader','lieutenant','financier','recruiter','fixer','regionalBoss','regionalBoss','captain','captain','captain','captain','courier','enforcer'];
@@ -48,7 +48,7 @@ export function createMembers(seed){
 }
 const cap=(n,min,max)=>Math.max(min,Math.min(max,n));
 export function capabilities(s,networkId){
-  const n=s.networks[networkId],base=ARCHETYPES[NETWORKS[networkId].archetype],members=s.members.filter(m=>m.network===networkId&&m.status==='active');
+  const n=s.networks[networkId],base=ARCHETYPES[n.archetype??NETWORKS[networkId].archetype],members=s.members.filter(m=>m.network===networkId&&m.status==='active');
   const result={};
   for(const key of ['income','recruit','defense','stealth','aggression','logistics','bribe','diplomacy','cohesion','coercion']){
     const changes=members.reduce((sum,m)=>sum+m.traits.reduce((v,t)=>v+(TRAITS[t][key]||0),0)*(m.skill/100)*(m.role==='leader'?.65:.18)*(.5+m.authority/200),0);

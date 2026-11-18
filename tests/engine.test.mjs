@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,act,tick,serialize,restore,stableDistricts,arrestRequirements,projectCost} from '../src/engine.js';
+import {createGame as createOpening,act,tick,serialize,restore,stableDistricts,arrestRequirements,projectCost} from '../src/engine.js';
+const createGame=(options={})=>createOpening({...options,scenario:'classic'});
 import {DISTRICTS,NETWORKS} from '../src/data.js';
 import {alterCell} from '../src/cartels.js';
 import {CELLS,NEIGHBORS,findRoute} from '../src/geography.js';

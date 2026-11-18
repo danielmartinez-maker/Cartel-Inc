@@ -7,6 +7,11 @@ import {BRANCH_ACTIONS,commandEffectiveness} from './regional-command.js';
 import {ProvinceMap} from './map.js';
 import {icon,portrait,badge,escapeHTML as esc} from './icons.js';
 import {ART,TERRAIN_ART,preloadAssets} from './assets.js';
+import {SCENARIOS,scenarioCode,terrainAt} from './scenarios.js';
+import {INCOME_TYPES,incomeTargets} from './economy.js';
+import {TACTICS,combatForecast} from './combat.js';
+import {cartelMenu,economyMenu} from './panels.js';
+import {renderScenarioImage,downloadScenarioImage} from './scenario-image.js';
 import {CampaignClock,activeOrders,progressOf,atmosphere} from './world.js';
 
 const $=selector=>document.querySelector(selector);
@@ -18,10 +23,17 @@ try{const saved=localStorage.getItem(MOTION_KEY);if(['on','off'].includes(saved)
 let state=createGame(),loadNotice='',storageAvailable=true,hasCampaign=false;
 try{const saved=localStorage.getItem(SAVE_KEY);if(saved){state=restore(saved);hasCampaign=true;loadNotice=state.migration?'Campaign expanded to fifty connected provinces. Your earlier progress is preserved. Time is paused.':'Campaign restored. Time is paused.';}}
 catch{loadNotice='The saved campaign could not be read. A new campaign is ready.';}
-let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUnit=null,layer='control',focusedNetwork=0,targetNetwork=null,selectedNeighborhood=0,focusedAsset='0-power';
+let selected=HQ,pane='district',category='civilian',dispatchUnit=null,focusedUnit=null,layer='control',focusedNetwork=null,targetNetwork=null,selectedNeighborhood=0,focusedAsset='0-power';
 let sound=false,audioContext=null,toastTimer=null,lastOutcome=null,newGovernor='cruz',wasRunningBeforeModal=false;
 let scene='loading',loadingTarget='menu',loadingSerial=0,loadingDone=false;
-const modal=$('#modal');
+const modal=$('#modal'),commandMenu=$('#command-menu');
+let dossierTab='overview',contextVisible=false,combatTactic='deliberate',combatUnits=null,targetRacket='extortion',previewScenario=null,previewSerial=0,previewTimer=null;
+const menuNames={district:'District command',units:'Security forces',initiatives:'Development',networks:'Cartel intelligence',infrastructure:'Infrastructure',province:'Provincial administration',economy:'National economy',activity:'Intelligence & operations'};
+function openCommand(view){pane=view;dispatchUnit=null;state.paused=true;$('#game-menu-title').textContent=menuNames[view];$('#command-menu').dataset.menu=view;if(!commandMenu.open)commandMenu.showModal();$('#panel-content').scrollTop=0;render();}
+function closeCommand(){if(commandMenu.open)commandMenu.close();state.paused=true;render();}
+commandMenu.addEventListener('cancel',e=>{e.preventDefault();closeCommand();});
+commandMenu.addEventListener('click',e=>{if(e.target===commandMenu){const r=commandMenu.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeCommand();}});
+
 
 function notify(message,error=false){
   const toast=$('#toast');toast.textContent=message;toast.classList.toggle('error',error);toast.classList.add('visible');
@@ -49,7 +61,7 @@ function command(action,{quiet=false}={}){
   chime(!result.ok);if(result.ok)save();render();return result;
 }
 function selectDistrict(id,network=null){
-  selected=id;selectedNeighborhood=0;targetNetwork=network??dominantNetwork(state.districts[id]);
+  if(selected!==id)combatUnits=null;contextVisible=true;selected=id;selectedNeighborhood=0;targetNetwork=network??dominantNetwork(state.districts[id]);
   if(map.activeRegion!==DISTRICTS[id].region)map.focusRegion(DISTRICTS[id].region);
   if(dispatchUnit!==null){
     const result=command({type:'move',unit:dispatchUnit,district:id});
@@ -58,15 +70,16 @@ function selectDistrict(id,network=null){
   render();
 }
 const map=new ProvinceMap($('#map-container'),selectDistrict,id=>{
-  focusedUnit=id;pane='units';dispatchUnit=null;render();
+  focusedUnit=id;openCommand('units');
   setTimeout(()=>document.querySelector(`[data-roster="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}),0);
 },(plan,destination)=>{
   const preview=$('#route-preview');preview.hidden=!plan||dispatchUnit===null;
   if(plan){const unit=state.units.find(u=>u.id===dispatchUnit);preview.innerHTML=`<strong>${esc(unit?.name||'Unit')} → ${DISTRICTS[destination].name}</strong>${plan.ok?`${plan.days} days · ${plan.path.length-1} district crossings`:'Unavailable'}<small>${plan.ok?'Select this district to dispatch.':esc(plan.message)}</small>`;}
 });
-map.onProvince=id=>{selected=REGIONS[id].hub;selectedNeighborhood=0;pane='province';$('#panel-content').scrollTop=0;render();};
-map.onInfrastructure=id=>{focusedAsset=id;selected=INFRASTRUCTURE.find(a=>a.id===id).district;pane='infrastructure';$('#panel-content').scrollTop=0;render();};
-map.onNeighborhood=(id,index)=>{selected=id;selectedNeighborhood=index;pane='district';map.selectedNeighborhood=index;render();};
+map.onProvince=id=>{selected=REGIONS[id].hub;selectedNeighborhood=0;contextVisible=true;render();};
+map.onInfrastructure=id=>{focusedAsset=id;selected=INFRASTRUCTURE.find(a=>a.id===id).district;openCommand('infrastructure');};
+map.onNeighborhood=(id,index)=>{selected=id;selectedNeighborhood=index;contextVisible=true;map.selectedNeighborhood=index;render();};
+map.onClear=()=>{contextVisible=false;render();};
 map.onView=id=>{
   const r=id===null?null:REGIONS[id];$('#region-focus').value=id===null?'all':String(id);
   $('.map-heading h1').textContent=r?r.name:'Santa Esperanza';
@@ -75,6 +88,7 @@ map.onView=id=>{
 };
 map.setMotion(mapMotion);
 reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches||!customMotion){mapMotion=!reducedMotion.matches;map.setMotion(mapMotion);render();}});
+for(const [i,view]of ['economy','activity','economy','province','networks'].entries()){const el=document.querySelectorAll('.metric')[i];el.dataset.action='view';el.dataset.view=view;el.setAttribute('role','button');el.tabIndex=0;}
 $('#brand-mark').innerHTML=badge(0);
 $('#menu-insignia').innerHTML=badge(0);
 $('#campaign-menu-button').innerHTML=icon('home',16);
@@ -84,6 +98,7 @@ const railIcons={district:'map',units:'shield',initiatives:'leaf',networks:'netw
 document.querySelectorAll('.rail-top button').forEach(b=>b.innerHTML=icon(railIcons[b.dataset.view]));
 document.querySelector('.rail-bottom [data-action="reports"]').innerHTML=icon('chart');
 document.querySelector('.rail-bottom [data-action="briefing"]').innerHTML=icon('book');
+for(const b of document.querySelectorAll('.command-dock button'))b.querySelector('.dock-emblem').innerHTML=icon(({units:'shield',networks:'network',initiatives:'leaf',infrastructure:'depot',economy:'coin',province:'flag',activity:'eye'})[b.dataset.view],30);
 for(const [action,name]of [['zoom-in','plus'],['zoom-out','minus'],['zoom-fit','expand']])document.querySelector(`[data-action="${action}"]`).innerHTML=icon(name);
 
 function setScene(next){
@@ -102,6 +117,7 @@ function renderMenu(){
   $('#menu-sound-button').innerHTML=icon(sound?'volume':'mute',15)+`Sound ${sound?'on':'off'}`;
 }
 function showMenu(){
+  if(commandMenu.open)commandMenu.close();
   loadingSerial++;state.paused=true;dispatchUnit=null;wasRunningBeforeModal=false;
   if(modal.open)modal.close();save();renderMenu();setScene('menu');
   (hasCampaign?$('#continue-button'):$('#menu-new-game')).focus({preventScroll:true});
@@ -150,10 +166,12 @@ function operationReason(type,d,network=null){
   if(state.outcome)return 'The campaign has ended.';
   if(state.operations.some(o=>o.district===d.id))return 'An operation is already in progress here.';
   if(state.networks[nid].dismantled)return 'This faction has been dismantled. Choose another target.';
+  if(type==='raid'&&combatTactic==='precision'&&d.intel<60)return 'Requires 60% local intelligence.';
+  if(type==='raid'&&combatUnits?.length===0)return 'Select at least one security unit.';
   if(type==='raid'&&d.cells[nid]<1)return 'No active cell is present.';
   if(type!=='investigate'&&d.intel<(type==='raid'?40:30))return `Requires ${type==='raid'?40:30}% local intelligence.`;
   if(type!=='investigate'&&!unitsHere(state,d.id).some(u=>u.type!=='intel'))return 'Requires a ready security unit in this district.';
-  const cost=projectCost(state,type==='investigate'?6:7);
+  const cost=projectCost(state,type==='investigate'?6:type==='raid'?TACTICS[combatTactic].cost:7);
   if(state.money<cost)return `Requires $${cost} in the treasury.`;
   return '';
 }
@@ -166,14 +184,14 @@ function districtPanel(){
   const investigateReason=operationReason('investigate',d),raidReason=operationReason('raid',d);
   let priority=d.threat>=25?'Contain the local cell before committing to civilian projects.':d.support<60?'Public support is too low for lasting control. Fund local services.':d.stability<75?'Support is growing. Keep threat below 8% and allow stability to build.':'Keep local institutions strong and prevent the networks from returning.';
   if(selected===HQ&&state.day===0)priority='Your headquarters is secure. Investigate a district with cartel presence, then send ALPHA to contain it.';
-  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[def.terrain].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[def.terrain]}"></div><span>${TERRAIN[def.terrain].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / ${DISTRICTS.length}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
+  return `<div class="district-scene" role="img" aria-label="Illustrated ${esc(TERRAIN[terrainAt(state,selected)].label.toLowerCase())}"><div class="district-scene-art terrain-scene-${TERRAIN_ART[terrainAt(state,selected)]}"></div><span>${TERRAIN[terrainAt(state,selected)].label}</span></div><div class="panel-eyebrow"><span>DISTRICT ${String(selected+1).padStart(2,'0')} / ${DISTRICTS.length}</span><span class="state-tag ${stable?'good':d.threat>=25?'danger':''}">${status}</span></div>
     <h2 class="panel-title">${def.name}</h2><div class="district-meta"><span>${icon('pin')}${REGIONS[def.region].name}</span><span>${icon('people')}${def.population},000 residents</span></div>
     <div class="status-bars">${bar('Public support',d.support)}${bar('Intelligence coverage',d.intel,'intel')}${bar('Cartel threat',d.threat,'threat')}</div><details class="civilian-details"><summary>Community conditions</summary>${bar('Prosperity',d.prosperity)}${bar('Fear',d.fear,'threat')}${bar('Displacement',d.displacement,'threat')}${bar('Institutions',d.institutions)}<p>Supply access: ${Math.round(supplyScore(state,selected))}%. Fear and displacement weaken support. Prosperity and institutions constrain recruitment.</p></details><label class="target-label">TARGET FACTION<select id="district-network" aria-label="Target faction">${NETWORKS.filter(n=>d.cells[n.id]>.25||n.id===nid).map(n=>`<option value="${n.id}" ${n.id===nid?'selected':''}>${n.name} · ${Math.round(d.cells[n.id])} threat</option>`).join('')}</select></label>
-    ${neighborhoodPanel(d)}<div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
-    ${op?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway',capture:'Member arrest underway',flip:'Witness negotiation underway',resupply:'Resupply underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[op?.network??nid].color}"></i>${NETWORKS[op?.network??nid].name}</span></div>`:''}</div>`:''}
+    ${tacticalPanel(d,nid,op)}<details class="neighborhood-disclosure"><summary>Neighborhood programs</summary>${neighborhoodPanel(d)}</details><div class="section-label">DISTRICT OPERATIONS <span>Orders take time</span></div>
+    ${op&&op.type!=='raid'?`<div class="notice"><strong>${{investigate:'Investigation underway',raid:'Security operation underway',arrest:'Arrest operation underway',interdict:'Asset disruption underway',capture:'Member arrest underway',flip:'Witness negotiation underway',resupply:'Resupply underway'}[op.type]}</strong>${progress(op.remaining,op.total)}${op.type==='raid'?`<div class="confrontation-readout"><span><i class="encounter-key security-key"></i>${esc(state.units.find(u=>u.id===op.unit)?.name||'Security')}</span><span>engaging</span><span><i class="encounter-key cartel-key" style="background:${NETWORKS[op?.network??nid].color}"></i>${NETWORKS[op?.network??nid].name}</span></div>`:''}</div>`:''}
     ${actionButton({action:'investigate',title:'Gather intelligence',detail:'4 days · build intelligence & case evidence',iconName:'eye',cost:`$${projectCost(state,6)}`,disabled:!!investigateReason,primary:true})}
     ${investigateReason?`<p class="reason">${investigateReason}</p>`:''}
-    ${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`4 days · ${Math.round(operationForecast(state,selected,nid)*100)}% success forecast`,iconName:'target',cost:`$${projectCost(state,7)}`,disabled:!!raidReason})}
+    ${actionButton({action:'raid',title:'Contain cartel cell',detail:raidReason||`${TACTICS[combatTactic].days} days · ${Math.round(combatForecast(state,selected,nid,combatTactic,combatUnits)?.chance*100)}% forecast`,iconName:'target',cost:`$${projectCost(state,TACTICS[combatTactic].cost)}`,disabled:!!raidReason})}
     ${actionButton({action:'view',title:'Deploy security forces',detail:'Select a unit, then its destination on the map',iconName:'shield',extra:'data-view="units"'})}
     <div class="section-label">DEPLOYED HERE <span>${here.length} ${here.length===1?'unit':'units'}</span></div>
     ${here.length?here.map(u=>`<button class="unit-inline" data-action="focus-unit" data-unit="${u.id}">${unitToken(u)}<span><strong>${esc(u.name)}</strong><small>${UNIT_TYPES[u.type].name} · ${u.status==='operating'?'Operation in progress':'Ready for orders'}</small></span>${icon('chevron',12)}</button>`).join(''):'<p class="empty-text">No unit stationed in this district.</p>'}
@@ -181,6 +199,33 @@ function districtPanel(){
     ${actionButton({action:'category',title:'Fund a local initiative',detail:`${d.services} services delivered · ${Math.floor(d.stability)}% stability`,iconName:'people',extra:'data-category="civilian"'})}
     <button class="network-mini" data-action="view-network" data-network="${nid}">${portrait(NETWORKS[nid].portrait)}<span><strong>${NETWORKS[op?.network??nid].name}</strong><small>${state.networks[nid].dismantled?'Network dismantled':state.networks[nid].captured?'Leader in custody':'Regional network'} · ${percent(state.networks[nid].evidence)} case evidence</small></span>${icon('chevron')}</button>`;
 }
+function renderContext(){
+ const el=$('#district-context');el.hidden=!contextVisible;if(!contextVisible)return;
+ const d=state.districts[selected],def=DISTRICTS[selected],op=state.operations.find(o=>o.district===selected),n=NEIGHBORHOODS[selected][selectedNeighborhood];
+ el.innerHTML=`<button class="context-dismiss" data-action="dismiss-context" aria-label="Close district inspection">×</button><small>${REGIONS[def.region].name.toUpperCase()} / ${map.zoom>=17?n.name.toUpperCase():'DISTRICT'}</small><h2>${map.zoom>=17?n.name:def.localName}</h2><div class="context-stats"><span>${Math.round(d.support)}<em>SUPPORT</em></span><span>${Math.round(d.intel)}<em>INTEL</em></span><span>${Math.round(d.threat)}<em>THREAT</em></span>${op?.battle?`<span>${Math.round(op.battle.control)}<em>CONTROL</em></span>`:''}</div>${op?`<p>${op.battle?TACTICS[op.battle.tactic].name:op.type} · ${op.remaining} days remaining</p>`:''}<div class="context-actions"><button data-action="inspect-district">${op?.battle?'Tactical command':'Inspect & issue orders'}</button><button data-action="neighborhood-map">Neighborhoods</button></div>`;
+}
+function tacticalPanel(d,nid,op){
+ if(op?.battle){const b=op.battle,ready=state.units.filter(u=>u.district===d.id&&u.type!=='intel'&&u.status==='ready');return `<section class="tactical-card"><div class="tactical-heading"><small>LIVE TACTICAL COMMAND</small><strong>${NETWORKS[nid].name}</strong></div><div class="tactical-score">${bar('Area control',b.control)}${bar('Friendly suppression',b.friendlySuppression,'threat')}${bar('Enemy suppression',b.enemySuppression)}${bar('Escape risk',b.escapeRisk,'threat')}</div><p>${b.units.map(id=>esc(state.units.find(u=>u.id===id).name)).join(' + ')} · ${op.remaining} days remaining · ${Math.round(b.forecast*100)}% current forecast</p><label class="target-label">TACTICAL ORDER<select id="active-tactic">${Object.entries(TACTICS).map(([id,t])=>`<option value="${id}" ${id===b.tactic?'selected':''}>${t.name}</option>`).join('')}</select></label><p class="reason">Changing tactics adds one reorganization day. One command per day.</p>${ready.map(u=>`<button class="game-button" data-action="reinforce" data-unit="${u.id}" ${b.units.length>=3||b.lastOrderDay===state.day||state.money<projectCost(state,3)?'disabled':''}>Reinforce with ${u.name} · $${projectCost(state,3)}</button>`).join('')}<button class="game-button retreat-button" data-action="withdraw">Order withdrawal</button><div class="battle-log">${b.entries.map(e=>`<p><small>DAY ${e.day+1}</small>${esc(e.text)}</p>`).join('')}</div></section>`;}
+ const f=combatForecast(state,d.id,nid,combatTactic,combatUnits),ready=state.units.filter(u=>u.district===d.id&&u.type!=='intel'&&u.status==='ready');
+ const targets=incomeTargets(state,nid,targetRacket),financialReason=d.intel<50?'Requires 50% intelligence':!ready.length?'Requires a ready security unit here':!targets.some(t=>t.district===d.id)?'This source has no activity here':op?'Another operation is active':state.money<projectCost(state,9)?'Insufficient treasury':'';
+ return `<section class="tactical-card"><small>OPERATION PLANNING</small><h3>Choose an approach</h3><label class="target-label">TACTIC<select id="combat-tactic">${Object.entries(TACTICS).map(([id,t])=>`<option value="${id}" ${id===combatTactic?'selected':''}>${t.name} · ${t.days}d · $${projectCost(state,t.cost)}</option>`).join('')}</select></label><p>${TACTICS[combatTactic].description}</p>${ready.length?`<div class="commit-units">${ready.map(u=>`<label><input type="checkbox" data-combat-unit="${u.id}" ${f.units.includes(u.id)?'checked':''}>${u.name}<small>${Math.round(u.supply)}% supply · ${Math.round(unitPower(state,u))} power</small></label>`).join('')}</div>`:'<p class="reason">Deploy a security unit here to carry out containment.</p>'}<div class="combat-factors">${f.factors.map(v=>`<span>${v.label}<b>${v.value}</b></span>`).join('')}<span>Escape risk<b>${Math.round(f.escapeRisk)}%</b></span><span>Civilian risk<b>${Math.round(f.civilianRisk)}%</b></span></div><p class="reason">Terrain and fortifications protect defenders. Nearby security units cover exits; supply and readiness determine force power.</p></section><details class="financial-operations"><summary>Target a cartel income source</summary><label class="target-label">SOURCE<select id="income-target">${Object.entries(INCOME_TYPES).map(([id,t])=>`<option value="${id}" ${id===targetRacket?'selected':''}>${t.name}</option>`).join('')}</select></label><p>${INCOME_TYPES[targetRacket].description}</p><button class="game-button" data-action="disrupt-income" ${financialReason?'disabled':''}>Financial disruption · 5d · $${projectCost(state,9)}</button><p class="reason">${financialReason||'Suppress this income source for 28 days, seize illicit cash and build case evidence.'}</p></details>`;
+}
+function schedulePreview(){clearTimeout(previewTimer);previewSerial++;const button=$('#export-scenario');if(button)button.disabled=true;previewTimer=setTimeout(()=>void updatePreview(),180);}
+async function updatePreview(){
+ const input=$('#new-seed'),target=$('#scenario-preview');if(!input||!target)return;const seed=Number(input.value),serial=++previewSerial;
+ if(input.value===''||!Number.isInteger(seed)||seed<0||seed>4294967295){$('#scenario-description').textContent='Enter a whole seed between 0 and 4294967295.';return;}
+ try{const candidate=createGame({seed,governor:newGovernor,difficulty:$('#new-difficulty').value,scenario:$('#new-scenario').value}),offscreen=document.createElement('canvas');const manifest=await renderScenarioImage(candidate,offscreen);if(serial!==previewSerial||!$('#scenario-preview'))return;target.width=offscreen.width;target.height=offscreen.height;target.getContext('2d').drawImage(offscreen,0,0);target.dataset.signature=manifest.signature;previewScenario=candidate;$('#replay-code').textContent=scenarioCode(candidate);$('#scenario-description').textContent=SCENARIOS[candidate.scenario?.type]?.description??'The fixed classic opening, with seeded character traits.';$('#export-scenario').disabled=false;}catch(error){if(serial===previewSerial)$('#scenario-description').textContent=error.message;}
+}
+function loadReplayCode(){
+ const code=$('#replay-input').value.trim(),parts=code.split('-');let seed,type,governor,difficulty;
+ if(parts[0]==='CC1'&&parts.length===5){[,seed,type,governor,difficulty]=parts;}else if(parts[0]==='CLASSIC'&&parts.length===4){[,seed,governor,difficulty]=parts;type='classic';}else{notify('Use a valid CC1 or CLASSIC replay code.',true);return;}
+ if(!/^\d+$/.test(seed)||Number(seed)>4294967295||!GOVERNORS.some(g=>g.id===governor)||!Object.hasOwn(DIFFICULTIES,difficulty)||type!=='classic'&&!Object.hasOwn(SCENARIOS,type)){notify('This replay code is invalid or unsupported.',true);return;}
+ $('#new-seed').value=seed;$('#new-scenario').value=type;$('#new-difficulty').value=difficulty;newGovernor=governor;document.querySelectorAll('.governor-option').forEach(b=>b.classList.toggle('active',b.dataset.id===newGovernor));schedulePreview();
+}
+function scenarioBrief(){
+ previewScenario=createGame({seed:state.seed,governor:state.governor,difficulty:state.difficulty,scenario:state.scenario?.type??'classic'});openModal('Campaign atlas','SEED BRIEFING',`<canvas id="active-scenario-image" class="scenario-atlas" aria-label="Rendered opening campaign atlas"></canvas><p>${scenarioCode(previewScenario)}</p><button class="game-button" data-action="export-scenario">Export briefing PNG</button>`);void renderScenarioImage(previewScenario,$('#active-scenario-image')).catch(error=>notify(error.message,true));
+}
+
 function neighborhoodPanel(d){
  const n=d.neighborhoods[selectedNeighborhood],def=NEIGHBORHOODS[d.id][selectedNeighborhood],working=state.works.find(w=>w.kind==='neighborhood'&&w.target===d.id*3+selectedNeighborhood);
  return `<div class="section-label">NEIGHBORHOODS <span>District / neighborhood command</span></div><div class="neighborhood-tabs">${NEIGHBORHOODS[d.id].map(b=>`<button data-action="neighborhood-focus" data-neighborhood="${b.index}" class="${b.index===selectedNeighborhood?'active':''}">${b.name}</button>`).join('')}</div>
@@ -239,33 +284,7 @@ function unitsPanel(){
     Object.entries(UNIT_TYPES).map(([type,def])=>`<div class="recruit-row"><span><strong>${def.name}</strong><small>${def.days} days · ${def.description}</small></span><button class="small-button secondary" data-action="recruit" data-unit-type="${type}" ${state.money<projectCost(state,def.cost)||state.units.length>=MAX_UNITS||state.outcome?'disabled':''}>+ $${projectCost(state,def.cost)}</button></div>`).join('')+
     `<div class="notice"><strong>Containment needs a permanent presence.</strong>Security units suppress local cells each day. Intelligence teams reveal activity. Police stations keep working after a unit moves on.</div>`;
 }
-function networksPanel(){
-  const def=NETWORKS[focusedNetwork],n=state.networks[focusedNetwork],leader=leaderOf(state,n.id),archetype=ARCHETYPES[def.archetype],req=arrestRequirements(state,n.id),caps=capabilities(state,n.id);
-  const cells=state.districts.filter(d=>d.cells[n.id]>=1),members=state.members.filter(m=>m.network===n.id),pacts=state.pacts.filter(p=>p.a===n.id||p.b===n.id);
-  return heading('ORGANIZED CRIME DOSSIERS','Cartel organizations','Follow the money, expose individual members, and break the organization behind its leader.')+
-    `<label class="target-label">CARTEL DOSSIER<select id="faction-focus" aria-label="Cartel dossier">${NETWORKS.map(f=>`<option value="${f.id}" ${f.id===n.id?'selected':''}>${f.name}${state.networks[f.id].dismantled?' · dismantled':''}</option>`).join('')}</select></label>
-    <div class="faction-strip">${NETWORKS.map(f=>`<button data-action="view-network" data-network="${f.id}" class="${f.id===n.id?'active':''}" title="${f.name}" aria-label="Open ${f.name} dossier" aria-pressed="${f.id===n.id}" style="--faction:${f.color}">${f.id+1}</button>`).join('')}</div>
-    <article class="network-card" id="network-${n.id}"><div class="network-card-head">${portrait(def.portrait)}<div><h3>${def.name}</h3><small>${esc(leader.name)}${n.successions?' · successor':''}</small><span class="state-tag ${n.dismantled?'good':n.captured?'':'danger'}">${n.dismantled?'DISMANTLED':n.captured?'COMMAND VACUUM':'ACTIVE NETWORK'}</span></div></div><div class="network-card-body">
-    <div class="archetype-tag">${archetype.name}</div><p>${archetype.description}</p>
-    ${bar('Case evidence',n.evidence,'intel')}${bar('Funding',n.funds,'threat')}${bar('Internal cohesion',n.cohesion)}
-    <div class="logistics-grid"><span>Heat <b>${Math.round(n.heat)}%</b></span><span>Logistics <b>${Math.round(n.logistics)}%</b></span><span>Cells <b>${cells.length}</b></span></div>
-    <div class="notice"><strong>${n.dismantled?'Organization dismantled':INTENTS[n.intent]}</strong>${n.dismantled?'All active cells have been contained.':n.captured?(n.successionAt?`Succession assessed on day ${n.successionAt+1}. Funding, cohesion and surviving members determine whether command recovers.`:'Central succession failed. Surviving autonomous branches can still resist.'):`Current focus: ${DISTRICTS[n.focus].name}. Decisions respond to security pressure, intelligence, resources, terrain and rivals.`}</div>
-    <button class="network-home" data-action="select" data-district="${leader.location}" data-network="${n.id}">${icon('pin',10)} ${n.captured?'Last leader location':'Known command location'}: ${DISTRICTS[leader.location].name} ${icon('arrow',10)}</button>
-    ${!n.captured?`<div class="network-prerequisites">${req.map(r=>`<span>${icon('lock',10)}${r}</span>`).join('')}</div>${actionButton({action:'arrest',title:'Arrest current leader',detail:'5 days · opens a succession window',cost:`$${projectCost(state,12)}`,iconName:'scales',extra:`data-network="${n.id}"`,disabled:!!req.length,danger:true})}`:''}
-    <details class="capability-details"><summary>Organization capabilities</summary><div class="capability-list">${['income','recruit','defense','stealth','aggression','logistics','bribe','diplomacy'].map(k=>`<span>${k}<b>${caps[k].toFixed(2)}×</b></span>`).join('')}</div><p>Archetype, active roles, skill and traits modify these values. Removing a financier cuts income; removing a recruiter slows recruitment.</p></details>
-    </div></article>
-    <div class="section-label">STRATEGY & ECONOMY</div><div class="notice"><strong>${STRATEGIES[n.strategy]}</strong>Arsenal ${Math.round(n.arsenal)}% · Manpower ${Math.round(n.manpower)}%<br>Counterintelligence ${Math.round(n.counterintel)}% · Institutional penetration ${Math.round(n.infiltration)}%<br>Internal disputes ${Math.round(n.infighting)}% · Laundering ${Math.round(n.laundering)}%</div><div class="revenue-lines">${Object.entries(n.revenue).map(([key,value])=>`<span>${key}<b>$${value.toFixed(1)}/week</b></span>`).join('')}</div><p class="reason">${n.fronts.length} commercial fronts. Auditing an infiltrated facility can remove its front, cut funds and build evidence.</p>
-    <div class="section-label">REGIONAL COMMAND <span>3 branches</span></div>${n.branches.map(b=>{const boss=state.members.find(m=>m.id===b.commander);return `<article class="branch-card"><strong>${REGIONS[b.region].name}</strong><button class="network-home" data-action="select" data-district="${boss.location}" data-network="${n.id}">${esc(boss.name)} · ${MEMBER_ROLES[boss.role]}</button><small>${b.posture.toUpperCase()}${b.splintered?' · AUTONOMOUS':''}</small>${bar('Branch autonomy',b.autonomy,'threat')}${bar('Loyalty to central command',b.loyalty)}<p>Stockpile ${Math.round(b.stockpile)}% · Command effectiveness ${Math.round(commandEffectiveness(state,boss)*100)}%. ${b.lastAction?`Last action: ${BRANCH_ACTIONS[b.lastAction.intent].toLowerCase()} in ${DISTRICTS[b.lastAction.target].localName} (day ${b.lastAction.day+1}). `:''}Capturing its commander disrupts regional action. Unchecked autonomous branches can keep operating during a command vacuum.</p></article>`;}).join('')}
-    <div class="section-label">INDIVIDUAL MEMBERS <span>${members.filter(m=>m.status==='active').length} active / ${members.length}</span></div>
-    ${members.map(m=>{
-      const capture=memberRequirements(state,m.id),flip=memberRequirements(state,m.id,'flip');
-      return `<article class="member-card"><div class="member-heading"><span class="member-seal">${icon(m.role==='financier'?'coin':m.role==='fixer'?'scales':m.role==='recruiter'?'people':m.role==='leader'?'network':'shield',18)}</span><div><h3>${esc(m.name)}</h3><small>${MEMBER_ROLES[m.role]} · ${m.status}</small></div></div><div class="trait-list">${m.traits.map(t=>`<span title="${TRAITS[t].description}">${TRAITS[t].name}</span>`).join('')}</div><p class="trait-explanation">${m.traits.map(t=>TRAITS[t].description).join(' ')}</p><div class="logistics-grid"><span>Skill <b>${m.skill}</b></span><span>Loyalty <b>${Math.round(m.loyalty)}</b></span><span>Exposure <b>${Math.floor(m.exposure)}%</b></span></div><p class="reason">Authority ${m.authority}% · Ambition ${Math.round(m.ambition)}% · Stress ${Math.round(m.stress)}%<br>${m.commander?`Reports to ${esc(state.members.find(c=>c.id===m.commander)?.name||'regional command')}`:'Central command'} · ${NEIGHBORHOODS[m.location][m.neighborhood].name}</p><button class="network-home" data-action="select" data-district="${m.location}" data-network="${n.id}">${icon('pin',10)} ${DISTRICTS[m.location].name}</button>
-        ${m.status==='active'?`<button class="small-button secondary" data-action="investigate-member" data-member="${m.id}" ${state.operations.some(o=>o.district===m.location)||state.money<projectCost(state,6)||state.outcome?'disabled':''}>Investigate location · $${projectCost(state,6)}</button>`:''}${m.status==='active'&&m.role!=='leader'?`<div class="member-actions"><button class="small-button" data-action="capture-member" data-member="${m.id}" ${capture.length?'disabled':''}>Arrest · $${projectCost(state,10)}</button><button class="small-button secondary" data-action="flip-member" data-member="${m.id}" ${flip.length?'disabled':''}>Witness deal · $${projectCost(state,10)}</button></div><p class="reason">${capture[0]?`Arrest: ${capture[0]}. `:''}${flip[0]?`Deal: ${flip[0]}.`:'Deal success depends on loyalty and witness protection.'}</p>`:''}</article>`;
-    }).join('')}
-    <div class="section-label">RIVAL RELATIONS</div><div class="relation-list">${NETWORKS.filter(f=>f.id!==n.id&&!state.networks[f.id].dismantled).map(f=>`<button data-action="view-network" data-network="${f.id}"><span style="color:${f.color}">●</span>${f.name}<b>${state.relations[n.id][f.id]>0?'+':''}${Math.round(state.relations[n.id][f.id])}</b></button>`).join('')}</div>
-    ${pacts.map(p=>`<p class="reason">Arrangement with ${NETWORKS[p.a===n.id?p.b:p.a].name} · ${p.until-state.day} days remaining</p>`).join('')}
-    <div class="section-label">RECENT FACTION DECISIONS</div>${n.aiLog.length?n.aiLog.map(l=>`<div class="activity-logline"><small>DAY ${l.day+1} · ${INTENTS[l.intent]}</small>${esc(l.reason)}</div>`).join(''):'<p class="empty-text">No decisions recorded yet. Advance time to observe this organization.</p>'}`;
-}
+function networksPanel(){return cartelMenu(state,focusedNetwork,dossierTab);}
 
 function activityPanel(){
   const urgent=INFRASTRUCTURE.filter(a=>{const st=assetState(state,a.id);return st.condition<40||st.downtime>0||st.infiltration>45;}).sort((a,b)=>assetOutput(assetState(state,a.id))-assetOutput(assetState(state,b.id)));
@@ -282,10 +301,11 @@ function activityPanel(){
 }
 
 function renderPanel(){
+  if(!commandMenu.open)return;
   const panel=$('#panel-content'),scroll=panel.scrollTop;
   const active=document.activeElement;
   const activeData=panel.contains(active)&&active?.dataset.action?{...active.dataset}:null;
-  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel,activity:activityPanel,province:provincePanel,infrastructure:infrastructurePanel}[pane])();
+  panel.innerHTML=({district:districtPanel,initiatives:initiativesPanel,units:unitsPanel,networks:networksPanel,activity:activityPanel,province:provincePanel,infrastructure:infrastructurePanel,economy:()=>economyMenu(state)}[pane])();
   panel.scrollTop=scroll;
   if(activeData){
     const replacement=[...panel.querySelectorAll('[data-action]')].find(e=>Object.entries(activeData).every(([k,v])=>e.dataset[k]===v));
@@ -293,6 +313,7 @@ function renderPanel(){
   }
 }
 function render(){
+  renderContext();
   const gov=GOVERNORS.find(g=>g.id===state.governor),stable=stableDistricts(state),progressValue=Math.round(stable/DISTRICTS.length*100);
   $('#money-value').textContent=`$${Math.floor(state.money)}`;
   $('#income-value').textContent=`+$${Math.round(budgetForecast(state).net)} / week`;
@@ -330,6 +351,7 @@ function render(){
 }
 
 function openModal(title,kicker,body,{resume=false,locked=false}={}){
+  if(commandMenu.open)commandMenu.close();
   wasRunningBeforeModal=resume&&!state.paused;
   state.paused=true;render();
   $('#modal-content').innerHTML=`<div class="modal-header"><div><div class="eyebrow">${kicker}</div><h2 id="modal-title">${title}</h2></div>${locked?'':`<button class="modal-close" data-action="close-modal" aria-label="Close dialog">${icon('close')}</button>`}</div><div class="modal-body">${body}</div>`;
@@ -368,13 +390,15 @@ function settings(){
     ${actionButton({action:'save',title:'Save campaign',detail:'Keep progress on this device',iconName:'save'})}
     ${actionButton({action:'export',title:'Export save',detail:'Download a portable JSON save',iconName:'download'})}
     ${actionButton({action:'import',title:'Import save',detail:'Restore a compatible campaign',iconName:'upload'})}
-    ${actionButton({action:'new-game',title:'New operation',detail:'Choose a governor and difficulty',iconName:'reset'})}</div><div class="notice"><strong>Current campaign</strong>${GOVERNORS.find(g=>g.id===state.governor).name} · ${DIFFICULTIES[state.difficulty].label} · Seed ${state.seed}<br>Day ${state.day+1} of ${MANDATE_DAYS} · ${state.stats.projects} projects completed · ${state.stats.arrests} leaders arrested</div>`);
+    ${actionButton({action:'new-game',title:'New operation',detail:'Choose a governor and difficulty',iconName:'reset'})}${actionButton({action:'scenario-brief',title:'Campaign atlas',detail:'View and export the seeded opening image',iconName:'map'})}</div><div class="notice"><strong>Current campaign</strong>${GOVERNORS.find(g=>g.id===state.governor).name} · ${DIFFICULTIES[state.difficulty].label} · Seed ${state.seed}<br>Day ${state.day+1} of ${MANDATE_DAYS} · ${state.stats.projects} projects completed · ${state.stats.arrests} leaders arrested</div>`);
 }
 function newGame(){
   openModal('A new mandate','CAMPAIGN SETUP',`<div class="province-card"><img src="${ART.province}" alt="Illustrated Santa Esperanza campaign map" width="160" height="106"><div><small>CAMPAIGN 01 / COASTAL CORRIDOR</small><h3>Santa Esperanza</h3><p>1,200 districts. Fifty connected provinces. Nine cartel organizations.<br>Restore civilian control before the mandate expires.</p></div></div><p>Choose the governor who will lead your next operation. Each brings a different advantage.</p><div class="governor-options">${GOVERNORS.map(g=>`<button class="governor-option ${g.id===newGovernor?'active':''}" data-action="governor" data-id="${g.id}">${portrait(g.portrait)}<span><strong>${g.name}</strong><small>${g.bonus}</small></span></button>`).join('')}</div>
     <div class="new-game-fields"><label>Difficulty<select id="new-difficulty">${Object.entries(DIFFICULTIES).map(([id,d])=>`<option value="${id}" ${id==='standard'?'selected':''}>${d.label}</option>`).join('')}</select></label><label>Campaign seed<input id="new-seed" inputmode="numeric" type="number" min="0" max="4294967295" value="${Math.floor(Math.random()*1000000)}"></label></div>
+    <div class="scenario-setup"><label class="target-label">CAMPAIGN SCENARIO<select id="new-scenario"><option value="auto">Seed director</option>${Object.entries(SCENARIOS).map(([id,t])=>`<option value="${id}">${t.name}</option>`).join('')}<option value="classic">Classic opening</option></select></label><div class="scenario-buttons"><button class="game-button" data-action="random-seed">Reroll seed</button><button class="game-button" data-action="export-scenario" id="export-scenario" disabled>Export briefing PNG</button></div><canvas id="scenario-preview" aria-label="Image briefing of the selected campaign seed"></canvas><p id="scenario-description">Preparing the seeded opening…</p><code id="replay-code"></code><div class="replay-entry"><input id="replay-input" placeholder="Paste a replay code" aria-label="Replay code"><button class="game-button" data-action="load-replay">Load code</button></div></div>
     ${hasCampaign?'<div class="confirmation">Starting a new operation replaces this device’s autosave. Export your current campaign first if you want to keep it.</div>':''}
     ${actionButton({action:'start-new',title:'Begin new operation',detail:'Start paused with a fresh provincial mandate',iconName:'flag',primary:true})}`);
+  schedulePreview();
 }
 function pauseMenu(){
   openModal('Provincial command','CAMPAIGN PAUSED',`<p>${GOVERNORS.find(g=>g.id===state.governor).name} · Day ${state.day+1} · ${DIFFICULTIES[state.difficulty].label}</p>
@@ -396,10 +420,25 @@ function outcomeModal(){
     ${actionButton({action:'new-game',title:'Start a new operation',detail:'Try another governor, seed or difficulty',iconName:'reset',primary:true})}${actionButton({action:'close-modal',title:'Review the province',detail:'Inspect the final campaign state',iconName:'map'})}`);
 }
 
-document.addEventListener('click',event=>{
+document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
   const a=button.dataset.action;
-  if(a==='main-menu'){showMenu();}
+  if(a==='close-command')closeCommand();
+  else if(a==='inspect-district')openCommand('district');
+  else if(a==='dismiss-context'){contextVisible=false;render();}
+  else if(a==='cartel-gallery'){focusedNetwork=null;render();}
+  else if(a==='dossier-tab'){dossierTab=button.dataset.tab;$('#panel-content').scrollTop=0;render();}
+  else if(a==='borrow'||a==='repay')command({type:a});
+  else if(a==='province-market'){selected=REGIONS[Number(button.dataset.region)].hub;openCommand('province');}
+  else if(a==='financial-target'){targetRacket=button.dataset.racket;if(commandMenu.open)commandMenu.close();selectDistrict(Number(button.dataset.district),Number(button.dataset.network));openCommand('district');}
+  else if(a==='disrupt-income')command({type:'interdict',district:selected,network:targetNetwork??dominantNetwork(state.districts[selected]),racket:targetRacket});
+  else if(a==='reinforce')command({type:a,district:selected,unit:Number(button.dataset.unit)});
+  else if(a==='withdraw')command({type:a,district:selected});
+  else if(a==='random-seed'){$('#new-seed').value=String(Math.floor(Math.random()*4294967296));schedulePreview();}
+  else if(a==='export-scenario'){try{await downloadScenarioImage(previewScenario??createGame({seed:state.seed,governor:state.governor,difficulty:state.difficulty,scenario:state.scenario?.type??'classic'}));notify('Campaign briefing image exported.');}catch(error){notify(error.message,true);}}
+  else if(a==='scenario-brief')scenarioBrief();
+  else if(a==='load-replay')loadReplayCode();
+  else if(a==='main-menu'){showMenu();}
   else if(a==='continue-game'){if(hasCampaign)void runLoading('game');}
   else if(a==='retry-loading'){if(scene==='loading'&&loadingDone)void runLoading(loadingTarget);}
   else if(a==='finish-loading'){if(scene==='loading')finishLoading();}
@@ -414,33 +453,31 @@ document.addEventListener('click',event=>{
   else if(a==='resume-game'){
     wasRunningBeforeModal=false;closeModal();if(!state.outcome&&!state.pendingEvent&&state.paused)command({type:'pause'},{quiet:true});
   }else if(a==='view'){
-    pane=button.dataset.view;dispatchUnit=null;$('#panel-content').scrollTop=0;render();
-    if(innerWidth<=760)$('#panel-content').scrollIntoView({block:'start',behavior:'smooth'});
+    if(button.dataset.view==='networks'){focusedNetwork=null;dossierTab='overview';}openCommand(button.dataset.view);
   }else if(a==='category'){
-    pane='initiatives';category=button.dataset.category;dispatchUnit=null;$('#panel-content').scrollTop=0;render();
-    if(innerWidth<=760)$('#panel-content').scrollIntoView({block:'start',behavior:'smooth'});
+    category=button.dataset.category;openCommand('initiatives');
   }else if(a==='select'){
-    dispatchUnit=null;selectDistrict(Number(button.dataset.district),button.dataset.network===undefined?null:Number(button.dataset.network));
-  }else if(a==='investigate'||a==='raid')command({type:a,district:selected,network:targetNetwork??dominantNetwork(state.districts[selected])});
+    if(commandMenu.open)commandMenu.close();dispatchUnit=null;selectDistrict(Number(button.dataset.district),button.dataset.network===undefined?null:Number(button.dataset.network));
+  }else if(a==='investigate'||a==='raid'){const result=command({type:a,district:selected,network:targetNetwork??dominantNetwork(state.districts[selected]),...(a==='raid'?{tactic:combatTactic,...(combatUnits!==null?{units:combatUnits}:{})}:{})});if(result.ok&&a==='raid'){if(commandMenu.open)commandMenu.close();contextVisible=true;map.focusDistrict(selected,selectedNeighborhood);render();}}
   else if(a==='interdict')command({type:a,district:Number(button.dataset.district),network:Number(button.dataset.network)});
   else if(a==='project')command({type:a,id:button.dataset.id,district:selected});
   else if(a==='recruit')command({type:a,unitType:button.dataset.unitType,district:recruitmentBase(state,selected)?selected:recruitmentBase(state,REGIONS[DISTRICTS[selected].region].hub)?REGIONS[DISTRICTS[selected].region].hub:HQ});
   else if(a==='investigate-member'){const m=state.members.find(m=>m.id===button.dataset.member);if(m)command({type:'investigate',district:m.location,network:m.network});}
   else if(a==='neighborhood-focus'){selectedNeighborhood=Number(button.dataset.neighborhood);map.selectedNeighborhood=selectedNeighborhood;render();}
-  else if(a==='neighborhood-map'){map.focusDistrict(selected,selectedNeighborhood);}
+  else if(a==='neighborhood-map'){if(commandMenu.open)commandMenu.close();contextVisible=true;map.focusDistrict(selected,selectedNeighborhood);render();}
   else if(a==='neighborhood-work')command({type:'neighborhood',district:selected,neighborhood:selectedNeighborhood,task:button.dataset.task});
   else if(a==='infrastructure-work')command({type:'infrastructure',asset:button.dataset.asset,task:button.dataset.task});
   else if(a==='asset-focus'){const def=INFRASTRUCTURE.find(a=>a.id===button.dataset.asset);focusedAsset=def.id;selected=def.district;pane='infrastructure';if(map.activeRegion!==DISTRICTS[selected].region)map.focusRegion(DISTRICTS[selected].region);render();}
-  else if(a==='infrastructure-view'){pane='infrastructure';layer='infrastructure';$('#map-layer').value=layer;map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
-  else if(a==='province-view'){pane='province';map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
+  else if(a==='infrastructure-view'){openCommand('infrastructure');layer='infrastructure';$('#map-layer').value=layer;map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
+  else if(a==='province-view'){openCommand('province');map.focusRegion(DISTRICTS[selected].region);$('#panel-content').scrollTop=0;render();}
   else if(a==='resupply')command({type:a,unit:Number(button.dataset.unit)});
   else if(a==='capture-member'||a==='flip-member')command({type:a==='capture-member'?'capture':'flip',member:button.dataset.member});
   else if(a==='arrest')command({type:a,network:Number(button.dataset.network)});
-  else if(a==='focus-unit'){pane='units';focusedUnit=Number(button.dataset.unit);render();}
+  else if(a==='focus-unit'){focusedUnit=Number(button.dataset.unit);openCommand('units');}
   else if(a==='view-network'){
-    pane='networks';focusedNetwork=Number(button.dataset.network);$('#panel-content').scrollTop=0;render();document.getElementById(`network-${button.dataset.network}`)?.scrollIntoView({block:'start',behavior:'smooth'});
+    focusedNetwork=Number(button.dataset.network);dossierTab='overview';openCommand('networks');
   }else if(a==='dispatch'){
-    dispatchUnit=Number(button.dataset.unit);focusedUnit=dispatchUnit;state.paused=true;render();
+    dispatchUnit=Number(button.dataset.unit);focusedUnit=dispatchUnit;state.paused=true;if(commandMenu.open)commandMenu.close();render();
     if(innerWidth<=760)$('.map-area').scrollIntoView({block:'start',behavior:'smooth'});
   }else if(a==='cancel-dispatch'){dispatchUnit=null;render();}
   else if(a==='pause'){
@@ -460,11 +497,11 @@ document.addEventListener('click',event=>{
   }else if(a==='import')$('#import-save').click();
   else if(a==='new-game')newGame();
   else if(a==='governor'){
-    newGovernor=button.dataset.id;document.querySelectorAll('.governor-option').forEach(b=>b.classList.toggle('active',b.dataset.id===newGovernor));
+    newGovernor=button.dataset.id;schedulePreview();document.querySelectorAll('.governor-option').forEach(b=>b.classList.toggle('active',b.dataset.id===newGovernor));
   }else if(a==='start-new'){
     const seedInput=$('#new-seed'),seed=Number(seedInput.value);
     if(!Number.isInteger(seed)||seed<0||seed>4294967295||seedInput.value===''){notify('Enter a whole campaign seed from 0 to 4294967295.',true);return;}
-    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor});clock.reset();hasCampaign=true;loadNotice='New operation ready. Issue orders, then begin.';lastOutcome=null;selected=HQ;pane='district';selectedNeighborhood=0;dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();void runLoading('game');
+    state=createGame({seed,difficulty:$('#new-difficulty').value,governor:newGovernor,scenario:$('#new-scenario').value});contextVisible=false;combatUnits=null;clock.reset();hasCampaign=true;loadNotice='New operation ready. Issue orders, then begin.';lastOutcome=null;selected=HQ;pane='district';selectedNeighborhood=0;dispatchUnit=null;focusedUnit=null;wasRunningBeforeModal=false;map.fit();modal.close();save();render();void runLoading('game');
   }else if(a==='decision'){
     const result=command({type:'event',choice:Number(button.dataset.choice)});if(result.ok){wasRunningBeforeModal=false;closeModal();}
   }
@@ -472,7 +509,15 @@ document.addEventListener('click',event=>{
 $('#region-focus').innerHTML='<option value="all">All fifty provinces</option>'+REGIONS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
 map.fit();
 $('#region-focus').addEventListener('change',event=>{if(event.target.value==='all')map.fit();else{const id=Number(event.target.value);map.focusRegion(id);selected=REGIONS[id].hub;selectedNeighborhood=0;pane='province';render();}});
-document.addEventListener('change',event=>{if(event.target.id==='infrastructure-focus'){focusedAsset=event.target.value;render();}if(event.target.id==='province-priority'){command({type:'province-priority',region:DISTRICTS[selected].region,priority:event.target.value});}if(event.target.dataset.patrolUnit){command({type:'patrol',unit:Number(event.target.dataset.patrolUnit),neighborhood:event.target.value==='none'?null:Number(event.target.value)});}if(event.target.id==='faction-focus'){focusedNetwork=Number(event.target.value);$('#panel-content').scrollTop=0;render();}if(event.target.id==='district-network'){targetNetwork=Number(event.target.value);render();}});
+document.addEventListener('input',event=>{if(event.target.id==='new-seed')schedulePreview();});
+document.addEventListener('change',event=>{
+ if(event.target.id==='combat-tactic'){combatTactic=event.target.value;render();}
+ if(event.target.id==='active-tactic')command({type:'tactic',district:selected,tactic:event.target.value});
+ if(event.target.matches('[data-combat-unit]')){combatUnits=[...document.querySelectorAll('[data-combat-unit]:checked')].map(e=>Number(e.dataset.combatUnit));render();}
+ if(event.target.id==='income-target'){targetRacket=event.target.value;render();}
+ if(event.target.id==='fiscal-policy')command({type:'fiscal',policy:event.target.value});
+ if(['new-scenario','new-difficulty'].includes(event.target.id))schedulePreview();
+if(event.target.id==='infrastructure-focus'){focusedAsset=event.target.value;render();}if(event.target.id==='province-priority'){command({type:'province-priority',region:DISTRICTS[selected].region,priority:event.target.value});}if(event.target.dataset.patrolUnit){command({type:'patrol',unit:Number(event.target.dataset.patrolUnit),neighborhood:event.target.value==='none'?null:Number(event.target.value)});}if(event.target.id==='faction-focus'){focusedNetwork=Number(event.target.value);$('#panel-content').scrollTop=0;render();}if(event.target.id==='district-network'){targetNetwork=Number(event.target.value);render();}});
 $('#map-layer').addEventListener('change',event=>{
   layer=event.target.value;render();
   $('#map-key').innerHTML=layer==='infrastructure'?'<span><i class="key-dot stable"></i>Operating</span><span><i class="key-dot hostile"></i>Outage / damaged</span><span>LINES: UTILITY DEPENDENCIES</span>':layer==='control'?'<span><i class="key-dot stable"></i>Stabilized</span><span><i class="key-dot unsecured"></i>Unsecured</span><span><i class="key-dot hostile"></i>Cartel presence</span><span><i class="key-unit"></i>Your units</span>':`<span>LIGHT: LOW ${layer==='support'?'SUPPORT':layer==='infrastructure'?'SERVICE CONTINUITY':'INTELLIGENCE'}</span><span>DEEP GREEN: HIGH COVERAGE</span>`;
@@ -486,6 +531,8 @@ $('#import-save').addEventListener('change',async event=>{
   event.target.value='';
 });
 document.addEventListener('keydown',event=>{
+  if(commandMenu.open){if(event.key==='Escape'){event.preventDefault();closeCommand();}return;}
+  if(event.key==='Enter'&&event.target.classList.contains('metric')){event.target.click();return;}
   if(['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName))return;
   if(event.key==='Escape'&&dispatchUnit!==null){dispatchUnit=null;render();return;}
   if(modal.open||event.ctrlKey||event.metaKey||event.altKey)return;
@@ -501,14 +548,14 @@ window.addEventListener('beforeunload',()=>save());
 let lastTime=performance.now();
 function frame(now){
   const elapsed=now-lastTime;lastTime=now;
-  const running=scene==='game'&&!document.hidden&&!state.paused&&!modal.open&&!state.outcome&&state.pendingEvent===null;
+  const running=scene==='game'&&!document.hidden&&!state.paused&&!modal.open&&!commandMenu.open&&!state.outcome&&state.pendingEvent===null;
   const days=clock.step(elapsed,{running,speed:state.speed});
   for(let i=0;i<days;i++){
     if(tick(state)){render();if(state.day%5===0||state.pendingEvent||state.outcome)save();}
     if(state.pendingEvent!==null){clock.reset();eventModal();break;}
     if(state.outcome&&state.outcome!==lastOutcome){clock.reset();outcomeModal();break;}
   }
-  map.frame(now,{visible:scene==='game'&&!document.hidden&&!modal.open,fraction:clock.fraction});
+  map.frame(now,{visible:scene==='game'&&!document.hidden&&!modal.open&&!commandMenu.open,fraction:clock.fraction});
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

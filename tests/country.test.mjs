@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createGame,act,tick,serialize,restore,movementPlan,unitPower,supplyScore} from '../src/engine.js';
+import {createGame as createOpening,act,tick,serialize,restore,movementPlan,unitPower,supplyScore} from '../src/engine.js';
+const createGame=(options={})=>createOpening({...options,scenario:'classic'});
 import {REGIONS,DISTRICTS,NEIGHBORHOODS,TRANSPORT_LINKS,NETWORKS,MAX_UNITS,SAVE_LIMIT} from '../src/data.js';
 import {NEIGHBORHOOD_CELLS,findRoute} from '../src/geography.js';
 import {INFRASTRUCTURE,INFRA_BY_REGION,assetState,provincialInfrastructure,nationalAccess} from '../src/infrastructure.js';

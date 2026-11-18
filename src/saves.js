@@ -8,9 +8,14 @@ import {restore as restorePrevious} from './compat-v2/saves.js';
 import {createGame} from './simulation.js';
 import {restoreTravelTimings,routeDuration} from './logistics.js';
 import {BRANCH_ACTIONS} from './regional-command.js';
+import {ensureEconomy,INCOME_TYPES} from './economy.js';
+import {SCENARIOS,SCENARIO_VERSION,SECTORS,BIOMES} from './scenarios.js';
+import {ARCHETYPES} from './cartels.js';
+import {ensureCivilEconomy,FISCAL_POLICIES,GOODS} from './civil-economy.js';
+import {TACTICS,operatingUnits} from './combat.js';
 
 function migrate(text){
- const source=JSON.parse(text),old=restorePrevious(text),s=createGame({seed:old.seed,governor:old.governor,difficulty:old.difficulty});
+ const source=JSON.parse(text),old=restorePrevious(text),s=createGame({seed:old.seed,governor:old.governor,difficulty:old.difficulty,scenario:'classic'});
  for(const key of ['day','rng','started','speed','money','trust','corruption','inflation','nextUnitId','nextEvent','pendingEvent','eventCount','completed','log'])s[key]=structuredClone(old[key]);
  s.outcome=old.outcome==='defeat'?'defeat':null;s.paused=true;s.holdDays=0;
  for(const d of old.districts){Object.assign(s.districts[d.id],structuredClone(d));s.districts[d.id].neighborhoods=createNeighborhoods(s.districts[d.id]);}
@@ -40,6 +45,10 @@ export function validateCampaign(s){
   }
   assert(s.networks.every(n=>n.branches.every(b=>b.lastAction===undefined||(b.lastAction&&integer(b.lastAction.day,0,s.day)&&Object.hasOwn(BRANCH_ACTIONS,b.lastAction.intent)&&district(b.lastAction.target)&&typeof b.lastAction.reason==='string'&&b.lastAction.reason.length<200))));
   assert(ids(s.networks)&&s.networks.length===NETWORKS.length&&s.networks.every((n,i)=>n.id===i&&['funds','evidence','cohesion','heat','logistics'].every(k=>num(n[k]))&&typeof n.captured==='boolean'&&typeof n.dismantled==='boolean'&&s.members.some(m=>m.id===n.leaderId&&m.network===n.id&&m.role==='leader'&&(n.captured?m.status==='captured':m.status==='active'))&&(!n.dismantled||n.captured)&&Object.hasOwn(INTENTS,n.intent)&&district(n.focus)&&integer(n.nextDecision,0,MANDATE_DAYS+200)&&integer(n.successionAt,0,MANDATE_DAYS+100)&&integer(n.successions,0,MEMBERS_PER_CARTEL-1)&&['arsenal','manpower','counterintel','infiltration','patronage','laundering','infighting'].every(k=>num(n[k]))&&Object.hasOwn(STRATEGIES,n.strategy)&&integer(n.strategySince,0,MANDATE_DAYS)&&n.revenue&&['extortion','trade','fronts'].every(k=>num(n.revenue[k],0,100000))&&Array.isArray(n.fronts)&&new Set(n.fronts).size===n.fronts.length&&n.fronts.every(id=>INFRA_INDEX.has(id))&&Array.isArray(n.branches)&&n.branches.length===3&&n.branches.every((b,j)=>b.id===j&&integer(b.region,0,REGIONS.length-1)&&s.members.some(m=>m.id===b.commander&&m.network===n.id)&&['autonomy','loyalty','stockpile'].every(k=>num(b[k]))&&['hold','extract','autonomous','disrupted'].includes(b.posture)&&typeof b.splintered==='boolean'&&integer(b.nextDecision,0,MANDATE_DAYS+100))&&Array.isArray(n.aiLog)&&n.aiLog.length<=6&&n.aiLog.every(l=>integer(l.day,0,MANDATE_DAYS)&&Object.hasOwn(INTENTS,l.intent)&&district(l.target)&&typeof l.reason==='string'&&l.reason.length<200)));
+  assert(s.scenario===null||(s.scenario&&s.scenario.version===SCENARIO_VERSION&&Object.hasOwn(SCENARIOS,s.scenario.type)&&typeof s.scenario.name==='string'&&s.scenario.name.length<80&&/^[a-f0-9]{8}$/.test(s.scenario.signature)&&Array.isArray(s.scenario.anchors)&&s.scenario.anchors.length===9&&new Set(s.scenario.anchors).size===9&&s.scenario.anchors.every(id=>integer(id,0,49))&&Array.isArray(s.scenario.owners)&&s.scenario.owners.length===50&&s.scenario.owners.every(network)&&Array.isArray(s.scenario.homes)&&s.scenario.homes.length===9&&s.scenario.homes.every(district)&&Array.isArray(s.scenario.eventDeck)&&s.scenario.eventDeck.length===EVENTS.length&&new Set(s.scenario.eventDeck).size===EVENTS.length&&s.scenario.eventDeck.every(id=>EVENTS.some(e=>e.id===id))));
+  if(s.scenario)assert(s.regions.every(r=>Object.hasOwn(BIOMES,r.biome)&&Object.hasOwn(SECTORS,r.sector)&&num(r.weather)&&r.resources&&['agriculture','minerals','fuel','market'].every(k=>num(r.resources[k]))));
+  assert(s.districts.every(d=>Array.isArray(d.fortifications)&&d.fortifications.length===9&&d.fortifications.every(v=>num(v))));
+  assert(s.networks.every(n=>Object.hasOwn(ARCHETYPES,n.archetype)&&num(n.dirtyCash,0,1000)&&n.rackets&&Object.keys(INCOME_TYPES).every(key=>n.rackets[key]&&num(n.rackets[key].level)&&integer(n.rackets[key].blockedUntil,0,MANDATE_DAYS+100)&&num(n.revenue[key],0,100000))&&n.cashflow&&['gross','converted','overhead','net','capacity'].every(k=>num(n.cashflow[k],0,100000))));
   assert(Array.isArray(s.relations)&&s.relations.length===NETWORKS.length&&s.relations.every((row,a)=>Array.isArray(row)&&row.length===NETWORKS.length&&row.every((v,b)=>num(v,-100,100)&&v===s.relations[b]?.[a]&&(a!==b||v===0))));
   assert(Array.isArray(s.pacts)&&s.pacts.length<=36&&new Set(s.pacts.map(p=>`${p.a}:${p.b}`)).size===s.pacts.length&&s.pacts.every(p=>network(p.a)&&network(p.b)&&p.a<p.b&&integer(p.until,0,MANDATE_DAYS+100)));
   assert(ids(s.units)&&s.units.length>=3&&s.units.length<=MAX_UNITS&&integer(s.nextUnitId,4,200));
@@ -49,7 +58,13 @@ export function validateCampaign(s){
   const operations=['investigate','raid','interdict','arrest','capture','flip','resupply'];
   assert(Array.isArray(s.operations)&&s.operations.length<=DISTRICTS.length&&new Set(s.operations.map(o=>o.district)).size===s.operations.length);
   assert(s.operations.every(o=>operations.includes(o.type)&&district(o.district)&&network(o.network)&&integer(o.remaining,1,10)&&integer(o.total,o.remaining,10)&&num(o.power,0,1000)&&num(o.chance,0,1)&&(['investigate','flip'].includes(o.type)?o.unit===null:s.units.some(u=>u.id===o.unit&&u.status==='operating'&&u.district===o.district&&(o.type==='resupply'||u.type!=='intel')))&&(['arrest','capture','flip'].includes(o.type)?s.members.some(m=>m.id===o.member&&m.network===o.network&&m.location===o.district&&m.status==='active'):o.member===null)));
-  assert(s.units.filter(u=>u.status==='operating').every(u=>s.operations.some(o=>o.unit===u.id)));
+  assert(s.units.filter(u=>u.status==='operating').every(u=>s.operations.some(o=>operatingUnits(o).includes(u.id))));
+  assert(s.economy&&Object.hasOwn(FISCAL_POLICIES,s.economy.policy)&&num(s.economy.debt,0,600)&&['taxReceipts','priceIndex','trade'].every(k=>num(s.economy[k],0,100000))&&integer(s.economy.lastDay,0,s.day));
+  assert(s.regions.every(r=>r.economy&&['output','employment','shortages','imports','exports','taxBase'].every(k=>num(r.economy[k],0,100000))&&Object.keys(GOODS).every(key=>num(r.economy.inventory[key],0,500)&&num(r.economy.prices[key],0,10)&&num(r.economy.production[key],0,10000)&&num(r.economy.demand[key],0,10000))));
+  const battleFields=b=>Object.hasOwn(TACTICS,b.tactic)&&Array.isArray(b.units)&&b.units.length>=1&&b.units.length<=3&&new Set(b.units).size===b.units.length&&b.units.every(id=>s.units.some(u=>u.id===id&&u.type!=='intel'))&&['control','escapeRisk','civilianRisk'].every(k=>num(b[k]))&&Array.isArray(b.entries)&&b.entries.length<=5&&b.entries.every(e=>integer(e.day,0,s.day)&&typeof e.text==='string'&&e.text.length<250);
+  assert(s.operations.every(o=>(o.racket===undefined||o.type==='interdict'&&Object.hasOwn(INCOME_TYPES,o.racket))&&(o.battle===undefined||o.type==='raid'&&battleFields(o.battle)&&o.battle.units.includes(o.unit)&&o.battle.units.every(id=>s.units.some(u=>u.id===id&&u.status==='operating'&&u.district===o.district))&&['friendlySuppression','enemySuppression'].every(k=>num(o.battle[k]))&&num(o.battle.initialThreat)&&num(o.battle.forecast,0,1)&&integer(o.battle.lastOrderDay,-1,s.day)&&['approach','contact','containment'].includes(o.battle.phase))));
+  const assignments=s.operations.flatMap(operatingUnits);assert(new Set(assignments).size===assignments.length);
+  assert(s.lastBattle===null||(s.lastBattle&&battleFields(s.lastBattle)&&integer(s.lastBattle.day,0,s.day)&&district(s.lastBattle.district)&&network(s.lastBattle.network)&&['cleared','suppressed','evaded','withdrawn'].includes(s.lastBattle.result)));
   assert(s.pendingRegion===null||integer(s.pendingRegion,0,REGIONS.length-1));
   assert((EVENTS.find(e=>e.id===s.pendingEvent)?.scope==='regional')===(s.pendingRegion!==null));
   assert(integer(s.nextEvent,0,MANDATE_DAYS+100)&&integer(s.eventCount,0,100)&&(s.pendingEvent===null||EVENTS.some(e=>e.id===s.pendingEvent)));
@@ -65,6 +80,6 @@ export function validateCampaign(s){
 export function restore(text){
   if(typeof text!=='string'||text.length>SAVE_LIMIT)throw new Error('This save file is too large.');const envelope=JSON.parse(text);if(envelope?.game!=='cartel-containment')throw new Error('This save is incompatible or damaged.');
   const s=[1,2].includes(envelope.version)?migrate(text):envelope.version===VERSION?envelope.state:null;
-  if(s&&Array.isArray(s.units))restoreTravelTimings(s);
+  if(s&&Array.isArray(s.units)){restoreTravelTimings(s);ensureEconomy(s);ensureCivilEconomy(s);if(s.lastBattle===undefined)s.lastBattle=null;}
   validateCampaign(s);s.paused=true;return s;
 }

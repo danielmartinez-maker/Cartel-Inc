@@ -1,5 +1,16 @@
 export const ART=Object.freeze({
   province:'./assets/connected-country.webp',
+  neighborhoods:'./assets/neighborhood-tiles.webp',
+  sprites:'./assets/map-sprites.webp',
+  terrainCivic:'./assets/terrain-civic.webp',
+  terrainResidential:'./assets/terrain-residential.webp',
+  terrainDocks:'./assets/terrain-docks.webp',
+  terrainRural:'./assets/terrain-rural.webp',
+  terrainHills:'./assets/terrain-hills.webp',
+  terrainIndustrial:'./assets/terrain-industrial.webp',
+  terrainArid:'./assets/terrain-arid.webp',
+  terrainWetland:'./assets/terrain-wetland.webp',
+  terrainCoast:'./assets/terrain-coast.webp',
   menu:'./assets/menu-coast.webp',
   districts:'./assets/district-scenes.webp',
   portraits:'./assets/portraits-print.webp',
@@ -7,7 +18,7 @@ export const ART=Object.freeze({
   emblems:'./assets/initiatives-print.webp',
   grain:'./assets/print-grain.svg',
 });
-export const TERRAIN_ART=Object.freeze({mountain:0,forest:1,rural:2,urban:3,capital:4,border:5,coast:6,port:7});
+export const TERRAIN_ART=Object.freeze({arid:2,wetland:6,mountain:0,forest:1,rural:2,urban:3,capital:4,border:5,coast:6,port:7});
 
 export function loadImage(url,{createImage=()=>new Image(),timeoutMs=10000}={}){
   return new Promise(resolve=>{

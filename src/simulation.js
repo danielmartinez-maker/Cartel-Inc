@@ -5,12 +5,17 @@ import {createInfrastructure,INFRASTRUCTURE,assetState,provincialInfrastructure,
 import {createNeighborhoods,communityProfile,NEIGHBORHOOD_TASKS,finishNeighborhood,stepNeighborhoods} from './neighborhoods.js';
 import {stepCartels} from './cartel-ai.js';
 import {movementCost,prepareTravelDay,routeDuration} from './logistics.js';
+import {applyScenario,terrainAt} from './scenarios.js';
+import {ensureEconomy,INCOME_TYPES,incomeTargets,disruptIncome} from './economy.js';
+import {TACTICS,forcePower,combatForecast,beginBattle,stepBattle,finishBattle,operatingUnits} from './combat.js';
+import {ensureCivilEconomy,stepCivilEconomy,FISCAL_POLICIES} from './civil-economy.js';
+export {combatForecast,TACTICS};
 export const clamp=(n,min=0,max=100)=>Math.max(min,Math.min(max,n));
 const round=n=>Math.round(n*100)/100,initiative=id=>INITIATIVES.find(i=>i.id===id),has=(s,id)=>s.completed.includes(id);
 const ok=message=>({ok:true,message}),no=message=>({ok:false,message});
 function random(s){s.rng=(s.rng+0x6D2B79F5)>>>0;let t=s.rng;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
 function report(s,text,kind='info',encounter=null){s.log.unshift({day:s.day,text,kind,...(encounter?{encounter}:{})});s.log=s.log.slice(0,100);}
-export function createGame({seed=72841,governor='cruz',difficulty='standard'}={}){
+export function createGame({seed=72841,governor='cruz',difficulty='standard',scenario='auto'}={}){
   if(!GOVERNORS.some(g=>g.id===governor))governor='cruz';if(!Object.hasOwn(DIFFICULTIES,difficulty))difficulty='standard';
   const relations=NETWORKS.map(()=>NETWORKS.map(()=>0)),r=seeded(seed^0x81b7);
   for(let a=0;a<NETWORKS.length;a++)for(let b=a+1;b<NETWORKS.length;b++)relations[a][b]=relations[b][a]=Math.floor(r()*51)-30;
@@ -19,7 +24,7 @@ export function createGame({seed=72841,governor='cruz',difficulty='standard'}={}
     regions:REGIONS.map(r=>({id:r.id,completed:[],priority:'balanced',services:null})),
     units:[{id:1,name:'ALPHA',type:'federal',district:HQ},{id:2,name:'BRAVO',type:'police',district:13},{id:3,name:'ECHO',type:'intel',district:HQ}].map(u=>({...u,status:'ready',path:[],routeDays:[],blocked:false,remaining:0,total:0,supply:95,readiness:90,fatigue:5,patrol:null})),
     networks:NETWORKS.map(n=>({id:n.id,funds:80,evidence:12,captured:false,dismantled:false,leaderId:`${n.id}-0`,cohesion:n.archetype==='territorial'?85:n.archetype==='patronage'?76:n.archetype==='clandestine'?74:65,heat:20,logistics:70,intent:'entrench',focus:n.home,nextDecision:6+n.id%4,successionAt:0,successions:0,aiLog:[],arsenal:65,manpower:60,counterintel:30,infiltration:25,patronage:25,laundering:20,infighting:15,strategy:n.archetype==='mercantile'?'profit':n.archetype==='patronage'?'penetrate':'consolidate',strategySince:0,revenue:{extortion:0,trade:0,fronts:0},fronts:[],branches:[]})),
-    members:createMembers(seed),assets:createInfrastructure(seed),works:[],nextWorkId:1,relations,pacts:[],projects:[],operations:[],completed:[],log:[],nextUnitId:4,nextEvent:18,pendingEvent:null,pendingRegion:null,eventCount:0,stats:{raids:0,arrests:0,membersCaptured:0,defections:0,projects:0,spending:0,infrastructure:0,neighborhoodProjects:0},migration:null};
+    members:createMembers(seed),assets:createInfrastructure(seed),works:[],nextWorkId:1,relations,pacts:[],projects:[],operations:[],completed:[],log:[],nextUnitId:4,nextEvent:18,pendingEvent:null,pendingRegion:null,eventCount:0,stats:{raids:0,arrests:0,membersCaptured:0,defections:0,projects:0,spending:0,infrastructure:0,neighborhoodProjects:0},migration:null,scenario:null,lastBattle:null};
   for(const d of s.districts)d.neighborhoods=createNeighborhoods(d);
   for(const r of s.regions)r.services=provincialInfrastructure(s,r.id);
   for(const n of s.networks){
@@ -27,6 +32,8 @@ export function createGame({seed=72841,governor='cruz',difficulty='standard'}={}
     n.branches=[0,1,2].map(index=>{const region=regions[Math.floor(index*regions.length/3)],commander=`${n.id}-${index===0?5:index===1?6:7}`,m=s.members.find(m=>m.id===commander);m.location=DISTRICTS.find(d=>d.region===region&&d.network===n.id&&d.threat>0)?.id??REGIONS[region].hub;return {id:index,region,commander,autonomy:30+(n.id*7+index*13)%30,loyalty:48+(n.id*11+index*7)%25,stockpile:45,posture:'hold',splintered:false,nextDecision:14+index*4};});
     const front=INFRASTRUCTURE.find(a=>['port','rail','airport'].includes(a.type)&&DISTRICTS[a.district].network===n.id&&assetState(s,a.id).controller===null);if(front){const a=assetState(s,front.id);a.controller=n.id;a.infiltration=45;n.fronts.push(a.id);}
   }
+  applyScenario(s,scenario);ensureEconomy(s);ensureCivilEconomy(s);stepCivilEconomy(s,{initial:true});
+  report(s,s.scenario?`${s.scenario.name}: ${s.scenario.type}. Seed ${s.seed}, opening ${s.scenario.signature}.`:'Classic campaign opening.');
   report(s,'National mandate: fifty connected provinces, 1,200 districts, 3,600 neighborhoods and critical infrastructure.');return s;
 }
 export const projectCost=(s,base)=>Math.ceil(base*(1+s.inflation/100));
@@ -34,10 +41,10 @@ function spend(s,cost){s.money=round(s.money-cost);s.inflation=clamp(s.inflation
 export const stableDistricts=s=>s.districts.filter(d=>d.stability>=75&&d.threat<8&&d.support>=60).length;
 export const totalThreat=(s,network)=>s.districts.reduce((v,d)=>v+(network===undefined?d.threat:d.cells[network]),0);
 export const unitsHere=(s,id)=>s.units.filter(u=>u.district===id&&u.status==='ready');
-export function unitPower(s,u){return (UNIT_TYPES[u.type].power+(has(s,'training')&&u.type!=='intel'?8:0))*(s.governor==='ibarra'?1.2:1)*(.6+u.readiness*.004)*(.6+u.supply*.004)*(1-u.fatigue*.003);}
+export const unitPower=forcePower;
 export const localPower=(s,id)=>unitsHere(s,id).reduce((v,u)=>v+unitPower(s,u),0);
 export {dominantNetwork,leaderOf,capabilities};
-export function budgetForecast(s){const income=round((64+stableDistricts(s)*.16+s.districts.reduce((v,d)=>v+d.prosperity,0)*.003+(has(s,'finance')?12:0))*DIFFICULTIES[s.difficulty].income),upkeep=round(12+s.units.length*1.15+s.assets.length*.04+s.regions.reduce((v,r)=>v+PROVINCE_PRIORITIES[r.priority].cost,0));return {income,upkeep,net:round(income-upkeep)};}
+export function budgetForecast(s){const income=round((64+stableDistricts(s)*.16+s.districts.reduce((v,d)=>v+d.prosperity,0)*.0015+(s.economy?.taxReceipts??0)+(has(s,'finance')?12:0))*DIFFICULTIES[s.difficulty].income),upkeep=round(12+s.units.length*1.15+s.assets.length*.04+s.regions.reduce((v,r)=>v+PROVINCE_PRIORITIES[r.priority].cost,0)+(s.economy?.debt??0)*.006);return {income,upkeep,net:round(income-upkeep)};}
 const supplyCache=new WeakMap();
 export function supplyScore(s,id){const d=s.districts[id];if(!d)return 0;let cache=supplyCache.get(s);if(!cache||cache.day!==s.day){cache={day:s.day,access:nationalAccess(s)};supplyCache.set(s,cache);}const region=s.regions[DISTRICTS[id].region],distance=cache.access[region.id];if(!Number.isFinite(distance))return 0;return clamp(65-distance*1.4-d.threat*.18+region.services.logistics*.25+(d.completed.includes('station')?12:0)+(region.completed.includes('regional-administration')?18:0)+(has(s,'logistics')?15:0));}
 export function recruitmentBase(s,id){const d=s.districts[id];return !!d&&(id===HQ||(d.threat<12&&d.completed.includes('station'))||(REGIONS[DISTRICTS[id].region].hub===id&&d.threat<20&&s.regions[DISTRICTS[id].region].completed.includes('regional-administration')));}
@@ -77,6 +84,29 @@ export function act(s,a){
   if(a.type==='speed'){if(![1,2,3].includes(a.speed))return no('Invalid speed.');s.speed=a.speed;return ok(`Speed ${a.speed}×`);}
   if(a.type==='province-priority'){const r=s.regions[a.region];if(!Number.isInteger(a.region)||!r||!Object.hasOwn(PROVINCE_PRIORITIES,a.priority))return no('Choose a province and a valid priority.');r.priority=a.priority;return ok(`${REGIONS[r.id].name}: ${PROVINCE_PRIORITIES[a.priority].name}. Weekly allocation $${PROVINCE_PRIORITIES[a.priority].cost}.`);}
   if(a.type==='patrol'){const u=s.units.find(u=>u.id===a.unit&&u.status==='ready'&&u.type!=='intel');if(!u||(a.neighborhood!==null&&(!Number.isInteger(a.neighborhood)||a.neighborhood<0||a.neighborhood>2)))return no('Choose a ready security unit and a neighborhood.');u.patrol=a.neighborhood;return ok(a.neighborhood===null?`${u.name} resumed district coverage.`:`${u.name} assigned to neighborhood patrol in ${NEIGHBORHOODS[u.district][a.neighborhood].name}.`);}
+  if(a.type==='fiscal'){if(!Object.hasOwn(FISCAL_POLICIES,a.policy))return no('Choose a valid fiscal policy.');s.economy.policy=a.policy;return ok(`${FISCAL_POLICIES[a.policy].name} adopted. Receipts change at the next weekly settlement.`);}
+  if(a.type==='borrow'){if(s.economy.debt>480)return no('The public borrowing limit is $600.');s.economy.debt+=120;s.money=round(Math.min(999999,s.money+120));report(s,'Emergency public bond issued: +$120 treasury, $120 debt, weekly debt service applies.','warning');return ok('Public bond issued.');}
+  if(a.type==='repay'){const amount=Math.min(60,s.economy.debt);if(!amount)return no('There is no public debt.');if(s.money<amount)return no(`Requires $${amount}.`);spend(s,amount);s.economy.debt=round(s.economy.debt-amount);return ok(`Repaid $${amount} of public debt.`);}
+  if(['reinforce','tactic','withdraw'].includes(a.type)){
+    const o=s.operations.find(o=>o.district===a.district&&o.type==='raid'&&o.battle);if(!o)return no('No tactical engagement is active here.');
+    const b=o.battle;if(a.type==='withdraw'){
+      for(const id of b.units){const u=s.units.find(u=>u.id===id);u.status='ready';u.fatigue=clamp(u.fatigue+4);}
+      s.operations=s.operations.filter(op=>op!==o);{const d=s.districts[o.district];d.security=clamp(d.security-3);}
+      s.lastBattle={day:s.day,district:o.district,network:o.network,tactic:b.tactic,result:'withdrawn',control:b.control,escapeRisk:b.escapeRisk,civilianRisk:b.civilianRisk,units:[...b.units],entries:[{day:s.day,text:'Security command ordered a withdrawal.'},...b.entries].slice(0,5)};
+      report(s,`Security units withdrew from ${DISTRICTS[o.district].name}. The cell remains active.`,'warning');return ok('Withdrawal complete. Units are available.');
+    }
+    if(b.lastOrderDay===s.day)return no('A tactical order was already issued today.');
+    if(a.type==='reinforce'){
+      const u=s.units.find(u=>u.id===a.unit&&u.status==='ready'&&u.district===o.district&&u.type!=='intel');
+      if(!u||b.units.includes(u.id)||b.units.length>=3)return no('Choose a ready security unit here. Up to three units may join.');
+      const cost=projectCost(s,3);if(s.money<cost)return no(`Requires $${cost}.`);spend(s,cost);b.units.push(u.id);u.status='operating';b.entries.unshift({day:s.day,text:`${u.name} reinforced the operation.`});
+    }else{
+      if(!Object.hasOwn(TACTICS,a.tactic)||a.tactic===b.tactic)return no('Choose a different valid tactic.');
+      if(a.tactic==='precision'&&s.districts[o.district].intel<60)return no('This tactic requires 60% intelligence.');
+      if(o.total>=8||o.remaining<=1)return no('Too late to reorganize this engagement.');b.tactic=a.tactic;o.total++;o.remaining++;b.entries.unshift({day:s.day,text:`Command changed to ${TACTICS[a.tactic].name.toLowerCase()}; one day to reorganize.`});
+    }
+    b.lastOrderDay=s.day;b.entries=b.entries.slice(0,5);return ok(a.type==='reinforce'?'Reinforcements committed.':'Tactical order recorded.');
+  }
   if(a.type==='infrastructure'||a.type==='neighborhood'){
     if(s.works.length>=MAX_WORKS)return no('The national works desk is at capacity.');let task,cost,target,district;
     if(a.type==='infrastructure'){const reason=infrastructureAvailability(s,a.asset,a.task);if(reason)return no(reason);task=INFRA_TASKS[a.task];target=a.asset;district=INFRASTRUCTURE.find(i=>i.id===a.asset).district;}
@@ -94,16 +124,25 @@ export function act(s,a){
     s.units.push({id,name,type:a.unitType,district:location,status:'training',path:[],routeDays:[],blocked:false,remaining:type.days,total:type.days,supply:95,readiness:90,fatigue:5,patrol:null});return ok(`${name} recruited at ${DISTRICTS[location].name}. Ready in ${type.days} days.`);
   }
   if(['investigate','raid','interdict','arrest','capture','flip','resupply'].includes(a.type)){
-    let id=a.district,member=null,unit=null,network=a.network;
+    let id=a.district,member=null,unit=null,network=a.network,battle=null;
     if(a.type==='arrest'){const req=arrestRequirements(s,network);if(req.length)return no(req[0]);member=leaderOf(s,network);id=member.location;}
     if(a.type==='capture'||a.type==='flip'){const req=memberRequirements(s,a.member,a.type);if(req.length)return no(req[0]);member=s.members.find(m=>m.id===a.member);network=member.network;id=member.location;if(member.role==='leader')return act(s,{type:'arrest',network});}
     if(a.type==='resupply'){unit=s.units.find(u=>u.id===a.unit&&u.status==='ready');if(!unit)return no('Choose a ready unit to resupply.');id=unit.district;}
     const d=s.districts[id];if(!d)return no('Choose a district.');network=network??dominantNetwork(d);if(!s.networks[network]||s.networks[network].dismantled&&a.type!=='resupply')return no('Choose an active network.');
-    if(s.operations.some(o=>o.district===id))return no('An operation is already active in this district.');const bases={investigate:6,raid:7,interdict:7,arrest:12,capture:10,flip:10,resupply:8},cost=projectCost(s,bases[a.type]);if(s.money<cost)return no(`Requires $${cost}.`);
+    const tactic=a.tactic??'deliberate';
+    if(a.type==='raid'){
+      if(!Object.hasOwn(TACTICS,tactic))return no('Choose a valid tactic.');
+      if(tactic==='precision'&&d.intel<60)return no('This tactic requires 60% intelligence.');
+      if(a.units!==undefined&&(!Array.isArray(a.units)||a.units.length<1||a.units.length>3||new Set(a.units).size!==a.units.length||!a.units.every(id=>s.units.some(u=>u.id===id&&u.district===d.id&&u.status==='ready'&&u.type!=='intel'))))return no('Choose one to three ready security units in this district.');
+    }
+    if(a.racket!==undefined&&(a.type!=='interdict'||!Object.hasOwn(INCOME_TYPES,a.racket)||!incomeTargets(s,network,a.racket).some(target=>target.district===id)))return no('This income source has no activity in the selected district.');
+    if(a.racket!==undefined&&d.intel<50)return no('Targeted financial disruption requires 50% intelligence.');
+    if(s.operations.some(o=>o.district===id))return no('An operation is already active in this district.');const bases={investigate:6,raid:7,interdict:7,arrest:12,capture:10,flip:10,resupply:8},cost=projectCost(s,a.type==='raid'?TACTICS[tactic].cost:a.racket?9:bases[a.type]);if(s.money<cost)return no(`Requires $${cost}.`);
     if(!['investigate','flip','resupply'].includes(a.type)){if(d.intel<(a.type==='raid'?40:30))return no(`Requires ${a.type==='raid'?40:30}% local intelligence.`);unit=unitsHere(s,id).find(u=>u.type!=='intel');if(!unit)return no('Deploy a ready security unit here first.');if(a.type==='raid'&&d.cells[network]<1)return no('No active cell is present here.');}
-    const days={investigate:4,raid:4,interdict:5,arrest:5,capture:4,flip:4,resupply:3}[a.type];
-    const chance=a.type==='flip'?clamp(.95-member.loyalty/140+(has(s,'witness')?.22:0),.12,.9):operationForecast(s,id,network);
-    const power=localPower(s,id);spend(s,cost);s.operations.push({type:a.type,district:id,network,unit:unit?.id??null,member:member?.id??null,remaining:days,total:days,power,chance});if(unit)unit.status='operating';return ok(`${a.type==='resupply'?'Resupply':'Operation'} started. Results in ${days} days.`);
+    if(a.type==='raid'){const f=combatForecast(s,id,network,tactic,a.units??null);unit=s.units.find(u=>u.id===f.units[0]);battle=beginBattle(s,id,network,tactic,f.units);}
+    const days=a.type==='raid'?TACTICS[tactic].days:{investigate:4,interdict:5,arrest:5,capture:4,flip:4,resupply:3}[a.type];
+    const chance=a.type==='flip'?clamp(.95-member.loyalty/140+(has(s,'witness')?.22:0),.12,.9):a.type==='raid'?combatForecast(s,id,network,tactic,battle.units).chance:operationForecast(s,id,network);
+    const power=localPower(s,id);spend(s,cost);s.operations.push({type:a.type,district:id,network,unit:unit?.id??null,member:member?.id??null,remaining:days,total:days,power,chance,...(battle?{battle}:{}),...(a.racket?{racket:a.racket}:{})});if(battle)for(const uid of battle.units)s.units.find(u=>u.id===uid).status='operating';else if(unit)unit.status='operating';return ok(`${a.type==='resupply'?'Resupply':'Operation'} started. Results in ${days} days.`);
   }
   if(a.type==='event'){
     if(s.pendingEvent===null)return no('No decision is pending.');const event=EVENTS.find(e=>e.id===s.pendingEvent),choice=event?.choices[a.choice];if(!choice)return no('Choose a valid response.');if(s.money<choice.cost)return no(`Requires $${choice.cost}.`);if(choice.cost)spend(s,choice.cost);
@@ -142,7 +181,8 @@ function finishOperation(s,o){
     d.intel=clamp(d.intel+(32+(has(s,'analysis')?10:0))/Math.sqrt(c.stealth));n.evidence=clamp(n.evidence+(12+(has(s,'witness')?6:0))*(s.governor==='vega'?1.25:1));n.heat=clamp(n.heat+12);
     for(const member of s.members.filter(m=>m.network===n.id&&m.location===d.id&&m.status==='active')){member.exposure=clamp(member.exposure+25);member.watchedUntil=s.day+(member.traits.includes('secretive')?14:24);}
     report(s,`Investigation complete in ${name}. Intelligence, member identities and ${NETWORKS[n.id].name} case evidence improved.`,'success');
-  }else if(o.type==='interdict'){n.funds=clamp(n.funds-30);n.evidence=clamp(n.evidence+9);n.cohesion=clamp(n.cohesion-9);n.arsenal=clamp(n.arsenal-12);n.infiltration=clamp(n.infiltration-5);n.logistics=clamp(n.logistics-12);alterCell(d,n.id,-8);report(s,`${NETWORKS[n.id].name} assets disrupted in ${name}. Funding, cohesion and logistics reduced.`,'success');}
+  }else if(o.type==='interdict'&&o.racket){disruptIncome(s,n,o.racket);report(s,`${INCOME_TYPES[o.racket].name} disrupted in ${name}. Revenue suppressed for 28 days; illicit cash seized.`,'success');}
+  else if(o.type==='interdict'){n.dirtyCash=clamp(n.dirtyCash-25,0,1000);n.funds=clamp(n.funds-30);n.evidence=clamp(n.evidence+9);n.cohesion=clamp(n.cohesion-9);n.arsenal=clamp(n.arsenal-12);n.infiltration=clamp(n.infiltration-5);n.logistics=clamp(n.logistics-12);alterCell(d,n.id,-8);report(s,`${NETWORKS[n.id].name} assets disrupted in ${name}. Funding, cohesion and logistics reduced.`,'success');}
   else if(o.type==='arrest'||o.type==='capture'){
     if(m?.status==='active'&&m.location===d.id&&(o.type==='arrest'||random(s)<o.chance)){
       m.status='captured';m.exposure=100;n.cohesion=clamp(n.cohesion-(m.role==='leader'?30:12));n.infighting=clamp(n.infighting+8);for(const branch of n.branches)if(branch.commander===m.id){branch.stockpile=clamp(branch.stockpile-25);branch.posture='disrupted';}n.funds=clamp(n.funds-(m.role==='financier'?30:10));n.nextDecision+=3;s.stats.membersCaptured++;
@@ -152,12 +192,13 @@ function finishOperation(s,o){
   }else if(o.type==='flip'){
     if(m?.status==='active'&&random(s)<o.chance){m.status='defected';n.evidence=clamp(n.evidence+15);n.cohesion=clamp(n.cohesion-16);n.funds=clamp(n.funds-10);for(const member of s.members.filter(m=>m.network===n.id))member.exposure=clamp(member.exposure+15);s.stats.defections++;report(s,`${m.name} accepted a witness deal. ${NETWORKS[n.id].name} evidence and member identities improved.`,'success');}else{if(m)m.loyalty=clamp(m.loyalty+8);report(s,'The witness offer was refused. The organization remains on alert.','warning');}
   }else if(o.type==='resupply'){const u=s.units.find(u=>u.id===o.unit);if(u){u.supply=100;u.fatigue=clamp(u.fatigue-35);u.readiness=clamp(u.readiness+20);report(s,`${u.name} resupplied and recovered readiness in ${name}.`,'success');}}
+  else if(o.battle){s.stats.raids++;finishBattle(s,o,()=>random(s),report);}
   else{
     s.stats.raids++;const success=random(s)<o.chance;
     if(success){alterCell(d,n.id,-(22+o.power*.6+d.intel*.09));d.security=clamp(d.security+12);d.support=clamp(d.support+4);d.fear=clamp(d.fear-5);d.intel=clamp(d.intel+7);n.evidence=clamp(n.evidence+8);n.funds=clamp(n.funds-9);n.cohesion=clamp(n.cohesion-6);n.arsenal=clamp(n.arsenal-6);n.manpower=clamp(n.manpower-8);report(s,`Security operation succeeded in ${name}. ${NETWORKS[n.id].name} ${d.cells[n.id]<1?'cell dismantled.':'armed presence reduced.'}`,'success',{district:d.id,unit:o.unit,network:n.id,result:d.cells[n.id]<1?'cleared':'suppressed'});}
     else{alterCell(d,n.id,-8);d.intel=clamp(d.intel+10);s.trust=clamp(s.trust-(has(s,'oversight')?1:2));n.cohesion=clamp(n.cohesion-2);report(s,`${NETWORKS[n.id].name} evaded containment in ${name}. New intelligence recovered.`,'warning',{district:d.id,unit:o.unit,network:n.id,result:'evaded'});}n.heat=clamp(n.heat+8);
   }
-  const unit=s.units.find(u=>u.id===o.unit);if(unit)unit.status='ready';
+  for(const id of operatingUnits(o)){const unit=s.units.find(u=>u.id===id);if(unit)unit.status='ready';}
 }
 export function tick(s,{force=false}={}){
   if(s.outcome||s.pendingEvent!==null||(!force&&(s.paused||!s.started)))return false;s.day++;
@@ -173,6 +214,7 @@ export function tick(s,{force=false}={}){
   }
   const finishedWorks=s.works.filter(w=>--w.remaining<=0);s.works=s.works.filter(w=>w.remaining>0);for(const w of finishedWorks)if(w.kind==='infrastructure')finishInfrastructure(s,w,report);else finishNeighborhood(s,w,report);
   const finished=s.projects.filter(p=>--p.remaining<=0);s.projects=s.projects.filter(p=>p.remaining>0);for(const p of finished)finishProject(s,p);
+  for(const o of s.operations)if(o.type==='raid'&&o.battle)stepBattle(s,o,()=>random(s));
   const resolved=s.operations.filter(o=>--o.remaining<=0);s.operations=s.operations.filter(o=>o.remaining>0);for(const o of resolved)finishOperation(s,o);
   for(const region of s.regions)for(const [policy,local]of [['regional-water','water'],['regional-clinics','clinic']])if(region.completed.includes(policy)){const d=s.districts.find(d=>DISTRICTS[d.id].region===region.id&&d.threat<35&&!d.completed.includes(local)&&!s.projects.some(p=>p.district===d.id&&p.id===local));if(d)deliverLocal(s,d,initiative(local));}
   if(has(s,'national-administration')&&s.day%7===0){const region=s.regions.find(r=>!r.completed.includes('regional-water'));if(region){region.completed.push('regional-water');if(!region.completed.includes('regional-administration'))region.completed.push('regional-administration');report(s,`National public service authority opened water delivery and administration in ${REGIONS[region.id].name}.`,'success');}}
@@ -195,10 +237,10 @@ export function tick(s,{force=false}={}){
   supplyCache.delete(s);
   const stable=stableDistricts(s),danger=s.districts.filter(d=>d.threat>=25).length,displacement=s.districts.reduce((v,d)=>v+d.displacement,0)/DISTRICTS.length;
   s.trust=clamp(s.trust+(stable*.0002-danger*.00025-s.corruption*.0005-displacement*.0002)*diff.trust);
-  if(s.day%7===0){const budget=budgetForecast(s);s.money=round(clamp(s.money+budget.net,0,999999));report(s,`Weekly funding +$${Math.round(budget.income)}; operating costs $${Math.round(budget.upkeep)}.`);}
+  if(s.day%7===0){stepCivilEconomy(s);const budget=budgetForecast(s);s.money=round(clamp(s.money+budget.net,0,999999));report(s,`Weekly funding +$${Math.round(budget.income)}; operating costs $${Math.round(budget.upkeep)}.`);}
   if(stable>=STABILITY_TARGET&&s.networks.every(n=>n.dismantled))s.holdDays++;else s.holdDays=0;
   if(s.holdDays>=14){s.outcome='victory';s.paused=true;report(s,'Mandate fulfilled. The cartel organizations are dismantled and civilian institutions hold the connected country.','success');}
   else if(s.trust<=0||s.day>=MANDATE_DAYS){s.outcome='defeat';s.paused=true;report(s,s.trust<=0?'Public confidence collapsed. The mandate was withdrawn.':'The five-year national mandate expired.','warning');}
-  else if(s.day>=s.nextEvent){const event=EVENTS[s.eventCount%EVENTS.length];s.pendingEvent=event.id;s.pendingRegion=event.scope==='regional'?Math.floor(random(s)*REGIONS.length):null;if(event.damage){const asset=assetState(s,`${s.pendingRegion}-${event.damage}`);if(asset){asset.condition=clamp(asset.condition-30);asset.downtime=7;s.regions[s.pendingRegion].services=provincialInfrastructure(s,s.pendingRegion);supplyCache.delete(s);}}s.eventCount++;s.paused=true;report(s,'A provincial decision needs your attention.','decision');}return true;
+  else if(s.day>=s.nextEvent){const deck=s.scenario?.eventDeck??EVENTS.map(e=>e.id),event=EVENTS.find(e=>e.id===deck[s.eventCount%deck.length]);s.pendingEvent=event.id;s.pendingRegion=event.scope==='regional'?Math.floor(random(s)*REGIONS.length):null;if(event.damage){const asset=assetState(s,`${s.pendingRegion}-${event.damage}`);if(asset){asset.condition=clamp(asset.condition-30);asset.downtime=7;s.regions[s.pendingRegion].services=provincialInfrastructure(s,s.pendingRegion);supplyCache.delete(s);}}s.eventCount++;s.paused=true;report(s,'A provincial decision needs your attention.','decision');}return true;
 }
 export function serialize(s){return JSON.stringify({game:'cartel-containment',version:VERSION,state:s});}

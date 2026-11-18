@@ -1,9 +1,10 @@
 import {DISTRICTS,TERRAIN} from './data.js';
 import {findRoute} from './geography.js';
+import {terrainAt} from './scenarios.js';
 import {transportCost} from './infrastructure.js';
 
 export function movementCost(s,a,b){
-  return transportCost(s,a,b)??Math.max(1,TERRAIN[DISTRICTS[b].terrain].travel-(s.districts[b].completed.includes('roads')?1:0));
+  return transportCost(s,a,b)??Math.max(1,TERRAIN[terrainAt(s,b)].travel-(s.districts[b].completed.includes('roads')?1:0));
 }
 
 export const routeDuration=days=>days.reduce((sum,days)=>sum+days,0);

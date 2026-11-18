@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,act,tick,movementPlan,serialize} from '../src/engine.js';
+import {createGame as createOpening,act,tick,movementPlan,serialize} from '../src/engine.js';
+const createGame=(options={})=>createOpening({...options,scenario:'classic'});
 import {DISTRICTS,HQ} from '../src/data.js';
 import {CampaignClock,DAY_MS,progressOf,samplePolyline,unitPose,CIVILIAN_ROUTES,roadIsActive,atmosphere,activeOrders,campaignSnapshot,campaignMilestones} from '../src/world.js';
 
